@@ -19,21 +19,29 @@ final class AiAgentService
      */
     public function autoReplyToConversation(int $conversationId, int $contactId, string $phone, string $incomingText, ?int $inboundMessageId = null): array
     {
-        $agent = $this->activeAgentForConversation($conversationId);
+        $agent = $this->activeAgentForConversation($conversationId, $incomingText);
         if (!$agent) {
             return ['success' => false, 'skipped' => true, 'reason' => 'Sin agente IA activo para auto-respuesta.'];
+        }
+
+        // Si el cliente esta pidiendo humano, escalamos sin gastar tokens.
+        $router = new AiRouterService($this->tenantId);
+        if ($router->clientWantsHuman($agent, $incomingText)) {
+            $this->escalateToHuman($conversationId, 'Cliente solicito hablar con humano.');
+            return ['success' => true, 'transferred' => true, 'reason' => 'Cliente pidio humano.'];
         }
 
         $history = $this->conversationHistory($conversationId, (int) ($agent['max_context_messages'] ?? 12));
         $ai = (new AiProviderService($this->tenantId, (int) $agent['id']))->autoReply($incomingText, $history);
         if (empty($ai['success']) || trim((string) ($ai['text'] ?? '')) === '') {
             $this->log($agent, $conversationId, $inboundMessageId, 'auto_reply', $history, '', false, $ai['error'] ?? 'IA sin respuesta.');
+            $this->incrementFailedAttempts($conversationId, (int) ($agent['max_retries'] ?? 3));
             return ['success' => false, 'error' => $ai['error'] ?? 'IA sin respuesta.'];
         }
 
         $rawReply = (string) $ai['text'];
         $parsed   = $this->parseActions($rawReply);
-        $reply    = $parsed['text'];
+        $reply    = $this->sanitizeReply($parsed['text'], $agent);
 
         if ($reply === '') {
             $reply = 'Te conecto con un agente para asistirte mejor.';
@@ -65,11 +73,21 @@ final class AiAgentService
         // Aplicar acciones que la IA pidio (cierre, agenda, transfer, etc.)
         $this->applyActions($parsed['actions'], $conversationId, $contactId, $reply, (int) $agent['id']);
 
-        // Refrescar metadatos generales de la conversacion
-        Database::update('conversations', [
-            'last_message'    => mb_substr($reply, 0, 200),
-            'last_message_at' => date('Y-m-d H:i:s'),
-        ], ['id' => $conversationId, 'tenant_id' => $this->tenantId]);
+        // Refrescar metadatos generales de la conversacion + contador de exitos
+        Database::run(
+            "UPDATE conversations
+             SET last_message = :msg,
+                 last_message_at = NOW(),
+                 ai_handled_count = ai_handled_count + 1,
+                 ai_failed_attempts = 0,
+                 ai_last_run_at = NOW()
+             WHERE id = :id AND tenant_id = :t",
+            [
+                'msg' => mb_substr($reply, 0, 200),
+                'id'  => $conversationId,
+                't'   => $this->tenantId,
+            ]
+        );
 
         $this->log($agent, $conversationId, $messageId, 'auto_reply', $history, $reply, !empty($send['success']), $send['error'] ?? null, $parsed['actions']);
 
@@ -85,12 +103,11 @@ final class AiAgentService
 
     /**
      * Elige el agente IA que debe atender la conversacion.
-     *  - Si la conversacion tiene `ai_agent_id` definido, usa ese.
-     *  - Si la conversacion tiene `ai_takeover = 1`, fuerza el uso del agente
-     *    (incluso si el bot esta en off para otros canales).
-     *  - Si no, usa el agente principal del tenant.
+     *  - Si la conversacion tiene `ai_agent_id`, usa ese (override manual).
+     *  - Si tiene `ai_takeover = 1`, fuerza usar IA aunque el tenant tenga ai_enabled=0.
+     *  - Si no, usa el AiRouterService para escoger por keywords/categoria/horario.
      */
-    private function activeAgentForConversation(int $conversationId): ?array
+    private function activeAgentForConversation(int $conversationId, string $incomingText = ''): ?array
     {
         $tenant = Database::fetch(
             "SELECT ai_enabled FROM tenants WHERE id = :id",
@@ -98,57 +115,84 @@ final class AiAgentService
         );
 
         $conversation = Database::fetch(
-            "SELECT bot_enabled, ai_agent_id, ai_takeover, ai_paused_until, status
+            "SELECT bot_enabled, ai_agent_id, ai_takeover, ai_paused_until, status, channel, ai_failed_attempts
              FROM conversations WHERE id = :id AND tenant_id = :t",
             ['id' => $conversationId, 't' => $this->tenantId]
         );
 
-        if (!$conversation) {
-            return null;
-        }
-        if (in_array((string) $conversation['status'], ['closed', 'resolved'], true)) {
-            return null;
-        }
-        if (!empty($conversation['ai_paused_until']) && strtotime((string) $conversation['ai_paused_until']) > time()) {
-            return null;
-        }
+        if (!$conversation) return null;
+        if (in_array((string) $conversation['status'], ['closed', 'resolved'], true)) return null;
+        if (!empty($conversation['ai_paused_until']) && strtotime((string) $conversation['ai_paused_until']) > time()) return null;
 
         $takeover = !empty($conversation['ai_takeover']);
         if (!$takeover) {
-            if (empty($tenant['ai_enabled'])) {
-                return null;
-            }
-            if (empty($conversation['bot_enabled'])) {
-                return null;
-            }
+            if (empty($tenant['ai_enabled'])) return null;
+            if (empty($conversation['bot_enabled'])) return null;
         }
 
-        $agent = null;
+        // Si la conversacion tiene un agente fijado manualmente, respetalo
         if (!empty($conversation['ai_agent_id'])) {
             $agent = Database::fetch(
                 "SELECT * FROM ai_agents WHERE id = :id AND tenant_id = :t AND status = 'active'",
                 ['id' => (int) $conversation['ai_agent_id'], 't' => $this->tenantId]
             );
-        }
-
-        if (!$agent) {
-            try {
-                $agent = AiAgent::findDefault($this->tenantId);
-            } catch (\Throwable) {
-                $agent = null;
+            if ($agent && ($takeover || !empty($agent['auto_reply_enabled']))) {
+                return $agent;
             }
         }
 
-        if (!$agent) {
-            return null;
-        }
+        // Sin agente fijo: el router decide por reglas
+        $channel = (string) ($conversation['channel'] ?? 'whatsapp');
+        $router  = new AiRouterService($this->tenantId);
+        $picked  = $router->pickAgentForMessage($conversationId, $channel, $incomingText);
+        if (!$picked) return null;
 
-        // Si no hay takeover forzado, requiere que el agente tenga auto-reply
-        if (!$takeover && empty($agent['auto_reply_enabled'])) {
-            return null;
-        }
+        if (!$takeover && empty($picked['auto_reply_enabled'])) return null;
 
-        return $agent;
+        // Memorizar el agente elegido SOLO si la conversacion no tenia uno aun
+        Database::run(
+            "UPDATE conversations SET ai_agent_id = :a WHERE id = :c AND tenant_id = :t AND ai_agent_id IS NULL",
+            ['a' => (int) $picked['id'], 'c' => $conversationId, 't' => $this->tenantId]
+        );
+
+        return $picked;
+    }
+
+    /** Incrementa contador de fallos. Si supera max_retries, escala. */
+    private function incrementFailedAttempts(int $conversationId, int $maxRetries): void
+    {
+        Database::run(
+            "UPDATE conversations
+             SET ai_failed_attempts = ai_failed_attempts + 1
+             WHERE id = :c AND tenant_id = :t",
+            ['c' => $conversationId, 't' => $this->tenantId]
+        );
+        $cur = (int) Database::fetchColumn(
+            "SELECT ai_failed_attempts FROM conversations WHERE id = :c AND tenant_id = :t",
+            ['c' => $conversationId, 't' => $this->tenantId]
+        );
+        if ($cur >= max(1, $maxRetries)) {
+            $this->escalateToHuman($conversationId, "IA fallo $cur veces. Escalado automatico.");
+        }
+    }
+
+    /** Marca la conversacion como pendiente de humano y desactiva auto-respuesta. */
+    private function escalateToHuman(int $conversationId, string $reason): void
+    {
+        Database::update('conversations', [
+            'status'      => 'pending',
+            'bot_enabled' => 0,
+            'ai_takeover' => 0,
+        ], ['id' => $conversationId, 'tenant_id' => $this->tenantId]);
+
+        try {
+            Database::insert('conversation_assignments', [
+                'tenant_id'        => $this->tenantId,
+                'conversation_id'  => $conversationId,
+                'action'           => 'unassigned',
+                'note'             => $reason,
+            ]);
+        } catch (\Throwable) {}
     }
 
     private function conversationHistory(int $conversationId, int $limit): string
@@ -163,6 +207,64 @@ final class AiAgentService
             }
         }
         return implode("\n", array_slice($lines, -$limit));
+    }
+
+    /**
+     * Limpia prefijos tipo "Soporte Tecnico:", "Agente:", "Cliente:", su nombre
+     * propio, etc. que la IA a veces antepone al mensaje. Tambien quita guiones
+     * teatrales ("- Hola..."), markdown excesivo y dobles saltos al inicio.
+     */
+    public function sanitizeReply(string $text, ?array $agent = null): string
+    {
+        $text = trim($text);
+        if ($text === '') return '';
+
+        // Quitar bloques de codigo markdown que la IA a veces agrega.
+        $text = preg_replace('/^```[\w]*\s*/u', '', $text);
+        $text = preg_replace('/\s*```\s*$/u', '', $text);
+
+        // Construir lista de prefijos prohibidos (nombre del agente, rol, comunes).
+        $forbidden = ['Asistente', 'Asistente IA', 'Agente', 'Agente IA', 'Bot', 'IA', 'AI', 'Cliente', 'Tu', 'Yo', 'Usuario', 'Empresa', 'Soporte', 'Ventas', 'Operador'];
+        if (!empty($agent['name']))        $forbidden[] = (string) $agent['name'];
+        if (!empty($agent['role']))        $forbidden[] = (string) $agent['role'];
+        $brand = Database::fetchColumn("SELECT name FROM tenants WHERE id = :id", ['id' => $this->tenantId]);
+        if ($brand)                         $forbidden[] = (string) $brand;
+
+        $forbidden = array_values(array_unique(array_filter($forbidden, fn($s) => trim((string) $s) !== '')));
+
+        // Loop hasta 4 veces removiendo prefijos sucesivos como "Agente: Soporte Tecnico: Hola...".
+        for ($i = 0; $i < 4; $i++) {
+            $original = $text;
+
+            // 1) Prefijos exactos de la lista
+            foreach ($forbidden as $f) {
+                $escaped = preg_quote($f, '/');
+                $text = (string) preg_replace(
+                    '/^\s*\*?\*?' . $escaped . '\*?\*?\s*[:\-—–]\s*/iu',
+                    '',
+                    $text,
+                    1
+                );
+            }
+
+            // 2) Prefijo generico "Palabra Palabra Palabra:" al inicio (max 4 palabras Capitalizadas)
+            $text = (string) preg_replace(
+                '/^\s*(?:[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*\s+){0,3}[A-ZÁÉÍÓÚÑ][\wáéíóúñ]{1,30}\s*:\s+/u',
+                '',
+                $text,
+                1
+            );
+
+            // 3) Asteriscos sueltos al inicio
+            $text = ltrim($text, " *_-—–\t\r\n");
+
+            if ($text === $original) break;
+        }
+
+        // Eliminar lineas vacias dobles al inicio
+        $text = preg_replace("/^[\s]+/u", '', $text);
+
+        return trim((string) $text);
     }
 
     /**

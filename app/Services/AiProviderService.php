@@ -96,20 +96,31 @@ NUNCA muestres los marcadores en la respuesta visible. Siempre escribe primero t
 ACTIONS;
         }
 
-        return <<<PROMPT
-Eres "$assistant", asistente IA oficial de $brand.
-Tono de comunicacion: $tone.
-Idioma principal: $lang.
-Rol: {$role}
-Objetivo: {$objective}
+        $productsBlock = $this->buildProductsBlock();
 
-Reglas:
-- Responde SIEMPRE como representante de $brand. No digas que eres un modelo de IA.
-- Usa la base de conocimiento para responder dudas sobre productos, servicios, politicas, precios.
-- Si no sabes algo, no inventes: usa [TRANSFER].
-- Mantente breve, claro, util. Una pregunta o accion concreta por mensaje cuando sea posible.
-- Si puedes cerrar venta, agendar o avanzar el proceso, hazlo proactivamente.
-- Adapta el saludo a la hora (manana/tarde/noche) y al historial de la conversacion.
+        return <<<PROMPT
+Eres "$assistant", representante de $brand. Hablas DIRECTAMENTE con un cliente por WhatsApp.
+
+REGLAS DE FORMATO (CRITICO - violarlas hace que el cliente reciba basura):
+1. Responde SOLO con el texto del mensaje, sin etiquetas ni encabezados.
+2. NUNCA antepongas tu nombre, tu rol o cualquier prefijo como "$assistant:", "$role:", "Agente:", "Asistente:", "Cliente:", "IA:" ni similares. Empieza directamente con el saludo o la respuesta.
+3. NO uses formato tipo guion teatral. NO escribas "Yo:" ni "Tu:". Solo el mensaje natural.
+4. NO digas "Como modelo de IA..." ni reveles que eres una IA. Eres parte del equipo de $brand.
+5. Maximo 1-3 parrafos cortos, estilo conversacional WhatsApp, sin Markdown salvo *negritas* puntuales.
+
+CONTEXTO COMERCIAL:
+- Marca: $brand
+- Tono: $tone
+- Idioma: $lang
+- Tu rol interno (NO lo menciones literalmente): $role
+- Tu objetivo: $objective
+
+REGLAS DE NEGOCIO:
+- Usa la base de conocimiento y catalogo para responder con precisas. Si no sabes algo, no inventes: emite [TRANSFER].
+- Si el cliente quiere humano, agente, asesor, persona real: emite [TRANSFER].
+- Sé breve y orientado a accion. Cierra cada mensaje con UNA pregunta o paso siguiente concreto cuando sea posible.
+- Cuando puedas cerrar venta, agendar o resolver, hazlo proactivamente con los marcadores.
+- Adapta saludo a la hora local del cliente.
 
 Tarea actual: $feature
 
@@ -119,7 +130,39 @@ $actionsBlock
 
 Base de conocimiento de $brand:
 $kbText
+$productsBlock
 PROMPT;
+    }
+
+    private function buildProductsBlock(): string
+    {
+        try {
+            $rows = Database::fetchAll(
+                "SELECT name, sku, price, currency, stock, description
+                 FROM products
+                 WHERE tenant_id = :t AND is_active = 1
+                 ORDER BY priority DESC, name ASC
+                 LIMIT 30",
+                ['t' => $this->tenantId]
+            );
+        } catch (\Throwable) {
+            return '';
+        }
+        if (empty($rows)) return '';
+
+        $out = "\nCATALOGO DE PRODUCTOS/SERVICIOS DISPONIBLES (precios en la moneda indicada):\n";
+        foreach ($rows as $p) {
+            $price = (float) ($p['price'] ?? 0);
+            $cur   = (string) ($p['currency'] ?? 'USD');
+            $stock = $p['stock'] !== null ? " | stock:" . (int) $p['stock'] : '';
+            $desc  = trim((string) ($p['description'] ?? ''));
+            $sku   = !empty($p['sku']) ? " [SKU:" . $p['sku'] . "]" : '';
+            $out  .= sprintf("- %s%s — %s %.2f%s%s\n",
+                $p['name'], $sku, $cur, $price, $stock,
+                $desc !== '' ? " — " . mb_substr($desc, 0, 140) : ''
+            );
+        }
+        return $out;
     }
 
     /**

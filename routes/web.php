@@ -15,6 +15,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\HomeController;
 use App\Controllers\InboxController;
 use App\Controllers\LeadController;
+use App\Controllers\ProductController;
 use App\Controllers\ReportController;
 use App\Controllers\SettingsController;
 use App\Controllers\TaskController;
@@ -98,6 +99,12 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/tickets/{id}/comment', [TicketController::class, 'comment'])->middleware('csrf');
     $r->delete('/tickets/{id}',      [TicketController::class, 'destroy'])->middleware('csrf');
 
+    // Productos / Catalogo
+    $r->get   ('/products',         [ProductController::class, 'index']);
+    $r->post  ('/products',         [ProductController::class, 'store'])->middleware('csrf');
+    $r->put   ('/products/{id}',    [ProductController::class, 'update'])->middleware('csrf');
+    $r->delete('/products/{id}',    [ProductController::class, 'destroy'])->middleware('csrf');
+
     // Tareas
     $r->get   ('/tasks',           [TaskController::class, 'index']);
     $r->post  ('/tasks',           [TaskController::class, 'store'])->middleware('csrf');
@@ -135,7 +142,9 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');
+    $r->put ('/settings/ai/agents/{id}',  [SettingsController::class, 'aiAgentUpdate'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
+    $r->post('/settings/ai/agents/{id}/duplicate', [SettingsController::class, 'aiAgentDuplicate'])->middleware('csrf');
     $r->delete('/settings/ai/agents/{id}', [SettingsController::class, 'aiAgentDelete'])->middleware('csrf');
     $r->post('/settings/ai/knowledge',    [SettingsController::class, 'knowledgeStore'])->middleware('csrf');
     $r->delete('/settings/ai/knowledge/{id}', [SettingsController::class, 'knowledgeDelete'])->middleware('csrf');

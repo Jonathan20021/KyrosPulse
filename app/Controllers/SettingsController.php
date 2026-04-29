@@ -218,12 +218,53 @@ final class SettingsController extends Controller
         } catch (\Throwable) {
             $agents = [];
         }
+
+        // KPIs de la IA (ultimos 30 dias)
+        $kpi = [
+            'handled'       => 0,
+            'sent_messages' => 0,
+            'transferred'   => 0,
+            'sales_closed'  => 0,
+            'tokens_in'     => 0,
+            'tokens_out'    => 0,
+        ];
+        try {
+            $kpi['handled'] = (int) Database::fetchColumn(
+                "SELECT COUNT(DISTINCT conversation_id) FROM ai_agent_logs
+                 WHERE tenant_id = :t AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+                ['t' => $tenantId]
+            );
+            $kpi['sent_messages'] = (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM messages
+                 WHERE tenant_id = :t AND is_ai_generated = 1 AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+                ['t' => $tenantId]
+            );
+            $kpi['transferred'] = (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM conversation_assignments
+                 WHERE tenant_id = :t AND action = 'unassigned' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+                ['t' => $tenantId]
+            );
+            $kpi['sales_closed'] = (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM ai_agent_logs
+                 WHERE tenant_id = :t AND action_payload LIKE '%CLOSE_SALE%' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+                ['t' => $tenantId]
+            );
+            $usage = Database::fetch(
+                "SELECT COALESCE(SUM(tokens_input),0) AS ti, COALESCE(SUM(tokens_output),0) AS toX
+                 FROM ai_logs WHERE tenant_id = :t AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+                ['t' => $tenantId]
+            );
+            $kpi['tokens_in']  = (int) ($usage['ti']  ?? 0);
+            $kpi['tokens_out'] = (int) ($usage['toX'] ?? 0);
+        } catch (\Throwable) {}
+
         $this->view('settings.ai', [
             'page'      => 'configuracion',
             'tab'       => 'ai',
             'tenant'    => $tenant,
             'knowledge' => KnowledgeBase::listForTenant($tenantId),
             'agents'    => $agents,
+            'kpi'       => $kpi,
         ], 'layouts.app');
     }
 
@@ -246,26 +287,130 @@ final class SettingsController extends Controller
         ]);
 
         $autoReply = !empty($request->input('auto_reply_enabled')) ? 1 : 0;
-        AiAgent::create([
-            'tenant_id' => $tenantId,
-            'name' => $data['name'],
-            'role' => trim((string) $request->input('role', '')),
-            'objective' => trim((string) $request->input('objective', '')),
-            'instructions' => trim((string) $request->input('instructions', '')),
-            'tone' => trim((string) $request->input('tone', 'profesional, claro y orientado a vender')),
-            'model' => trim((string) $request->input('model', '')),
-            'auto_reply_enabled' => $autoReply,
-            'is_default' => !empty($request->input('is_default')) ? 1 : 0,
-            'handoff_keywords' => json_encode(['humano','agente','asesor','soporte'], JSON_UNESCAPED_UNICODE),
-            'allowed_actions' => json_encode(['send_whatsapp','create_ticket','assign_agent','add_tag'], JSON_UNESCAPED_UNICODE),
-            'status' => 'active',
-        ]);
+
+        AiAgent::create(array_merge(
+            ['tenant_id' => $tenantId, 'name' => $data['name']],
+            $this->aiAgentFieldsFromRequest($request),
+            [
+                'auto_reply_enabled' => $autoReply,
+                'is_default'         => !empty($request->input('is_default')) ? 1 : 0,
+                'handoff_keywords'   => json_encode(['humano','agente','asesor','soporte'], JSON_UNESCAPED_UNICODE),
+                'allowed_actions'    => json_encode(['send_whatsapp','create_ticket','assign_agent','add_tag','close_sale','schedule'], JSON_UNESCAPED_UNICODE),
+                'status'             => 'active',
+            ]
+        ));
         if ($autoReply) {
             Database::update('tenants', ['ai_enabled' => 1], ['id' => $tenantId]);
         }
 
         Session::flash('success', 'Agente IA creado.');
         $this->redirect('/settings/ai');
+    }
+
+    public function aiAgentUpdate(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $id = (int) ($params['id'] ?? 0);
+        $existing = Database::fetch(
+            "SELECT * FROM ai_agents WHERE id = :id AND tenant_id = :t",
+            ['id' => $id, 't' => $tenantId]
+        );
+        if (!$existing) $this->abort(404);
+
+        $update = array_merge(
+            ['name' => trim((string) $request->input('name', $existing['name']))],
+            $this->aiAgentFieldsFromRequest($request, $existing),
+            [
+                'auto_reply_enabled' => !empty($request->input('auto_reply_enabled')) ? 1 : 0,
+                'is_default'         => !empty($request->input('is_default')) ? 1 : 0,
+            ]
+        );
+        AiAgent::update($tenantId, $id, $update);
+
+        Session::flash('success', 'Agente IA actualizado.');
+        $this->redirect('/settings/ai');
+    }
+
+    public function aiAgentDuplicate(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $id = (int) ($params['id'] ?? 0);
+        $src = Database::fetch(
+            "SELECT * FROM ai_agents WHERE id = :id AND tenant_id = :t",
+            ['id' => $id, 't' => $tenantId]
+        );
+        if (!$src) $this->abort(404);
+
+        unset($src['id'], $src['uuid'], $src['created_at'], $src['updated_at']);
+        $src['name']       = $src['name'] . ' (copia)';
+        $src['is_default'] = 0;
+        AiAgent::create($src);
+
+        Session::flash('success', 'Agente IA duplicado.');
+        $this->redirect('/settings/ai');
+    }
+
+    /**
+     * Normaliza los campos editables del agente IA desde el Request.
+     * @param array|null $existing Para preservar valores no enviados al editar.
+     */
+    private function aiAgentFieldsFromRequest(Request $request, ?array $existing = null): array
+    {
+        $triggers = $this->parseKeywordList((string) $request->input('trigger_keywords', ''));
+        $transfer = $this->parseKeywordList((string) $request->input('transfer_keywords', ''));
+        $channels = (array) $request->input('channels', []);
+        $channels = array_values(array_filter(array_map('strtolower', $channels), fn($c) => in_array($c, ['whatsapp','email','webchat','instagram','facebook','telegram','sms'], true)));
+
+        $hours = $this->parseWorkingHours($request);
+
+        $category = (string) $request->input('category', 'generic');
+        $valid = ['generic','sales','support','scheduling','collections','onboarding','retention'];
+        if (!in_array($category, $valid, true)) $category = 'generic';
+
+        return [
+            'role'              => trim((string) $request->input('role', $existing['role'] ?? '')),
+            'objective'         => trim((string) $request->input('objective', $existing['objective'] ?? '')),
+            'instructions'      => trim((string) $request->input('instructions', $existing['instructions'] ?? '')),
+            'tone'              => trim((string) $request->input('tone', $existing['tone'] ?? 'profesional, claro y orientado a vender')),
+            'model'             => trim((string) $request->input('model', $existing['model'] ?? '')),
+            'category'          => $category,
+            'priority'          => (int) ($request->input('priority') ?: ($existing['priority'] ?? 100)),
+            'max_retries'       => max(1, (int) ($request->input('max_retries') ?: ($existing['max_retries'] ?? 3))),
+            'avatar_emoji'      => mb_substr((string) $request->input('avatar_emoji', $existing['avatar_emoji'] ?? '🤖'), 0, 4),
+            'trigger_keywords'  => json_encode($triggers, JSON_UNESCAPED_UNICODE),
+            'transfer_keywords' => json_encode($transfer, JSON_UNESCAPED_UNICODE),
+            'channels'          => json_encode($channels, JSON_UNESCAPED_UNICODE),
+            'working_hours'     => json_encode($hours, JSON_UNESCAPED_UNICODE),
+        ];
+    }
+
+    private function parseKeywordList(string $raw): array
+    {
+        if ($raw === '') return [];
+        $parts = preg_split('/[,;\n]+/u', $raw) ?: [];
+        $out = [];
+        foreach ($parts as $p) {
+            $p = trim($p);
+            if ($p !== '' && mb_strlen($p) <= 60) $out[] = $p;
+        }
+        return array_values(array_unique($out));
+    }
+
+    private function parseWorkingHours(Request $request): array
+    {
+        $days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        $hours = [];
+        $raw = (array) $request->input('agent_hours', []);
+        foreach ($days as $d) {
+            $cfg = $raw[$d] ?? null;
+            if (!is_array($cfg)) continue;
+            $hours[$d] = [
+                'enabled' => !empty($cfg['enabled']),
+                'start'   => (string) ($cfg['start'] ?? '09:00'),
+                'end'     => (string) ($cfg['end']   ?? '18:00'),
+            ];
+        }
+        return $hours;
     }
 
     public function aiAgentToggle(Request $request, array $params): void
