@@ -22,7 +22,7 @@ return [
 
     'claude' => [
         'api_key'     => env('CLAUDE_API_KEY', ''),
-        'model'       => env('CLAUDE_MODEL', 'claude-sonnet-6'),
+        'model'       => env('CLAUDE_MODEL', 'claude-sonnet-4-6'),
         'api_url'     => env('CLAUDE_API_URL', 'https://api.anthropic.com/v1/messages'),
         'version'     => env('CLAUDE_VERSION', '2023-06-01'),
         'max_tokens'  => (int) env('CLAUDE_MAX_TOKENS', 2048),
@@ -31,7 +31,7 @@ return [
 
     'openai' => [
         'api_key'     => env('OPENAI_API_KEY', ''),
-        'model'       => env('OPENAI_MODEL', 'gpt-5-mini'),
+        'model'       => env('OPENAI_MODEL', 'gpt-4o-mini'),
         'api_url'     => env('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions'),
         'organization'=> env('OPENAI_ORG', ''),
         'max_tokens'  => (int) env('OPENAI_MAX_TOKENS', 2048),

@@ -3,8 +3,19 @@
 \App\Core\View::start('content');
 
 $provider     = (string) ($tenant['ai_provider'] ?? 'claude');
-$claudeModel  = (string) ($tenant['claude_model'] ?? 'claude-sonnet-6');
-$openaiModel  = (string) ($tenant['openai_model'] ?? 'gpt-5-mini');
+$claudeModel  = (string) ($tenant['claude_model'] ?? 'claude-sonnet-4-6');
+$openaiModel  = (string) ($tenant['openai_model'] ?? 'gpt-4o-mini');
+
+// Si el tenant tiene guardado un modelo invalido viejo, normalizamos al
+// recomendado actual para que el dropdown no muestre opciones inexistentes.
+$claudeAliases = [
+    'claude-sonnet-6' => 'claude-sonnet-4-6',
+    'claude-opus-6'   => 'claude-opus-4-7',
+    'claude-haiku-6'  => 'claude-haiku-4-5-20251001',
+];
+if (isset($claudeAliases[$claudeModel])) {
+    $claudeModel = $claudeAliases[$claudeModel];
+}
 ?>
 <?php \App\Core\View::include('components.page_header', ['title' => 'Integraciones', 'subtitle' => 'Conecta WhatsApp, email e IA.']); ?>
 <?php \App\Core\View::include('settings._tabs', ['tab' => 'integrations']); ?>
@@ -136,9 +147,9 @@ $openaiModel  = (string) ($tenant['openai_model'] ?? 'gpt-5-mini');
                 <select name="claude_model" class="w-full mt-1 px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900">
                     <?php
                     $claudeOptions = [
-                        'claude-sonnet-6'           => 'Claude Sonnet 6 (recomendado)',
+                        'claude-sonnet-4-6'         => 'Claude Sonnet 4.6 (recomendado)',
                         'claude-opus-4-7'           => 'Claude Opus 4.7 (mayor calidad)',
-                        'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (rapido)',
+                        'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (rapido y economico)',
                     ];
                     foreach ($claudeOptions as $val => $label):
                     ?>
@@ -172,11 +183,11 @@ $openaiModel  = (string) ($tenant['openai_model'] ?? 'gpt-5-mini');
                 <select name="openai_model" class="w-full mt-1 px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900">
                     <?php
                     $openaiOptions = [
-                        'gpt-5-mini'  => 'GPT-5 Mini (recomendado)',
-                        'gpt-5'       => 'GPT-5 (premium)',
-                        'gpt-4o'      => 'GPT-4o',
-                        'gpt-4o-mini' => 'GPT-4o Mini (economico)',
+                        'gpt-4o-mini' => 'GPT-4o Mini (recomendado, rapido y barato)',
+                        'gpt-4o'      => 'GPT-4o (mayor calidad)',
                         'gpt-4-turbo' => 'GPT-4 Turbo',
+                        'gpt-5-mini'  => 'GPT-5 Mini (si tu cuenta tiene acceso)',
+                        'gpt-5'       => 'GPT-5 (si tu cuenta tiene acceso)',
                     ];
                     foreach ($openaiOptions as $val => $label):
                     ?>

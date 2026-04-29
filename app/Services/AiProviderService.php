@@ -283,10 +283,26 @@ PROMPT;
     private function claudeModel(): string
     {
         $agent = $this->agent();
-        if (!empty($agent['model'])) return (string) $agent['model'];
-        $cfg = $this->tenantConfig();
-        if (!empty($cfg['claude_model'])) return (string) $cfg['claude_model'];
-        return (string) config('services.claude.model', 'claude-sonnet-6');
+        $candidate = '';
+        if (!empty($agent['model'])) $candidate = (string) $agent['model'];
+
+        if ($candidate === '') {
+            $cfg = $this->tenantConfig();
+            $candidate = (string) ($cfg['claude_model'] ?? '');
+        }
+        if ($candidate === '') {
+            $candidate = (string) config('services.claude.model', 'claude-sonnet-4-6');
+        }
+
+        // Normalizar IDs antiguos/erroneos a la familia 4.X actual.
+        $aliases = [
+            'claude-sonnet-6'     => 'claude-sonnet-4-6',
+            'claude-opus-6'       => 'claude-opus-4-7',
+            'claude-haiku-6'      => 'claude-haiku-4-5-20251001',
+            'claude-3-5-sonnet'   => 'claude-sonnet-4-6',
+            'claude-3-opus'       => 'claude-opus-4-7',
+        ];
+        return $aliases[$candidate] ?? $candidate;
     }
 
     private function logCall(string $feature, mixed $prompt, array $result, string $model, string $provider): void
