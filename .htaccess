@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Si la peticion ya viene bajo /public/, no hacer nada
+RewriteCond %{REQUEST_URI} ^/KyrosPulse/public/
+RewriteRule ^ - [L]
+
+# Caso contrario: reescribir TODO a public/. Apache servira archivos estaticos
+# directamente y delegara al index.php via el .htaccess de /public/.
+RewriteRule ^(.*)$ public/$1 [L]
+
+<FilesMatch "^\.env|composer\.json|composer\.lock|\.git">
+    Require all denied
+</FilesMatch>
