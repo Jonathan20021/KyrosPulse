@@ -211,17 +211,29 @@ if (isset($claudeAliases[$claudeModel])) {
     </div>
 </form>
 
-<!-- Form independiente para sincronizar plantillas (no anidado) -->
-<form action="<?= url('/settings/integrations/wasapi/templates/sync') ?>" method="POST" class="mt-3">
-    <?= csrf_field() ?>
-    <div class="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <div class="font-semibold dark:text-white text-slate-900 text-sm">Plantillas de WhatsApp</div>
-            <div class="text-xs dark:text-slate-400 text-slate-500">Trae las plantillas aprobadas de Wasapi para campanas fuera de ventana.</div>
+<!-- Forms independientes (NO anidados) para sincronizaciones Wasapi -->
+<div class="grid md:grid-cols-2 gap-3 mt-3">
+    <form action="<?= url('/settings/integrations/wasapi/templates/sync') ?>" method="POST">
+        <?= csrf_field() ?>
+        <div class="glass rounded-2xl p-4 flex items-center justify-between gap-3 h-full">
+            <div>
+                <div class="font-semibold dark:text-white text-slate-900 text-sm">Plantillas WhatsApp</div>
+                <div class="text-xs dark:text-slate-400 text-slate-500">Trae plantillas aprobadas para campanas fuera de ventana.</div>
+            </div>
+            <button type="submit" class="px-3 py-2 rounded-lg glass text-xs font-semibold dark:text-white text-slate-900 flex-shrink-0">Sincronizar</button>
         </div>
-        <button type="submit" class="px-4 py-2 rounded-lg glass text-xs font-semibold dark:text-white text-slate-900">Sincronizar plantillas</button>
-    </div>
-</form>
+    </form>
+    <form action="<?= url('/settings/integrations/wasapi/contacts/sync') ?>" method="POST">
+        <?= csrf_field() ?>
+        <div class="glass rounded-2xl p-4 flex items-center justify-between gap-3 h-full">
+            <div>
+                <div class="font-semibold dark:text-white text-slate-900 text-sm">Nombres de contactos</div>
+                <div class="text-xs dark:text-slate-400 text-slate-500">Reemplaza "Contacto WhatsApp" con el nombre real del perfil de WhatsApp.</div>
+            </div>
+            <button type="submit" class="px-3 py-2 rounded-lg glass text-xs font-semibold dark:text-white text-slate-900 flex-shrink-0">Sincronizar</button>
+        </div>
+    </form>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

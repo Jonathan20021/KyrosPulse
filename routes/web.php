@@ -141,6 +141,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->put('/settings/integrations',     [SettingsController::class, 'updateIntegrations'])->middleware('csrf');
     $r->post('/settings/integrations/test-ai', [SettingsController::class, 'testAi'])->middleware('csrf');
     $r->post('/settings/integrations/wasapi/templates/sync', [SettingsController::class, 'syncWasapiTemplates'])->middleware('csrf');
+    $r->post('/settings/integrations/wasapi/contacts/sync',  [SettingsController::class, 'syncWasapiContactNames'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');

@@ -209,6 +209,46 @@ final class SettingsController extends Controller
         $this->redirect('/settings/integrations');
     }
 
+    /**
+     * Recorre los contactos WhatsApp con nombre generico ("Contacto WhatsApp" o vacio)
+     * y consulta a Wasapi para obtener el nombre real del perfil. Limita el batch
+     * para no agotar timeouts ni rate limit.
+     */
+    public function syncWasapiContactNames(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $svc = new WasapiService($tenantId);
+
+        $contacts = Database::fetchAll(
+            "SELECT id, phone, whatsapp, first_name
+             FROM contacts
+             WHERE tenant_id = :t AND deleted_at IS NULL
+               AND source = 'whatsapp'
+               AND (first_name IS NULL OR first_name = '' OR first_name = 'Contacto WhatsApp' OR first_name = 'Contacto')
+             ORDER BY id DESC
+             LIMIT 100",
+            ['t' => $tenantId]
+        );
+
+        $updated = 0;
+        $checked = 0;
+        foreach ($contacts as $c) {
+            $checked++;
+            $phone = (string) ($c['whatsapp'] ?: $c['phone']);
+            if ($phone === '') continue;
+            $profile = $svc->getContactProfile($phone);
+            if (!$profile || ($profile['first_name'] === '' && $profile['last_name'] === '')) continue;
+            Database::update('contacts', [
+                'first_name' => $profile['first_name'] ?: 'Contacto WhatsApp',
+                'last_name'  => $profile['last_name'] ?: null,
+            ], ['id' => (int) $c['id'], 'tenant_id' => $tenantId]);
+            $updated++;
+        }
+
+        Session::flash('success', "Sincronizacion completa: $updated nombres actualizados de $checked revisados.");
+        $this->redirect('/settings/integrations');
+    }
+
     public function ai(Request $request): void
     {
         $tenantId = Tenant::id();

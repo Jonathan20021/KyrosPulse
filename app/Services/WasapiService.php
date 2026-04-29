@@ -22,6 +22,9 @@ final class WasapiService
 
     private ?int $resolvedFromId = null;
 
+    /** Cache en memoria por request: wa_id => ['first_name' => ..., 'last_name' => ...] */
+    private array $contactProfileCache = [];
+
     private function credentials(): array
     {
         $tenant  = Tenant::findById($this->tenantId);
@@ -228,6 +231,48 @@ final class WasapiService
         }
 
         return ['success' => true, 'synced' => $synced];
+    }
+
+    /**
+     * Consulta el perfil del contacto en Wasapi para obtener su nombre real
+     * de WhatsApp (el que el cliente puso en su perfil de WA).
+     *
+     * Retorna ['first_name' => '...', 'last_name' => '...', 'email' => '...']
+     * o null si no se encuentra / falla la llamada.
+     *
+     * Resultado cacheado en memoria por request.
+     */
+    public function getContactProfile(string $phone): ?array
+    {
+        $waId = $this->normalizeWaId($phone);
+        if ($waId === '') return null;
+        if (isset($this->contactProfileCache[$waId])) return $this->contactProfileCache[$waId];
+
+        $cred = $this->credentials();
+        if ($cred['api_key'] === '') return $this->contactProfileCache[$waId] = null;
+
+        $resp = HttpClient::get(
+            $cred['base_url'] . '/contacts/' . $waId,
+            $this->authHeaders($cred['api_key']),
+            (int) config('services.wasapi.timeout', 15)
+        );
+
+        if (empty($resp['success'])) {
+            return $this->contactProfileCache[$waId] = null;
+        }
+
+        $data = $resp['body']['data'] ?? null;
+        if (!is_array($data)) return $this->contactProfileCache[$waId] = null;
+
+        $first = trim((string) ($data['first_name'] ?? ''));
+        $last  = trim((string) ($data['last_name']  ?? ''));
+        if ($first === '' && $last === '') return $this->contactProfileCache[$waId] = null;
+
+        return $this->contactProfileCache[$waId] = [
+            'first_name' => $first,
+            'last_name'  => $last,
+            'email'      => trim((string) ($data['email'] ?? '')),
+        ];
     }
 
     public function getWhatsappNumbers(): array
@@ -838,18 +883,53 @@ final class WasapiService
             ]
         );
 
+        // Si el contacto existe pero tiene nombre generico, intentamos enriquecerlo
         if ($contact) {
+            $existingName = trim((string) ($contact['first_name'] ?? ''));
+            $isGeneric = $existingName === '' || $existingName === 'Contacto WhatsApp' || $existingName === 'Contacto';
+            if ($isGeneric) {
+                $profile = $this->getContactProfile($phone);
+                if ($profile && ($profile['first_name'] !== '' || $profile['last_name'] !== '')) {
+                    Database::update('contacts', [
+                        'first_name' => $profile['first_name'] ?: 'Contacto WhatsApp',
+                        'last_name'  => $profile['last_name'] ?: null,
+                        'email'      => $contact['email'] ?: ($profile['email'] ?: null),
+                    ], ['id' => (int) $contact['id'], 'tenant_id' => $this->tenantId]);
+                    $contact['first_name'] = $profile['first_name'] ?: 'Contacto WhatsApp';
+                    $contact['last_name']  = $profile['last_name'] ?: null;
+                }
+            }
             return $contact;
         }
 
+        // Para nuevos: preferimos el perfil real de Wasapi sobre el nombre del payload del webhook
+        $first = trim($contactName);
+        $last  = '';
+        $email = '';
+        $profile = $this->getContactProfile($phone);
+        if ($profile && ($profile['first_name'] !== '' || $profile['last_name'] !== '')) {
+            $first = $profile['first_name'];
+            $last  = $profile['last_name'];
+            $email = $profile['email'];
+        }
+        if ($first === '') $first = 'Contacto WhatsApp';
+
         $contactId = Contact::createMinimal($this->tenantId, [
-            'first_name' => $contactName !== '' ? $contactName : 'Contacto WhatsApp',
+            'first_name' => $first,
+            'last_name'  => $last !== '' ? $last : null,
+            'email'      => $email !== '' ? $email : null,
             'phone'      => $withPlus,
             'whatsapp'   => $withPlus,
             'source'     => 'whatsapp',
         ]);
 
-        return Contact::findById($contactId) ?? ['id' => $contactId, 'first_name' => $contactName, 'phone' => $withPlus, 'whatsapp' => $withPlus];
+        return Contact::findById($contactId) ?? [
+            'id' => $contactId,
+            'first_name' => $first,
+            'last_name'  => $last ?: null,
+            'phone' => $withPlus,
+            'whatsapp' => $withPlus,
+        ];
     }
 
     private function touchConversation(int $id, string $lastMessage, bool $incrementUnread): void
