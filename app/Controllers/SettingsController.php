@@ -16,6 +16,7 @@ use App\Models\QuickReply;
 use App\Models\Role;
 use App\Models\Tenant as TenantModel;
 use App\Models\User;
+use App\Services\AiProviderService;
 use App\Services\ResendService;
 use App\Services\WasapiService;
 
@@ -87,11 +88,66 @@ final class SettingsController extends Controller
             'wasapi_api_key','wasapi_phone','wasapi_webhook',
             'resend_api_key','resend_from_email',
             'claude_api_key','claude_model',
+            'openai_api_key','openai_model',
+            'ai_provider',
         ]);
-        Database::update('tenants', $data, ['id' => $tenantId]);
+
+        // Normalizar proveedor IA
+        if (isset($data['ai_provider'])) {
+            $data['ai_provider'] = in_array($data['ai_provider'], ['claude', 'openai'], true)
+                ? $data['ai_provider']
+                : 'claude';
+        }
+
+        // Sanitizar las API keys (quitar espacios accidentales)
+        foreach (['wasapi_api_key','resend_api_key','claude_api_key','openai_api_key'] as $k) {
+            if (isset($data[$k]) && is_string($data[$k])) {
+                $data[$k] = trim($data[$k]);
+            }
+        }
+
+        try {
+            Database::update('tenants', $data, ['id' => $tenantId]);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::error('settings.integrations update failed', [
+                'tenant' => $tenantId,
+                'msg'    => $e->getMessage(),
+            ]);
+            Session::flash('error', 'No se pudieron guardar las integraciones: ' . $e->getMessage());
+            $this->redirect('/settings/integrations');
+            return;
+        }
+
         Audit::log('settings.integrations', 'tenant', $tenantId);
-        Session::flash('success', 'Integraciones actualizadas.');
+        Session::flash('success', 'Integraciones actualizadas correctamente.');
         $this->redirect('/settings/integrations');
+    }
+
+    /**
+     * Endpoint AJAX: prueba la conexion con el proveedor IA usando los
+     * valores actualmente guardados (no aplica los del formulario aun).
+     */
+    public function testAi(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        try {
+            $svc = new AiProviderService($tenantId);
+            $provider = $svc->provider();
+            $resp = $svc->ping();
+            if (!empty($resp['success'])) {
+                $this->json([
+                    'success' => true,
+                    'message' => 'Conexion ' . strtoupper($provider) . ' OK. Respuesta: ' . mb_substr((string) ($resp['text'] ?? ''), 0, 80),
+                ]);
+                return;
+            }
+            $this->json([
+                'success' => false,
+                'error'   => $resp['error'] ?? 'Sin respuesta del proveedor IA.',
+            ]);
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'error' => $e->getMessage()]);
+        }
     }
 
     public function syncWasapiTemplates(Request $request): void

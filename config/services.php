@@ -28,4 +28,17 @@ return [
         'max_tokens'  => (int) env('CLAUDE_MAX_TOKENS', 2048),
         'timeout'     => 60,
     ],
+
+    'openai' => [
+        'api_key'     => env('OPENAI_API_KEY', ''),
+        'model'       => env('OPENAI_MODEL', 'gpt-5-mini'),
+        'api_url'     => env('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions'),
+        'organization'=> env('OPENAI_ORG', ''),
+        'max_tokens'  => (int) env('OPENAI_MAX_TOKENS', 2048),
+        'timeout'     => 60,
+    ],
+
+    'ai' => [
+        'default_provider' => env('AI_PROVIDER', 'claude'),
+    ],
 ];

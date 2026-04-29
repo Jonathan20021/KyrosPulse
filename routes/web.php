@@ -85,6 +85,9 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/inbox/{id}/reopen',        [InboxController::class, 'reopen'])->middleware('csrf');
     $r->post  ('/inbox/{id}/star',          [InboxController::class, 'star']);
     $r->post  ('/inbox/{id}/ai',            [InboxController::class, 'aiSuggest']);
+    $r->post  ('/inbox/{id}/ai/assign',     [InboxController::class, 'aiAssign']);
+    $r->post  ('/inbox/{id}/ai/takeover',   [InboxController::class, 'aiTakeover']);
+    $r->post  ('/inbox/{id}/ai/run',        [InboxController::class, 'aiRunNow']);
 
     // Tickets
     $r->get   ('/tickets',           [TicketController::class, 'index']);
@@ -127,6 +130,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->put('/settings',                  [SettingsController::class, 'updateGeneral'])->middleware('csrf');
     $r->get('/settings/integrations',     [SettingsController::class, 'integrations']);
     $r->put('/settings/integrations',     [SettingsController::class, 'updateIntegrations'])->middleware('csrf');
+    $r->post('/settings/integrations/test-ai', [SettingsController::class, 'testAi'])->middleware('csrf');
     $r->post('/settings/integrations/wasapi/templates/sync', [SettingsController::class, 'syncWasapiTemplates'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');

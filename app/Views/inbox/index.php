@@ -4,6 +4,7 @@
 /** @var array $messages */
 /** @var array $filters */
 /** @var array $agents */
+/** @var array $aiAgents */
 /** @var array $quickReplies */
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
@@ -131,7 +132,62 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
                 </div>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
-                <button onclick="aiAction('summarize')" title="Resumir" class="btn btn-ghost btn-icon">
+                <?php
+                    $aiActive = !empty($active['ai_agent_id']) || !empty($active['ai_takeover']);
+                    $currentAi = null;
+                    if (!empty($active['ai_agent_id']) && !empty($aiAgents)) {
+                        foreach ($aiAgents as $aa) {
+                            if ((int) $aa['id'] === (int) $active['ai_agent_id']) { $currentAi = $aa; break; }
+                        }
+                    }
+                ?>
+                <!-- AI Agent assignment -->
+                <details class="relative">
+                    <summary class="btn btn-ghost btn-sm cursor-pointer list-none flex items-center gap-1.5" style="<?= $aiActive ? 'background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15)); color: #A78BFA;' : '' ?>" title="Agente IA">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <span class="hidden lg:inline text-xs"><?= $currentAi ? 'IA: ' . e(mb_strimwidth($currentAi['name'], 0, 14, '...')) : 'Asignar IA' ?></span>
+                    </summary>
+                    <div class="absolute right-0 top-full mt-1 w-72 rounded-xl shadow-xl border py-2 z-30" style="background: var(--color-bg-elevated); border-color: var(--color-border-default);">
+                        <div class="px-3 pb-2 mb-2 border-b" style="border-color: var(--color-border-subtle);">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] uppercase font-bold tracking-wider" style="color: var(--color-text-tertiary);">Modo IA</span>
+                            </div>
+                            <label class="flex items-center justify-between gap-2 p-2 rounded-lg cursor-pointer hover:bg-[color:var(--color-bg-subtle)]">
+                                <span class="text-sm dark:text-white text-slate-900">Auto-pilot (la IA contesta sola)</span>
+                                <input type="checkbox" id="aiTakeoverToggle" <?= !empty($active['ai_takeover']) ? 'checked' : '' ?> class="w-4 h-4 rounded">
+                            </label>
+                            <button type="button" onclick="aiRunNow()" class="w-full mt-2 px-3 py-2 rounded-lg text-white text-xs font-semibold" style="background: var(--gradient-primary);">
+                                ⚡ Que la IA responda ahora
+                            </button>
+                        </div>
+                        <div class="px-3 mb-1">
+                            <span class="text-[10px] uppercase font-bold tracking-wider" style="color: var(--color-text-tertiary);">Asignar agente IA</span>
+                        </div>
+                        <?php if (empty($aiAgents)): ?>
+                        <div class="px-3 py-2 text-xs" style="color: var(--color-text-tertiary);">
+                            No hay agentes IA. <a href="<?= url('/settings/ai') ?>" class="underline" style="color: var(--color-primary);">Crear uno</a>.
+                        </div>
+                        <?php else: ?>
+                        <div class="max-h-56 overflow-y-auto">
+                            <button type="button" onclick="assignAi(null)" class="dropdown-item w-full <?= empty($active['ai_agent_id']) ? 'font-semibold' : '' ?>">
+                                <span>— Sin agente IA —</span>
+                            </button>
+                            <?php foreach ($aiAgents as $aa): ?>
+                            <button type="button" onclick="assignAi(<?= (int) $aa['id'] ?>)" class="dropdown-item w-full <?= (int) ($active['ai_agent_id'] ?? 0) === (int) $aa['id'] ? 'font-semibold' : '' ?>">
+                                <span class="w-6 h-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style="background: linear-gradient(135deg,#7C3AED,#06B6D4); color:white;">🤖</span>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm truncate"><?= e($aa['name']) ?></div>
+                                    <div class="text-[10px] truncate" style="color: var(--color-text-tertiary);"><?= e((string) ($aa['role'] ?? 'Sin rol definido')) ?></div>
+                                </div>
+                                <?php if (!empty($aa['is_default'])): ?><span class="badge badge-cyan text-[9px]">Principal</span><?php endif; ?>
+                            </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </details>
+
+                <button onclick="aiAction('summarize')" title="Resumir conversacion" class="btn btn-ghost btn-icon">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </button>
                 <button onclick="aiAction('suggest')" class="btn btn-secondary btn-sm">
@@ -179,6 +235,27 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
                 </details>
             </div>
         </div>
+
+        <!-- ===== Barra de IA avanzada ===== -->
+        <?php if (!empty($active['ai_agent_id']) || !empty($active['ai_takeover'])): ?>
+        <div id="aiBanner" class="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 text-xs" style="background: linear-gradient(135deg, rgba(124,58,237,.10), rgba(6,182,212,.10)); border-color: rgba(124,58,237,.35); color: #C4B5FD;">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background:#A78BFA;"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2" style="background:#A78BFA;"></span>
+                </span>
+                <span><strong><?= !empty($active['ai_takeover']) ? 'Auto-pilot activo' : 'Agente IA asignado' ?>:</strong> <?= e($currentAi['name'] ?? 'agente principal') ?></span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button onclick="aiAction('next')" class="px-2 py-1 rounded-md glass">Proxima accion</button>
+                <button onclick="aiAction('score')" class="px-2 py-1 rounded-md glass">Calificar lead</button>
+                <button onclick="aiAction('sentiment')" class="px-2 py-1 rounded-md glass">Sentimiento</button>
+                <?php if (!empty($active['ai_takeover'])): ?>
+                <button onclick="aiTakeoverOff()" class="px-2 py-1 rounded-md" style="background: rgba(244,63,94,.15); color:#FB7185;">Desactivar auto-pilot</button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- ===== Mensajes ===== -->
         <div id="msgs" class="flex-1 overflow-y-auto p-5 space-y-3" style="background: var(--color-bg-base); background-image: radial-gradient(circle, var(--color-border-subtle) 1px, transparent 1px); background-size: 24px 24px;">
@@ -490,6 +567,65 @@ async function toggleStar(id) {
         headers: { 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
     });
     location.reload();
+}
+
+async function assignAi(agentId) {
+    try {
+        const res = await fetch('<?= url('/inbox/') ?>' + convId + '/ai/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ agent_id: agentId }),
+        });
+        const data = await res.json();
+        if (data.success) location.reload();
+        else alert('No se pudo asignar IA: ' + (data.error || ''));
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function aiTakeoverOff() {
+    if (!confirm('Desactivar el auto-pilot? La IA dejara de responder sola.')) return;
+    await fetch('<?= url('/inbox/') ?>' + convId + '/ai/takeover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ enable: false }),
+    });
+    location.reload();
+}
+
+document.addEventListener('change', async (e) => {
+    if (e.target && e.target.id === 'aiTakeoverToggle') {
+        const enable = e.target.checked;
+        try {
+            const res = await fetch('<?= url('/inbox/') ?>' + convId + '/ai/takeover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ enable: enable }),
+            });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else { e.target.checked = !enable; alert('No se pudo cambiar el modo: ' + (data.error || '')); }
+        } catch (err) { e.target.checked = !enable; alert('Error: ' + err.message); }
+    }
+});
+
+async function aiRunNow() {
+    const panel = document.getElementById('aiPanel');
+    const body  = document.getElementById('aiPanelBody');
+    panel.classList.remove('hidden');
+    body.innerHTML = '<div class="flex items-center gap-2"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> <span class="text-xs">La IA esta redactando y enviando una respuesta...</span></div>';
+    try {
+        const res = await fetch('<?= url('/inbox/') ?>' + convId + '/ai/run', {
+            method: 'POST',
+            headers: { 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await res.json();
+        if (data.success) {
+            body.innerHTML = '<div class="text-sm">✓ Mensaje enviado por la IA: <span class="opacity-80">' + (data.text || '').replace(/</g,'&lt;') + '</span></div>';
+            await pollMessages(true);
+        } else {
+            body.textContent = 'No se pudo: ' + (data.error || data.reason || 'fallo desconocido');
+        }
+    } catch (e) { body.textContent = 'Error: ' + e.message; }
 }
 </script>
 <?php endif; ?>

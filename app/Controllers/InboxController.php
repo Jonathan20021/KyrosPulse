@@ -14,8 +14,11 @@ use App\Core\Session;
 use App\Core\Tenant;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\AiAgent;
 use App\Models\QuickReply;
 use App\Models\User;
+use App\Services\AiAgentService;
+use App\Services\AiProviderService;
 use App\Services\ClaudeService;
 use App\Services\WasapiService;
 
@@ -46,6 +49,12 @@ final class InboxController extends Controller
             Conversation::markRead($tenantId, (int) $active['id']);
         }
 
+        try {
+            $aiAgents = AiAgent::listForTenant($tenantId);
+        } catch (\Throwable) {
+            $aiAgents = [];
+        }
+
         $this->view('inbox.index', [
             'page'           => 'bandeja',
             'conversations'  => $conversations,
@@ -53,6 +62,7 @@ final class InboxController extends Controller
             'messages'       => $messages,
             'filters'        => $filters,
             'agents'         => User::listByTenant($tenantId),
+            'aiAgents'       => $aiAgents,
             'quickReplies'   => QuickReply::listForTenant($tenantId),
         ], 'layouts.app');
     }
@@ -241,6 +251,9 @@ final class InboxController extends Controller
     {
         $tenantId = Tenant::id();
         $convId = (int) ($params['id'] ?? 0);
+        $conv = Conversation::findById($tenantId, $convId);
+        if (!$conv) { $this->json(['success' => false, 'error' => 'Conversacion no encontrada.']); return; }
+
         $messages = Message::listByConversation($tenantId, $convId, 20);
         if (empty($messages)) {
             $this->json(['success' => false, 'error' => 'Sin mensajes']);
@@ -253,20 +266,21 @@ final class InboxController extends Controller
             $transcript .= "$who: " . trim((string) $m['content']) . "\n";
         }
 
-        $svc = new ClaudeService($tenantId);
+        $agentId = !empty($conv['ai_agent_id']) ? (int) $conv['ai_agent_id'] : null;
+        $svc = new AiProviderService($tenantId, $agentId);
         $action = (string) $request->input('action', 'suggest');
 
         $result = match ($action) {
             'summarize' => $svc->summarizeConversation($transcript),
             'sentiment' => $svc->evaluateSentiment($transcript),
             'next'      => $svc->recommendNextAction($transcript),
+            'score'     => $svc->scoreLead("Contacto #{$conv['contact_id']} canal {$conv['channel']}", $transcript),
             default     => $svc->suggestReply($transcript),
         };
 
         if (!empty($result['success'])) {
             $text = trim((string) $result['text']);
 
-            // Guardar el resumen/sentimiento en la conversacion
             $update = [];
             if ($action === 'summarize') $update['ai_summary'] = $text;
             elseif ($action === 'sentiment') {
@@ -276,13 +290,130 @@ final class InboxController extends Controller
                 else $update['ai_sentiment'] = 'neutral';
             }
             elseif ($action === 'next') $update['ai_next_action'] = $text;
+            elseif ($action === 'score') {
+                $decoded = json_decode($text, true);
+                if (is_array($decoded) && isset($decoded['score'])) {
+                    $update['ai_score'] = max(0, min(100, (int) $decoded['score']));
+                    if (!empty($decoded['next_action'])) $update['ai_next_action'] = (string) $decoded['next_action'];
+                }
+            }
             if ($update) Conversation::update($tenantId, $convId, $update);
 
             $this->json(['success' => true, 'text' => $text]);
             return;
         }
 
-        $this->json(['success' => false, 'error' => 'No se pudo conectar con Claude. Verifica tu API key.']);
+        $this->json([
+            'success' => false,
+            'error'   => $result['error'] ?? 'No se pudo conectar con la IA. Verifica tu API key en Integraciones.',
+        ]);
+    }
+
+    /**
+     * Asigna un agente IA a la conversacion. user_id = null para desasignar.
+     * Solo afecta a la columna ai_agent_id (no enciende auto-pilot).
+     */
+    public function aiAssign(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $convId   = (int) ($params['id'] ?? 0);
+        $token    = (string) $request->header('x-csrf-token', $request->input('_csrf', ''));
+        if (!Csrf::validate($token)) {
+            $this->json(['success' => false, 'error' => 'CSRF invalido'], 419);
+            return;
+        }
+
+        $rawAgent = $request->input('agent_id');
+        $agentId  = ($rawAgent === '' || $rawAgent === null) ? null : (int) $rawAgent;
+
+        if ($agentId !== null) {
+            $exists = Database::fetchColumn(
+                "SELECT id FROM ai_agents WHERE id = :id AND tenant_id = :t",
+                ['id' => $agentId, 't' => $tenantId]
+            );
+            if (!$exists) {
+                $this->json(['success' => false, 'error' => 'Agente IA no encontrado.']);
+                return;
+            }
+        }
+
+        Conversation::update($tenantId, $convId, ['ai_agent_id' => $agentId]);
+        Audit::log('conversation.ai_assigned', 'conversation', $convId, [], ['ai_agent_id' => $agentId]);
+        $this->json(['success' => true, 'ai_agent_id' => $agentId]);
+    }
+
+    /**
+     * Toggle del modo auto-pilot por conversacion. Cuando esta ON, la IA
+     * responde automaticamente todos los mensajes entrantes incluso si el
+     * tenant no tiene ai_enabled global. Cuando esta OFF, se respetan los
+     * defaults del tenant + ai_agents.auto_reply_enabled.
+     */
+    public function aiTakeover(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $convId   = (int) ($params['id'] ?? 0);
+        $token    = (string) $request->header('x-csrf-token', $request->input('_csrf', ''));
+        if (!Csrf::validate($token)) {
+            $this->json(['success' => false, 'error' => 'CSRF invalido'], 419);
+            return;
+        }
+
+        $conv = Conversation::findById($tenantId, $convId);
+        if (!$conv) { $this->json(['success' => false, 'error' => 'No encontrada.'], 404); return; }
+
+        $enable = $request->input('enable');
+        $enable = $enable === null ? !((int) $conv['ai_takeover'] === 1) : (bool) $enable;
+
+        Conversation::update($tenantId, $convId, [
+            'ai_takeover'     => $enable ? 1 : 0,
+            'bot_enabled'     => $enable ? 1 : (int) $conv['bot_enabled'],
+            'ai_paused_until' => null,
+        ]);
+        Audit::log('conversation.ai_takeover', 'conversation', $convId, [], ['enabled' => $enable]);
+        $this->json(['success' => true, 'enabled' => $enable]);
+    }
+
+    /**
+     * Pide a la IA que genere YA una respuesta y la envie por WhatsApp,
+     * usando el agente IA asignado a la conversacion. Util cuando el
+     * humano quiere "que la IA responda ahora" sin esperar mensaje entrante.
+     */
+    public function aiRunNow(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $convId   = (int) ($params['id'] ?? 0);
+        $token    = (string) $request->header('x-csrf-token', $request->input('_csrf', ''));
+        if (!Csrf::validate($token)) {
+            $this->json(['success' => false, 'error' => 'CSRF invalido'], 419);
+            return;
+        }
+
+        $conv = Conversation::findById($tenantId, $convId);
+        if (!$conv) { $this->json(['success' => false, 'error' => 'No encontrada.'], 404); return; }
+
+        // Forzamos takeover temporal para que el servicio considere al agente.
+        $previousTakeover = (int) ($conv['ai_takeover'] ?? 0);
+        Conversation::update($tenantId, $convId, ['ai_takeover' => 1]);
+
+        // Tomamos el ultimo mensaje del cliente como input.
+        $lastInbound = Database::fetch(
+            "SELECT id, content FROM messages
+             WHERE tenant_id = :t AND conversation_id = :c AND direction = 'inbound'
+             ORDER BY id DESC LIMIT 1",
+            ['t' => $tenantId, 'c' => $convId]
+        );
+        $userMsg = trim((string) ($lastInbound['content'] ?? '')) ?: 'Continua la conversacion con el cliente segun el historial.';
+
+        $phone = (string) ($conv['whatsapp'] ?: $conv['phone']);
+        $svc   = new AiAgentService($tenantId);
+        $resp  = $svc->autoReplyToConversation($convId, (int) $conv['contact_id'], $phone, $userMsg, isset($lastInbound['id']) ? (int) $lastInbound['id'] : null);
+
+        // Restauramos el estado original de takeover (si no estaba activo).
+        if (!$previousTakeover) {
+            Conversation::update($tenantId, $convId, ['ai_takeover' => 0]);
+        }
+
+        $this->json($resp);
     }
 
     private function renderMessagesHtml(array $messages): string
