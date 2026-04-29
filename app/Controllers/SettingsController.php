@@ -124,28 +124,75 @@ final class SettingsController extends Controller
     }
 
     /**
-     * Endpoint AJAX: prueba la conexion con el proveedor IA usando los
-     * valores actualmente guardados (no aplica los del formulario aun).
+     * Endpoint AJAX: prueba la conexion con el proveedor IA. Si recibe
+     * api keys/model en el body, las usa para la prueba (asi el usuario
+     * puede validar antes de guardar). Si no, usa la config guardada.
      */
     public function testAi(Request $request): void
     {
         $tenantId = Tenant::id();
+
+        $provider = strtolower((string) $request->input('ai_provider', ''));
+        if (!in_array($provider, ['claude', 'openai'], true)) {
+            $provider = '';
+        }
+
+        $claudeKey   = trim((string) $request->input('claude_api_key', ''));
+        $claudeModel = trim((string) $request->input('claude_model', ''));
+        $openaiKey   = trim((string) $request->input('openai_api_key', ''));
+        $openaiModel = trim((string) $request->input('openai_model', ''));
+
         try {
-            $svc = new AiProviderService($tenantId);
-            $provider = $svc->provider();
-            $resp = $svc->ping();
+            // Override temporal SOLO en memoria, sin tocar la BD, para que el
+            // ping use los valores del formulario tal cual los esta probando.
+            $original = TenantModel::findById($tenantId);
+            if (!$original) {
+                $this->json(['success' => false, 'error' => 'Tenant no encontrado.']);
+                return;
+            }
+
+            $override = [];
+            if ($provider !== '')       $override['ai_provider']    = $provider;
+            if ($claudeKey !== '')      $override['claude_api_key'] = $claudeKey;
+            if ($claudeModel !== '')    $override['claude_model']   = $claudeModel;
+            if ($openaiKey !== '')      $override['openai_api_key'] = $openaiKey;
+            if ($openaiModel !== '')    $override['openai_model']   = $openaiModel;
+
+            if (!empty($override)) {
+                Database::update('tenants', $override, ['id' => $tenantId]);
+            }
+
+            try {
+                $svc = new AiProviderService($tenantId);
+                $resolved = $svc->provider();
+                $resp = $svc->ping();
+            } finally {
+                // Restaurar valores originales si hicimos override.
+                if (!empty($override)) {
+                    $restore = [];
+                    foreach ($override as $k => $_) {
+                        $restore[$k] = $original[$k] ?? null;
+                    }
+                    Database::update('tenants', $restore, ['id' => $tenantId]);
+                }
+            }
+
             if (!empty($resp['success'])) {
                 $this->json([
-                    'success' => true,
-                    'message' => 'Conexion ' . strtoupper($provider) . ' OK. Respuesta: ' . mb_substr((string) ($resp['text'] ?? ''), 0, 80),
+                    'success'  => true,
+                    'provider' => $resolved,
+                    'message'  => 'Conexion ' . strtoupper($resolved) . ' OK. Respuesta: ' . mb_substr((string) ($resp['text'] ?? ''), 0, 80),
                 ]);
                 return;
             }
+
             $this->json([
-                'success' => false,
-                'error'   => $resp['error'] ?? 'Sin respuesta del proveedor IA.',
+                'success'  => false,
+                'provider' => $resolved,
+                'error'    => $resp['error'] ?? 'El proveedor IA no respondio. Verifica la API key y el modelo.',
             ]);
         } catch (\Throwable $e) {
+            \App\Core\Logger::error('test-ai failed', ['msg' => $e->getMessage()]);
             $this->json(['success' => false, 'error' => $e->getMessage()]);
         }
     }

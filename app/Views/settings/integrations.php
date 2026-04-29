@@ -236,14 +236,34 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', async () => {
             out.textContent = 'Probando...';
             out.style.color = '';
-            const fd = new FormData(document.getElementById('integrationsForm'));
+            const form = document.getElementById('integrationsForm');
+            const provider = form.querySelector('input[name="ai_provider"]:checked')?.value || 'claude';
+            const payload = {
+                ai_provider:    provider,
+                claude_api_key: form.querySelector('[name="claude_api_key"]')?.value || '',
+                claude_model:   form.querySelector('[name="claude_model"]')?.value || '',
+                openai_api_key: form.querySelector('[name="openai_api_key"]')?.value || '',
+                openai_model:   form.querySelector('[name="openai_model"]')?.value || '',
+            };
             try {
                 const res = await fetch('<?= url('/settings/integrations/test-ai') ?>', {
                     method: 'POST',
-                    headers: { 'X-CSRF-Token': '<?= csrf_token() ?>', 'X-Requested-With': 'XMLHttpRequest' },
-                    body: fd,
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type':    'application/json',
+                        'Accept':          'application/json',
+                        'X-CSRF-Token':    '<?= csrf_token() ?>',
+                        'X-Requested-With':'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(payload),
                 });
-                const data = await res.json();
+                let data;
+                try { data = await res.json(); }
+                catch (parseErr) {
+                    out.textContent = '✗ Respuesta invalida (HTTP ' + res.status + '). Verifica que los archivos PHP esten subidos.';
+                    out.style.color = '#FB7185';
+                    return;
+                }
                 if (data.success) {
                     out.textContent = '✓ ' + (data.message || 'Conexion OK');
                     out.style.color = '#34D399';
@@ -252,7 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     out.style.color = '#FB7185';
                 }
             } catch (e) {
-                out.textContent = '✗ ' + e.message;
+                // "Failed to fetch" suele indicar bloqueo del firewall, mixed-content o el endpoint no existe.
+                out.textContent = '✗ No se pudo conectar al servidor (' + (e.message || 'fetch error') + '). Revisa que SettingsController.php y routes/web.php esten desplegados.';
                 out.style.color = '#FB7185';
             }
         });
