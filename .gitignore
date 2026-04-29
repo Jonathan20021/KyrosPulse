@@ -1,4 +1,6 @@
 /.env
+/.env.production
+/.env.*.local
 /vendor/
 /storage/logs/*
 /storage/cache/*

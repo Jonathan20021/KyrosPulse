@@ -110,7 +110,7 @@ Edita `.env` con tus credenciales:
 
 ```env
 # Wasapi (WhatsApp)
-WASAPI_BASE_URL=https://api.wasapi.io/api/v1
+WASAPI_BASE_URL=https://api-ws.wasapi.io/api/v1
 WASAPI_API_KEY=tu_api_key_global_o_por_tenant
 WASAPI_WEBHOOK_SECRET=secret_para_validar_firma
 
@@ -136,7 +136,7 @@ Cada **tenant** tambien puede sobrescribir sus propias `wasapi_api_key`, `resend
 | Multi-tenant | Listo | `tenant_id` en todas las tablas + middleware de aislamiento. |
 | Roles & permisos | Listo | 6 roles, ~25 permisos sembrados. |
 | Dashboard con metricas | Listo | KPIs, grafico Chart.js, alertas, top agentes. |
-| Servicio Wasapi | Listo | sendText/Media/Template + processWebhook + validateWebhook. |
+| Servicio Wasapi | Listo | sendText/Media/Template con `from_id` automatico + processWebhook + validateWebhook. |
 | Servicio Resend | Listo | sendEmail + plantillas HTML (verify, reset, invite). |
 | Servicio Claude | Listo | summarize, intent, suggestReply, scoreLead, autoReply, etc. |
 | Webhook Wasapi | Listo | `POST /webhooks/wasapi/{tenant_uuid}`. |

@@ -5,7 +5,7 @@
 
 return [
     'wasapi' => [
-        'base_url'       => rtrim(env('WASAPI_BASE_URL', 'https://api.wasapi.io/api/v1'), '/'),
+        'base_url'       => rtrim(env('WASAPI_BASE_URL', 'https://api-ws.wasapi.io/api/v1'), '/'),
         'api_key'        => env('WASAPI_API_KEY', ''),
         'webhook_secret' => env('WASAPI_WEBHOOK_SECRET', ''),
         'timeout'        => 30,

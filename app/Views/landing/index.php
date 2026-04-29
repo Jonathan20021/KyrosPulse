@@ -495,7 +495,7 @@
                         <span class="badge badge-emerald badge-dot">Active</span>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-1">Wasapi WhatsApp</h3>
-                    <div class="text-xs text-slate-500 font-mono mb-4">api.wasapi.io/v1</div>
+                    <div class="text-xs text-slate-500 font-mono mb-4">api-ws.wasapi.io/v1</div>
                     <p class="text-sm text-slate-400 mb-5">API oficial integrada para enviar y recibir mensajes en tiempo real.</p>
                     <ul class="space-y-2 text-sm">
                         <?php foreach (['Webhooks en tiempo real', 'Plantillas aprobadas', 'Multi-numero', 'Status de entrega'] as $item): ?>

@@ -4,86 +4,92 @@ Este documento describe como configurar y consumir el webhook publico de Kyros P
 
 ## URL del webhook
 
-```
+```http
 POST https://tudominio.com/webhooks/wasapi/{tenant_uuid}
 ```
 
 - `{tenant_uuid}` es el UUID de la empresa (campo `tenants.uuid`).
-- Cada empresa tiene su propio endpoint identificable por su UUID — esto evita pasar el `tenant_id` en headers o body.
+- Cada empresa tiene su propio endpoint identificable por su UUID. Esto evita pasar el `tenant_id` en headers o body.
 
 Encontraras tu UUID en **Configuracion -> Integracion WhatsApp** dentro del panel.
-
----
 
 ## Cabeceras
 
 | Header | Obligatorio | Notas |
 |--------|-------------|-------|
 | `Content-Type` | si | `application/json` |
-| `X-Wasapi-Signature` | recomendado | HMAC-SHA256 del body crudo con el `WASAPI_WEBHOOK_SECRET`. Si esta configurado, las firmas invalidas se rechazan con 401. |
+| `X-Wasapi-Signature` | opcional | HMAC-SHA256 del body crudo con `WASAPI_WEBHOOK_SECRET`. Si esta configurado, firmas invalidas se rechazan con 401. |
 
-### Calculo de la firma (lado Wasapi)
+### Calculo de la firma
 
 ```pseudo
-signature = HMAC_SHA256(secret, raw_body_string)  // hex lowercase
+signature = HMAC_SHA256(secret, raw_body_string)
 ```
 
-Kyros valida con `hash_equals` (timing-safe).
+Kyros valida con `hash_equals`.
 
----
-
-## Tipos de eventos soportados
+## Eventos soportados
 
 ### 1. Mensaje entrante
 
+Wasapi envia mensajes entrantes con `event = receive_message` y los datos reales dentro de `data`.
+
 ```json
 {
-  "type": "message",
-  "from": "+18091234567",
-  "contact": {
-    "name": "Maria Lopez"
-  },
-  "message": {
-    "text": "Hola, quiero mas informacion",
-    "type": "text",
-    "external_id": "wamid.HBgMNT..."
+  "event": "receive_message",
+  "data": {
+    "from_id": 21482,
+    "message": "Hola, quiero mas informacion",
+    "type": "in",
+    "message_type": "text",
+    "wa_id": "18091234567",
+    "wam_id": "wamid.HBgMNT...",
+    "status": "sent"
   }
 }
 ```
 
-**Que hace Kyros Pulse:**
-1. Busca el contacto por telefono (`+phone` normalizado).
+Kyros Pulse:
+
+1. Busca el contacto por telefono normalizado.
 2. Si no existe, lo crea con `source = 'whatsapp'`.
 3. Busca una conversacion abierta o crea una nueva.
-4. Guarda el mensaje en `messages` con `direction = 'inbound'`.
-5. Actualiza `last_interaction` del contacto y `last_message_at` de la conversacion.
-6. Devuelve `{ "success": true, "contact_id": ..., "conversation_id": ... }`.
+4. Guarda el mensaje con `direction = 'inbound'`.
+5. Actualiza `last_interaction`, `last_message_at` y `unread_count`.
+6. Devuelve `{ "success": true, "contact_id": ..., "conversation_id": ..., "message_id": ... }`.
 
-### 2. Tipos de mensaje soportados
+### 2. Multimedia e interactivos
 
-`text`, `image`, `document`, `audio`, `video`, `location`, `contact`, `sticker`, `template`.
-
-Para multimedia incluye `media_url`:
+Tipos soportados: `text`, `image`, `document`, `audio`, `video`, `location`, `contact`, `sticker`, `template`, `interactive`.
 
 ```json
 {
-  "from": "+18091234567",
-  "message": {
-    "type": "image",
-    "media_url": "https://cdn.wasapi.io/file/abc.jpg",
-    "text": "Mira esto",
-    "external_id": "wamid..."
+  "event": "receive_message",
+  "data": {
+    "type": "in",
+    "message_type": "image",
+    "wa_id": "18091234567",
+    "message": "Mira esto",
+    "wam_id": "wamid...",
+    "data": "https://cdn.wasapi.io/file/abc.jpg"
   }
 }
 ```
 
-### 3. Actualizacion de estado de mensaje saliente
+### 3. Estado o mensaje saliente
+
+Wasapi envia actualizaciones salientes con `event = status_message`. Si el mensaje no existe en Kyros, se registra como `direction = 'outbound'`; si ya existe, solo se actualiza el estado.
 
 ```json
 {
-  "type": "status",
-  "status": {
-    "external_id": "wamid.HBgMNT...",
+  "event": "status_message",
+  "data": {
+    "from_id": 21482,
+    "message": "Respuesta enviada",
+    "type": "out",
+    "message_type": "text",
+    "wa_id": "18091234567",
+    "wam_id": "wamid.HBgMNT...",
     "status": "delivered"
   }
 }
@@ -91,11 +97,15 @@ Para multimedia incluye `media_url`:
 
 Estados aceptados: `queued`, `sent`, `delivered`, `read`, `failed`, `received`.
 
-Kyros Pulse:
-- Busca el mensaje por `external_id` y `tenant_id`.
-- Actualiza el estado y los timestamps correspondientes (`sent_at`, `delivered_at`, `read_at`).
+## API saliente
 
----
+Kyros usa la API actual de Wasapi:
+
+- `GET /whatsapp-numbers` para resolver automaticamente el `from_id` desde `tenants.wasapi_phone`.
+- `POST /whatsapp-messages` para texto (`message`, `wa_id`, `from_id`).
+- `POST /whatsapp-messages/attachment` para multimedia.
+- `POST /whatsapp-messages/send-template` para plantillas.
+- `GET /whatsapp-templates` para consultar plantillas.
 
 ## Respuestas
 
@@ -104,14 +114,12 @@ Kyros Pulse:
 | `200` | Procesado correctamente. |
 | `401` | Firma invalida. |
 | `404` | UUID de tenant no encontrado. |
-| `429` | Rate limit excedido (60 req/min por IP/path por defecto). |
-| `500` | Error interno (revisa `whatsapp_logs`). |
-
----
+| `429` | Rate limit excedido. |
+| `500` | Error interno. |
 
 ## Logs
 
-Toda peticion al webhook se registra en `whatsapp_logs`:
+Toda peticion al webhook se registra en `whatsapp_logs` con el body original, respuesta de procesamiento, `success` y `error_message`.
 
 ```sql
 SELECT * FROM whatsapp_logs
@@ -119,36 +127,28 @@ WHERE tenant_id = ? AND direction = 'webhook'
 ORDER BY created_at DESC LIMIT 50;
 ```
 
----
-
-## Pruebas locales con curl
+## Prueba local
 
 ```bash
-curl -X POST "http://localhost/KyrosPulse/public/webhooks/wasapi/UUID-DEL-TENANT" \
+curl -X POST "http://localhost/KyrosPulse/webhooks/wasapi/UUID-DEL-TENANT" \
   -H "Content-Type: application/json" \
-  -H "X-Wasapi-Signature: $(echo -n '{...}' | openssl dgst -sha256 -hmac 'local-dev-secret' | awk '{print $2}')" \
   -d '{
-    "type": "message",
-    "from": "+18091234567",
-    "contact": { "name": "Test User" },
-    "message": { "text": "Hola Kyros", "type": "text", "external_id": "test-123" }
+    "event": "receive_message",
+    "data": {
+      "from_id": 21482,
+      "message": "Hola Kyros",
+      "type": "in",
+      "message_type": "text",
+      "wa_id": "18091234567",
+      "wam_id": "test-123"
+    }
   }'
 ```
 
----
-
 ## Configuracion en Wasapi
 
-1. Ingresa al panel de Wasapi -> **Webhooks**.
-2. URL: `https://tudominio.com/webhooks/wasapi/{tenant_uuid}`.
-3. Eventos a suscribir: **Message Received**, **Message Status**, **Contact Updated** (opcional).
-4. Secret: el mismo valor que pongas en `WASAPI_WEBHOOK_SECRET` del `.env`.
-
----
-
-## Buenas practicas
-
-- Activa siempre la firma HMAC en produccion.
-- Usa un `WASAPI_WEBHOOK_SECRET` largo y aleatorio (`openssl rand -hex 32`).
-- Monitorea `whatsapp_logs` para detectar payloads inesperados.
-- Implementa reintentos del lado Wasapi: respondemos `200` rapidamente y procesamos en linea, pero si por algo falla, Wasapi reintenta.
+1. Ingresa al panel de Wasapi -> **Desarrollador** -> **Webhooks**.
+2. Crea un webhook activo.
+3. URL: `https://tudominio.com/webhooks/wasapi/{tenant_uuid}`.
+4. Eventos recomendados: mensajes recibidos y estado de mensajes.
+5. Si usas secret, debe coincidir con `WASAPI_WEBHOOK_SECRET`.
