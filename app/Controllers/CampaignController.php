@@ -33,6 +33,12 @@ final class CampaignController extends Controller
             'page'   => 'campanas',
             'errors' => errors(),
             'tags'   => Tag::listForTenant($tenantId),
+            'templates' => Database::fetchAll(
+                "SELECT id, name, language, body, external_id FROM templates
+                 WHERE tenant_id = :t AND status = 'approved'
+                 ORDER BY name ASC",
+                ['t' => $tenantId]
+            ),
         ], 'layouts.app');
     }
 
@@ -41,9 +47,23 @@ final class CampaignController extends Controller
         $tenantId = Tenant::id();
         $data = $this->validate($request, [
             'name'    => 'required|min:3|max:150',
-            'message' => 'required|min:5',
             'channel' => 'in:whatsapp,email,sms',
         ]);
+
+        $templateId = $request->input('template_id') ? (int) $request->input('template_id') : null;
+        $message = trim((string) $request->input('message', ''));
+        $template = null;
+        if ($templateId) {
+            $template = Database::fetch(
+                "SELECT * FROM templates WHERE id = :id AND tenant_id = :t AND status = 'approved'",
+                ['id' => $templateId, 't' => $tenantId]
+            );
+        }
+        if (!$template && mb_strlen($message) < 5) {
+            Session::flash('error', 'Escribe un mensaje o selecciona una plantilla aprobada.');
+            $this->redirect('/campaigns/create');
+            return;
+        }
 
         $filters = [
             'status'       => $request->input('audience_status'),
@@ -60,7 +80,8 @@ final class CampaignController extends Controller
             'name'             => $data['name'],
             'description'      => $data['description'] ?? null,
             'channel'          => $data['channel'] ?? 'whatsapp',
-            'message'          => $data['message'],
+            'template_id'      => $template ? (int) $template['id'] : null,
+            'message'          => $template ? (string) $template['body'] : $message,
             'audience_filters' => json_encode($filters, JSON_UNESCAPED_UNICODE),
             'scheduled_at'     => !empty($data['scheduled_at']) ? $data['scheduled_at'] : null,
             'status'           => !empty($data['scheduled_at']) ? 'scheduled' : 'draft',
@@ -107,7 +128,7 @@ final class CampaignController extends Controller
         if (!$campaign) $this->abort(404);
 
         Campaign::update($tenantId, $id, ['status' => 'sending', 'started_at' => date('Y-m-d H:i:s')]);
-        $sent = $this->dispatchPending($tenantId, $id, (string) $campaign['message']);
+        $sent = $this->dispatchPending($tenantId, $campaign);
 
         Campaign::update($tenantId, $id, [
             'status'      => 'completed',
@@ -119,9 +140,18 @@ final class CampaignController extends Controller
         $this->redirect("/campaigns/$id");
     }
 
-    private function dispatchPending(int $tenantId, int $campaignId, string $message): int
+    private function dispatchPending(int $tenantId, array $campaign): int
     {
         $svc = new WasapiService($tenantId);
+        $campaignId = (int) $campaign['id'];
+        $message = (string) ($campaign['message'] ?? '');
+        $template = null;
+        if (!empty($campaign['template_id'])) {
+            $template = Database::fetch(
+                "SELECT * FROM templates WHERE id = :id AND tenant_id = :t",
+                ['id' => (int) $campaign['template_id'], 't' => $tenantId]
+            );
+        }
         $sent = 0;
         while (true) {
             $batch = Campaign::pendingRecipients($campaignId, 50);
@@ -132,7 +162,9 @@ final class CampaignController extends Controller
                     Campaign::recordSend((int) $r['id'], false, null, 'Sin telefono');
                     continue;
                 }
-                $resp = $svc->sendTextMessage($phone, $message);
+                $resp = $template
+                    ? $svc->sendTemplate($phone, (string) $template['external_id'])
+                    : $svc->sendTextMessage($phone, $this->interpolateCampaignMessage($message, $r));
                 Campaign::recordSend(
                     (int) $r['id'],
                     !empty($resp['success']),
@@ -144,6 +176,19 @@ final class CampaignController extends Controller
             }
         }
         return $sent;
+    }
+
+    private function interpolateCampaignMessage(string $message, array $recipient): string
+    {
+        $values = [
+            'first_name' => (string) ($recipient['first_name'] ?? ''),
+            'last_name'  => (string) ($recipient['last_name'] ?? ''),
+            'company'    => (string) ($recipient['company'] ?? ''),
+            'phone'      => (string) ($recipient['phone'] ?? ''),
+        ];
+        return preg_replace_callback('/\{\{([a-z0-9_]+)\}\}/i', static function ($m) use ($values) {
+            return $values[$m[1]] ?? $m[0];
+        }, $message) ?? $message;
     }
 
     public function destroy(Request $request, array $params): void

@@ -25,12 +25,12 @@ final class WasapiService
     private function credentials(): array
     {
         $tenant  = Tenant::findById($this->tenantId);
-        $apiKey  = $tenant['wasapi_api_key'] ?? '';
+        $apiKey  = trim((string) ($tenant['wasapi_api_key'] ?? ''));
         $phone   = (string) ($tenant['wasapi_phone'] ?? '');
-        $baseUrl = (string) config('services.wasapi.base_url');
+        $baseUrl = $this->normalizeBaseUrl((string) config('services.wasapi.base_url'));
 
         if ($apiKey === '') {
-            $apiKey = (string) config('services.wasapi.api_key');
+            $apiKey = trim((string) config('services.wasapi.api_key'));
         }
 
         return ['api_key' => $apiKey, 'base_url' => rtrim($baseUrl, '/'), 'phone' => $phone];
@@ -142,6 +142,8 @@ final class WasapiService
             'template_id'   => $templateName,
             'contact_type'  => 'phone',
             'from_id'       => $from['from_id'],
+            'conversation_status' => 'open',
+            'chatbot_status' => 'enable',
         ];
         if (!empty($variables)) {
             $payload['body_vars'] = $this->normalizeTemplateVars($variables);
@@ -170,6 +172,62 @@ final class WasapiService
         );
         $this->logRequest('/whatsapp-templates', [], $resp);
         return $resp;
+    }
+
+    public function syncTemplates(): array
+    {
+        $resp = $this->getTemplates();
+        if (empty($resp['success'])) {
+            return ['success' => false, 'synced' => 0, 'error' => $resp['error'] ?? 'No se pudieron consultar plantillas.'];
+        }
+
+        $items = $this->extractDataList($resp['body'] ?? []);
+        $synced = 0;
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $externalId = (string) ($item['uuid'] ?? $item['template_id'] ?? $item['id'] ?? '');
+            if ($externalId === '') {
+                continue;
+            }
+
+            $status = strtolower((string) ($item['status'] ?? 'draft'));
+            if (!in_array($status, ['draft','pending','approved','rejected','disabled'], true)) {
+                $status = $status === 'APPROVED' ? 'approved' : strtolower($status);
+            }
+            if (!in_array($status, ['draft','pending','approved','rejected','disabled'], true)) {
+                $status = 'draft';
+            }
+
+            $existing = Database::fetch(
+                "SELECT id FROM templates
+                 WHERE tenant_id = :t AND (external_id = :ext OR name = :name)
+                 LIMIT 1",
+                ['t' => $this->tenantId, 'ext' => $externalId, 'name' => (string) ($item['template_id'] ?? $item['name'] ?? $externalId)]
+            );
+
+            $data = [
+                'tenant_id'   => $this->tenantId,
+                'name'        => (string) ($item['template_id'] ?? $item['name'] ?? $externalId),
+                'category'    => (string) ($item['category'] ?? 'wasapi'),
+                'language'    => (string) ($item['language'] ?? 'es'),
+                'body'        => (string) ($item['body'] ?? ''),
+                'variables'   => !empty($item['variables']) ? json_encode($item['variables'], JSON_UNESCAPED_UNICODE) : null,
+                'external_id' => $externalId,
+                'status'      => $status,
+            ];
+
+            if ($existing) {
+                Database::update('templates', $data, ['id' => (int) $existing['id']]);
+            } else {
+                Database::insert('templates', $data);
+            }
+            $synced++;
+        }
+
+        return ['success' => true, 'synced' => $synced];
     }
 
     public function getWhatsappNumbers(): array
@@ -285,6 +343,7 @@ final class WasapiService
         ]);
 
         Contact::touchInteraction($this->tenantId, (int) $contact['id']);
+        $this->markCampaignReply($message['phone']);
 
         // Disparar evento para automatizaciones
         \App\Core\Events::dispatch('message.received', [
@@ -301,6 +360,22 @@ final class WasapiService
             'entity_type'     => 'message',
             'entity_id'       => $messageId,
         ]);
+
+        try {
+            (new AiAgentService($this->tenantId))->autoReplyToConversation(
+                $convId,
+                (int) $contact['id'],
+                $message['phone'],
+                $message['text'],
+                $messageId
+            );
+        } catch (\Throwable $e) {
+            Logger::error('No se pudo ejecutar agente IA automatico', [
+                'tenant' => $this->tenantId,
+                'conversation' => $convId,
+                'msg' => $e->getMessage(),
+            ]);
+        }
 
         return [
             'success'         => true,
@@ -405,6 +480,21 @@ final class WasapiService
             $params
         );
 
+        Database::run(
+            "UPDATE `campaign_recipients`
+             SET `status` = CASE
+                    WHEN :status = 'delivered' THEN 'delivered'
+                    WHEN :status = 'read' THEN 'read'
+                    WHEN :status = 'failed' THEN 'failed'
+                    ELSE `status`
+                 END,
+                 `delivered_at` = CASE WHEN :status IN ('delivered','read') AND `delivered_at` IS NULL THEN NOW() ELSE `delivered_at` END,
+                 `read_at` = CASE WHEN :status = 'read' THEN NOW() ELSE `read_at` END,
+                 `error_message` = CASE WHEN :status = 'failed' THEN 'Wasapi reporto fallo' ELSE `error_message` END
+             WHERE `tenant_id` = :tenant AND `external_id` = :ext",
+            ['status' => $status, 'tenant' => $this->tenantId, 'ext' => $extId]
+        );
+
         return ['success' => true];
     }
 
@@ -444,6 +534,16 @@ final class WasapiService
     private function normalizePhone(string $phone): string
     {
         return preg_replace('/[^\d+]/', '', $phone) ?? $phone;
+    }
+
+    private function normalizeBaseUrl(string $baseUrl): string
+    {
+        $baseUrl = rtrim(trim($baseUrl), '/');
+        if ($baseUrl === '' || str_contains($baseUrl, 'api.wasapi.io')) {
+            return 'https://api-ws.wasapi.io/api/v1';
+        }
+
+        return $baseUrl;
     }
 
     private function normalizeWaId(string $phone): string
@@ -533,7 +633,7 @@ final class WasapiService
     {
         $vars = [];
         foreach ($variables as $value) {
-            $vars[] = is_array($value) ? $value : ['value' => (string) $value];
+            $vars[] = is_array($value) ? $value : ['text' => '{{' . (count($vars) + 1) . '}}', 'val' => (string) $value];
         }
         return $vars;
     }
@@ -767,6 +867,25 @@ final class WasapiService
                 'id'      => $id,
                 'tenant'  => $this->tenantId,
             ]
+        );
+    }
+
+    private function markCampaignReply(string $phone): void
+    {
+        $digits = $this->normalizeWaId($phone);
+        if ($digits === '') {
+            return;
+        }
+
+        Database::run(
+            "UPDATE campaign_recipients
+             SET status = 'replied', replied_at = NOW()
+             WHERE tenant_id = :tenant
+               AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE :phone
+               AND status IN ('sent','delivered','read')
+             ORDER BY id DESC
+             LIMIT 1",
+            ['tenant' => $this->tenantId, 'phone' => '%' . $digits]
         );
     }
 }

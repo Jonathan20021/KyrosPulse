@@ -40,6 +40,7 @@ final class Automation
         'create_ticket'      => 'Crear ticket',
         'notify'             => 'Notificar usuario',
         'run_ai_reply'       => 'Responder con IA',
+        'call_webhook'       => 'Llamar webhook/API',
     ];
 
     public static function listForTenant(int $tenantId): array

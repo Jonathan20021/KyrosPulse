@@ -20,7 +20,7 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
                     <h2 class="font-bold text-[15px]" style="color: var(--color-text-primary);">Bandeja</h2>
-                    <span class="badge badge-primary badge-dot"><?= count($conversations) ?></span>
+                    <span id="inboxCount" class="badge badge-primary badge-dot"><?= count($conversations) ?></span>
                 </div>
                 <button class="btn btn-ghost btn-icon" title="Filtros">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
@@ -391,6 +391,8 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 const convId = <?= $activeId ?>;
 const msgsContainer = document.getElementById('msgs');
 const msgInput = document.getElementById('msgInput');
+let messageFingerprint = null;
+let inboxLatest = null;
 
 if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 if (msgInput) {
@@ -411,11 +413,58 @@ async function sendMessage() {
             body: JSON.stringify({ message: text, is_internal: isInternal ? 1 : 0 })
         });
         const data = await res.json();
-        if (data.success) { msgInput.value = ''; location.reload(); }
-        else alert('Error: ' + (data.error || ''));
+        if (data.success) {
+            msgInput.value = '';
+            await pollMessages(true);
+            if (data.sent === false) {
+                alert('Wasapi no acepto el envio: ' + (data.whatsapp_error || 'Error desconocido'));
+            }
+        } else alert('Error: ' + (data.error || ''));
     } catch (e) { alert('Error: ' + e.message); }
     finally { msgInput.disabled = false; }
 }
+
+async function pollMessages(force = false) {
+    if (!msgsContainer) return;
+    try {
+        const res = await fetch('<?= url('/inbox/') ?>' + convId + '/messages', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        if (!data.success) return;
+        const atBottom = msgsContainer.scrollTop + msgsContainer.clientHeight >= msgsContainer.scrollHeight - 80;
+        if (force || (messageFingerprint !== null && data.fingerprint !== messageFingerprint)) {
+            msgsContainer.innerHTML = data.html;
+            if (atBottom || force) msgsContainer.scrollTop = msgsContainer.scrollHeight;
+        }
+        messageFingerprint = data.fingerprint;
+    } catch (e) {}
+}
+
+async function pollInboxState() {
+    try {
+        const res = await fetch('<?= url('/inbox/live') ?>', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        if (!data.success) return;
+        const badge = document.getElementById('inboxCount');
+        if (badge) badge.textContent = data.count;
+        if (inboxLatest !== null && data.latest !== inboxLatest && !document.hidden) {
+            await pollMessages(false);
+        }
+        inboxLatest = data.latest;
+    } catch (e) {}
+}
+
+pollMessages(false);
+pollInboxState();
+setInterval(() => {
+    if (!document.hidden) {
+        pollMessages(false);
+        pollInboxState();
+    }
+}, 3000);
 
 async function aiAction(action) {
     const panel = document.getElementById('aiPanel');

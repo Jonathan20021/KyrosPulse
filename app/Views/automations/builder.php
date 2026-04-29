@@ -148,6 +148,11 @@ $logs       = $logs ?? [];
                             <option value="low">Baja</option>
                         </select>
                     </div>
+
+                    <div x-show="a.type === 'call_webhook'" class="space-y-2">
+                        <input type="url" :name="`actions[${i}][params][url]`" x-model="a.params.url" placeholder="https://hook.make.com/..." class="w-full px-2 py-1.5 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900 text-sm">
+                        <p class="text-xs dark:text-slate-400 text-slate-500">Envia el evento completo a Make, n8n, Zapier o tu API.</p>
+                    </div>
                 </div>
             </template>
             <p x-show="items.length === 0" class="text-xs dark:text-slate-500 text-slate-400 italic">Sin acciones aun. Agrega al menos una.</p>

@@ -70,7 +70,7 @@ final class Campaign
                     'tenant_id'   => $tenantId,
                     'campaign_id' => $campaignId,
                     'contact_id'  => (int) $c['id'],
-                    'phone'       => $c['phone'] ?? null,
+                    'phone'       => $c['whatsapp'] ?: ($c['phone'] ?? null),
                     'email'       => $c['email'] ?? null,
                     'status'      => 'pending',
                 ]);
@@ -86,7 +86,11 @@ final class Campaign
     public static function pendingRecipients(int $campaignId, int $limit = 100): array
     {
         return Database::fetchAll(
-            "SELECT * FROM campaign_recipients WHERE campaign_id = :c AND status = 'pending' LIMIT $limit",
+            "SELECT cr.*, c.first_name, c.last_name, c.company
+             FROM campaign_recipients cr
+             INNER JOIN contacts c ON c.id = cr.contact_id
+             WHERE cr.campaign_id = :c AND cr.status = 'pending'
+             LIMIT $limit",
             ['c' => $campaignId]
         );
     }

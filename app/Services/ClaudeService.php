@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Core\Database;
 use App\Core\Logger;
+use App\Models\AiAgent;
 
 /**
  * Servicio de integracion con Claude (Anthropic) para tareas de IA.
@@ -34,18 +35,34 @@ final class ClaudeService
 
     private function model(): string
     {
+        $agent = $this->defaultAgent();
+        if (!empty($agent['model'])) return (string) $agent['model'];
+
         $cfg = $this->tenantConfig();
         if (!empty($cfg['claude_model'])) return $cfg['claude_model'];
         return (string) config('services.claude.model', 'claude-sonnet-6');
     }
 
+    private function defaultAgent(): ?array
+    {
+        try {
+            return AiAgent::findDefault($this->tenantId);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function buildSystemPrompt(string $feature): string
     {
         $cfg = $this->tenantConfig();
+        $agent = $this->defaultAgent();
         $brand = $cfg['name'] ?? 'la empresa';
-        $assistant = $cfg['ai_assistant_name'] ?? 'Asistente IA';
-        $tone = $cfg['ai_tone'] ?? 'profesional, cercano y claro';
+        $assistant = $agent['name'] ?? $cfg['ai_assistant_name'] ?? 'Asistente IA';
+        $tone = $agent['tone'] ?? $cfg['ai_tone'] ?? 'profesional, cercano y claro';
         $lang = $cfg['language'] ?? 'es';
+        $role = trim((string) ($agent['role'] ?? ''));
+        $objective = trim((string) ($agent['objective'] ?? ''));
+        $instructions = trim((string) ($agent['instructions'] ?? ''));
 
         // Cargar base de conocimiento (max 20 entradas)
         $kb = Database::fetchAll(
@@ -63,6 +80,8 @@ final class ClaudeService
 Eres "$assistant", asistente IA oficial de $brand.
 Tono de comunicacion: $tone.
 Idioma principal: $lang.
+Rol: {$role}
+Objetivo: {$objective}
 
 Reglas:
 - Responde siempre como representante de $brand.
@@ -70,8 +89,13 @@ Reglas:
 - Si no sabes, no inventes. Sugiere transferir a un agente humano.
 - Si el cliente pide hablar con humano, responde "Te conecto con un agente." y devuelve la marca [TRANSFER].
 - Mantente breve, util y orientado a resolver.
+- No digas que eres un modelo de IA. Actua como parte del equipo de $brand.
+- Si puedes cerrar una venta, pedir datos o avanzar una orden, hazlo con una pregunta concreta.
 
 Tarea actual: $feature
+
+Instrucciones especificas del agente:
+$instructions
 
 Base de conocimiento de $brand:
 $kbText

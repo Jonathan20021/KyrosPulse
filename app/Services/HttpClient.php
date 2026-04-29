@@ -58,12 +58,18 @@ final class HttpClient
             $decoded = json_decode($response, true);
         }
 
+        $body = is_array($decoded) ? $decoded : ['raw' => $response];
+        $message = $error;
+        if ($message === '' && !($status >= 200 && $status < 300)) {
+            $message = self::extractErrorMessage($body);
+        }
+
         return [
             'status'      => $status,
             'success'     => $status >= 200 && $status < 300,
-            'body'        => is_array($decoded) ? $decoded : ['raw' => $response],
+            'body'        => $body,
             'raw'         => is_string($response) ? $response : '',
-            'error'       => $error,
+            'error'       => $message,
             'duration_ms' => $duration,
         ];
     }
@@ -77,5 +83,21 @@ final class HttpClient
     {
         $headers['Content-Type'] = $headers['Content-Type'] ?? 'application/json';
         return self::request('POST', $url, $headers, $body, $timeout);
+    }
+
+    private static function extractErrorMessage(array $body): string
+    {
+        foreach (['message', 'error', 'detail'] as $key) {
+            if (!empty($body[$key])) {
+                if (is_string($body[$key])) {
+                    return $body[$key];
+                }
+                if (is_array($body[$key]) && !empty($body[$key]['message'])) {
+                    return (string) $body[$key]['message'];
+                }
+            }
+        }
+
+        return isset($body['raw']) && is_string($body['raw']) ? mb_substr($body['raw'], 0, 500) : '';
     }
 }

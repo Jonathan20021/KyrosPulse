@@ -51,10 +51,10 @@ try {
         $pdo->exec("USE `$dbName`");
     }
 
-    $files = [
-        __DIR__ . '/database/migrations/001_initial_schema.sql',
-        __DIR__ . '/database/seeders/001_basic_data.sql',
-    ];
+    $files = array_merge(
+        glob(__DIR__ . '/database/migrations/*.sql') ?: [],
+        glob(__DIR__ . '/database/seeders/*.sql') ?: []
+    );
 
     foreach ($files as $file) {
         if (!is_file($file)) {

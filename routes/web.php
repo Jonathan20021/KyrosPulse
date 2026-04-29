@@ -76,6 +76,8 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
 
     // Inbox
     $r->get   ('/inbox',                    [InboxController::class, 'index']);
+    $r->get   ('/inbox/live',               [InboxController::class, 'live']);
+    $r->get   ('/inbox/{id}/messages',      [InboxController::class, 'messages']);
     $r->get   ('/inbox/{id}',               [InboxController::class, 'index']);
     $r->post  ('/inbox/{id}/send',          [InboxController::class, 'send']);
     $r->post  ('/inbox/{id}/assign',        [InboxController::class, 'assign'])->middleware('csrf');
@@ -125,8 +127,12 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->put('/settings',                  [SettingsController::class, 'updateGeneral'])->middleware('csrf');
     $r->get('/settings/integrations',     [SettingsController::class, 'integrations']);
     $r->put('/settings/integrations',     [SettingsController::class, 'updateIntegrations'])->middleware('csrf');
+    $r->post('/settings/integrations/wasapi/templates/sync', [SettingsController::class, 'syncWasapiTemplates'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
+    $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');
+    $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
+    $r->delete('/settings/ai/agents/{id}', [SettingsController::class, 'aiAgentDelete'])->middleware('csrf');
     $r->post('/settings/ai/knowledge',    [SettingsController::class, 'knowledgeStore'])->middleware('csrf');
     $r->delete('/settings/ai/knowledge/{id}', [SettingsController::class, 'knowledgeDelete'])->middleware('csrf');
     $r->get('/settings/users',            [SettingsController::class, 'users']);

@@ -2,6 +2,7 @@
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
 $errors = $errors ?? [];
+$templates = $templates ?? [];
 ?>
 <?php \App\Core\View::include('components.page_header', ['title' => 'Nueva campana', 'subtitle' => 'Define audiencia, mensaje y programacion.']); ?>
 
@@ -18,9 +19,19 @@ $errors = $errors ?? [];
                 <option value="email">Email</option>
                 <option value="sms">SMS</option>
             </select>
-            <textarea name="message" rows="6" required placeholder="Escribe tu mensaje. Variables: {{first_name}}, {{company}}"
+            <label class="text-xs uppercase tracking-wider dark:text-slate-400 text-slate-500">Plantilla aprobada Wasapi (opcional)</label>
+            <select name="template_id" class="w-full mt-1 mb-3 px-4 py-2.5 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-xl dark:text-white text-slate-900">
+                <option value="">Enviar mensaje libre dentro de ventana de conversacion</option>
+                <?php foreach ($templates as $tpl): ?>
+                <option value="<?= (int) $tpl['id'] ?>"><?= e($tpl['name']) ?> · <?= e($tpl['language']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <textarea name="message" rows="6" placeholder="Escribe tu mensaje. Variables: {{first_name}}, {{last_name}}, {{company}}. Para envios fuera de 24h usa una plantilla aprobada."
                       class="w-full px-4 py-2.5 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-xl dark:text-white text-slate-900"><?= old('message') ?></textarea>
             <p class="text-xs dark:text-slate-400 text-slate-500 mt-2">Variables disponibles: <code>{{first_name}}</code> <code>{{last_name}}</code> <code>{{company}}</code></p>
+            <?php if (empty($templates)): ?>
+            <p class="text-xs text-amber-400 mt-2">No hay plantillas aprobadas sincronizadas. Ve a Integraciones y usa "Sincronizar plantillas".</p>
+            <?php endif; ?>
         </div>
 
         <div class="glass rounded-2xl p-5">

@@ -10,12 +10,14 @@ use App\Core\Database;
 use App\Core\Request;
 use App\Core\Session;
 use App\Core\Tenant;
+use App\Models\AiAgent;
 use App\Models\KnowledgeBase;
 use App\Models\QuickReply;
 use App\Models\Role;
 use App\Models\Tenant as TenantModel;
 use App\Models\User;
 use App\Services\ResendService;
+use App\Services\WasapiService;
 
 final class SettingsController extends Controller
 {
@@ -92,15 +94,33 @@ final class SettingsController extends Controller
         $this->redirect('/settings/integrations');
     }
 
+    public function syncWasapiTemplates(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $result = (new WasapiService($tenantId))->syncTemplates();
+        if (!empty($result['success'])) {
+            Session::flash('success', 'Plantillas sincronizadas: ' . (int) ($result['synced'] ?? 0));
+        } else {
+            Session::flash('error', 'No se pudieron sincronizar plantillas: ' . ($result['error'] ?? 'Error Wasapi'));
+        }
+        $this->redirect('/settings/integrations');
+    }
+
     public function ai(Request $request): void
     {
         $tenantId = Tenant::id();
         $tenant = TenantModel::findById($tenantId);
+        try {
+            $agents = AiAgent::listForTenant($tenantId);
+        } catch (\Throwable) {
+            $agents = [];
+        }
         $this->view('settings.ai', [
             'page'      => 'configuracion',
             'tab'       => 'ai',
             'tenant'    => $tenant,
             'knowledge' => KnowledgeBase::listForTenant($tenantId),
+            'agents'    => $agents,
         ], 'layouts.app');
     }
 
@@ -112,6 +132,66 @@ final class SettingsController extends Controller
         Database::update('tenants', $data, ['id' => $tenantId]);
         Audit::log('settings.ai', 'tenant', $tenantId);
         Session::flash('success', 'Configuracion de IA actualizada.');
+        $this->redirect('/settings/ai');
+    }
+
+    public function aiAgentStore(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $data = $this->validate($request, [
+            'name' => 'required|min:2|max:120',
+        ]);
+
+        $autoReply = !empty($request->input('auto_reply_enabled')) ? 1 : 0;
+        AiAgent::create([
+            'tenant_id' => $tenantId,
+            'name' => $data['name'],
+            'role' => trim((string) $request->input('role', '')),
+            'objective' => trim((string) $request->input('objective', '')),
+            'instructions' => trim((string) $request->input('instructions', '')),
+            'tone' => trim((string) $request->input('tone', 'profesional, claro y orientado a vender')),
+            'model' => trim((string) $request->input('model', '')),
+            'auto_reply_enabled' => $autoReply,
+            'is_default' => !empty($request->input('is_default')) ? 1 : 0,
+            'handoff_keywords' => json_encode(['humano','agente','asesor','soporte'], JSON_UNESCAPED_UNICODE),
+            'allowed_actions' => json_encode(['send_whatsapp','create_ticket','assign_agent','add_tag'], JSON_UNESCAPED_UNICODE),
+            'status' => 'active',
+        ]);
+        if ($autoReply) {
+            Database::update('tenants', ['ai_enabled' => 1], ['id' => $tenantId]);
+        }
+
+        Session::flash('success', 'Agente IA creado.');
+        $this->redirect('/settings/ai');
+    }
+
+    public function aiAgentToggle(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $id = (int) ($params['id'] ?? 0);
+        $agent = \App\Core\Database::fetch(
+            "SELECT * FROM ai_agents WHERE id = :id AND tenant_id = :t",
+            ['id' => $id, 't' => $tenantId]
+        );
+        if (!$agent) $this->abort(404);
+
+        AiAgent::update($tenantId, $id, [
+            'auto_reply_enabled' => empty($agent['auto_reply_enabled']) ? 1 : 0,
+            'is_default' => 1,
+        ]);
+        if (empty($agent['auto_reply_enabled'])) {
+            Database::update('tenants', ['ai_enabled' => 1], ['id' => $tenantId]);
+        }
+
+        Session::flash('success', empty($agent['auto_reply_enabled']) ? 'Agente IA activado.' : 'Agente IA pausado.');
+        $this->redirect('/settings/ai');
+    }
+
+    public function aiAgentDelete(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        AiAgent::delete($tenantId, (int) ($params['id'] ?? 0));
+        Session::flash('success', 'Agente IA eliminado.');
         $this->redirect('/settings/ai');
     }
 

@@ -30,6 +30,13 @@ foreach ($campaigns as $c) {
     ], ['id' => $c['id']]);
 
     $svc = new WasapiService($tenantId);
+    $template = null;
+    if (!empty($c['template_id'])) {
+        $template = Database::fetch(
+            "SELECT * FROM templates WHERE id = :id AND tenant_id = :t",
+            ['id' => (int) $c['template_id'], 't' => $tenantId]
+        );
+    }
     $sent = 0;
 
     while (true) {
@@ -41,7 +48,9 @@ foreach ($campaigns as $c) {
                 Campaign::recordSend((int) $r['id'], false, null, 'Sin telefono');
                 continue;
             }
-            $resp = $svc->sendTextMessage($phone, (string) $c['message']);
+            $resp = $template
+                ? $svc->sendTemplate($phone, (string) $template['external_id'])
+                : $svc->sendTextMessage($phone, (string) $c['message']);
             Campaign::recordSend(
                 (int) $r['id'],
                 !empty($resp['success']),

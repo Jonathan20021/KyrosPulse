@@ -40,6 +40,13 @@
             </div>
             <p class="text-xs dark:text-slate-400 text-slate-500 mt-2">Configura este URL en tu cuenta Wasapi como webhook de eventos.</p>
         </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+            <form action="<?= url('/settings/integrations/wasapi/templates/sync') ?>" method="POST">
+                <?= csrf_field() ?>
+                <button type="submit" class="px-3 py-2 rounded-lg glass text-xs dark:text-white text-slate-900">Sincronizar plantillas</button>
+            </form>
+            <span class="text-xs dark:text-slate-400 text-slate-500">Trae las plantillas aprobadas de Wasapi para campanas fuera de ventana.</span>
+        </div>
     </div>
 
     <!-- Resend -->

@@ -101,7 +101,7 @@ final class InboxController extends Controller
                 'status'        => $whatsappResult['success'] ? 'sent' : 'failed',
                 'external_id'   => $whatsappResult['body']['id'] ?? null,
                 'sent_at'       => $whatsappResult['success'] ? date('Y-m-d H:i:s') : null,
-                'error_message' => $whatsappResult['success'] ? null : ($whatsappResult['error'] ?? 'Error envio'),
+                'error_message' => $whatsappResult['success'] ? null : ($whatsappResult['error'] ?: 'Error envio'),
             ], ['id' => $messageId]);
         }
 
@@ -117,6 +117,57 @@ final class InboxController extends Controller
             'message_id'=> $messageId,
             'sent'      => $whatsappResult['success'] ?? true,
             'whatsapp_error' => !($whatsappResult['success'] ?? true) ? ($whatsappResult['error'] ?? '') : null,
+        ]);
+    }
+
+    public function messages(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $convId = (int) ($params['id'] ?? 0);
+        $conv = Conversation::findById($tenantId, $convId);
+        if (!$conv) {
+            $this->json(['success' => false, 'error' => 'Conversacion no encontrada.'], 404);
+            return;
+        }
+
+        $messages = Message::listByConversation($tenantId, $convId);
+        Conversation::markRead($tenantId, $convId);
+
+        $fingerprint = hash('sha256', json_encode(array_map(
+            static fn ($m) => [$m['id'], $m['status'], $m['external_id'], $m['updated_at']],
+            $messages
+        ), JSON_UNESCAPED_UNICODE) ?: '');
+
+        $this->json([
+            'success'     => true,
+            'fingerprint' => $fingerprint,
+            'max_id'      => empty($messages) ? 0 : (int) max(array_column($messages, 'id')),
+            'html'        => $this->renderMessagesHtml($messages),
+        ]);
+    }
+
+    public function live(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $filters = [
+            'status'  => (string) $request->query('status', ''),
+            'agent'   => $request->query('agent') ?: null,
+            'channel' => (string) $request->query('channel', ''),
+            'q'       => trim((string) $request->query('q', '')),
+        ];
+
+        $rows = Conversation::listFiltered($tenantId, $filters, 80);
+        $this->json([
+            'success' => true,
+            'count'   => count($rows),
+            'latest'  => $rows[0]['last_message_at'] ?? null,
+            'rows'    => array_map(static fn ($c) => [
+                'id' => (int) $c['id'],
+                'name' => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')) ?: ($c['phone'] ?? 'Sin nombre'),
+                'last_message' => (string) ($c['last_message'] ?? ''),
+                'unread_count' => (int) ($c['unread_count'] ?? 0),
+                'last_message_at' => (string) ($c['last_message_at'] ?? $c['updated_at']),
+            ], $rows),
         ]);
     }
 
@@ -232,5 +283,54 @@ final class InboxController extends Controller
         }
 
         $this->json(['success' => false, 'error' => 'No se pudo conectar con Claude. Verifica tu API key.']);
+    }
+
+    private function renderMessagesHtml(array $messages): string
+    {
+        ob_start();
+        $currentDate = '';
+        foreach ($messages as $m):
+            $msgDate = date('Y-m-d', strtotime((string) $m['created_at']));
+            if ($msgDate !== $currentDate):
+                $currentDate = $msgDate;
+                $todayLabel = date('Y-m-d') === $msgDate ? 'Hoy' : (date('Y-m-d', strtotime('-1 day')) === $msgDate ? 'Ayer' : date('d M', strtotime($msgDate)));
+        ?>
+            <div class="flex justify-center my-4">
+                <span class="px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em]" style="background: var(--color-bg-elevated); color: var(--color-text-tertiary); border: 1px solid var(--color-border-subtle);"><?= $todayLabel ?></span>
+            </div>
+        <?php endif;
+            $isOut = $m['direction'] === 'outbound';
+            $internal = !empty($m['is_internal']);
+            $aiGen = !empty($m['is_ai_generated']);
+        ?>
+            <div class="flex <?= $isOut ? 'justify-end' : 'justify-start' ?> animate-fade-in" data-message-id="<?= (int) $m['id'] ?>">
+                <div class="max-w-[75%]">
+                    <?php if ($internal): ?>
+                    <div class="px-4 py-3 rounded-2xl rounded-bl-sm border" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); color: #FBBF24;">
+                        <div class="text-[10px] uppercase font-semibold tracking-wider mb-1.5">Nota interna</div>
+                        <div class="text-sm whitespace-pre-line"><?= e((string) $m['content']) ?></div>
+                    </div>
+                    <?php else: ?>
+                    <div class="px-4 py-2.5 <?= $isOut ? 'rounded-2xl rounded-br-sm text-white' : 'rounded-2xl rounded-bl-sm' ?>"
+                         style="<?= $isOut ? 'background: var(--gradient-primary); box-shadow: 0 2px 8px rgba(124,58,237,.25);' : 'background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); color: var(--color-text-primary); box-shadow: var(--shadow-xs);' ?>">
+                        <?php if ($aiGen): ?><div class="text-[10px] opacity-80 mb-1">Generado por IA</div><?php endif; ?>
+                        <?php if (!empty($m['media_url'])): ?>
+                        <div class="mb-2 text-xs opacity-80"><a href="<?= e($m['media_url']) ?>" target="_blank" class="underline">Adjunto</a></div>
+                        <?php endif; ?>
+                        <div class="text-sm leading-relaxed whitespace-pre-line"><?= e((string) $m['content']) ?></div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="text-[10px] mt-1.5 flex items-center gap-1 <?= $isOut ? 'justify-end' : '' ?>" style="color: var(--color-text-muted);">
+                        <?php if (!empty($m['first_name'])): ?><span class="font-medium"><?= e($m['first_name']) ?></span><span>&middot;</span><?php endif; ?>
+                        <span class="font-mono"><?= date('H:i', strtotime((string) $m['created_at'])) ?></span>
+                        <?php if ($isOut): ?><span><?= e((string) $m['status']) ?></span><?php endif; ?>
+                    </div>
+                    <?php if (!empty($m['error_message'])): ?>
+                    <div class="text-[10px] mt-1 text-red-400 text-right"><?= e((string) $m['error_message']) ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endforeach;
+        return (string) ob_get_clean();
     }
 }

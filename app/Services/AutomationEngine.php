@@ -194,8 +194,28 @@ final class AutomationEngine
                 if ($phone === '' || $msg === '') {
                     return ['type' => $type, 'success' => false, 'reason' => 'phone/message vacios'];
                 }
+                $messageId = null;
+                if (!empty($payload['conversation_id']) && !empty($payload['contact_id'])) {
+                    $messageId = Database::insert('messages', [
+                        'tenant_id'       => $tenantId,
+                        'conversation_id' => (int) $payload['conversation_id'],
+                        'contact_id'      => (int) $payload['contact_id'],
+                        'direction'       => 'outbound',
+                        'type'            => 'text',
+                        'content'         => $msg,
+                        'status'          => 'queued',
+                    ]);
+                }
                 $r = (new WasapiService($tenantId))->sendTextMessage($phone, $msg);
-                return ['type' => $type, 'success' => !empty($r['success'])];
+                if ($messageId) {
+                    Database::update('messages', [
+                        'status'        => !empty($r['success']) ? 'sent' : 'failed',
+                        'external_id'   => $r['body']['id'] ?? null,
+                        'sent_at'       => !empty($r['success']) ? date('Y-m-d H:i:s') : null,
+                        'error_message' => !empty($r['success']) ? null : ($r['error'] ?: 'Error envio Wasapi'),
+                    ], ['id' => $messageId]);
+                }
+                return ['type' => $type, 'success' => !empty($r['success']), 'message_id' => $messageId, 'error' => $r['error'] ?? null];
 
             case 'send_email':
                 $to      = (string) ($params['to'] ?? $payload['contact_email'] ?? '');
@@ -282,35 +302,39 @@ final class AutomationEngine
                 ]);
                 return ['type' => $type, 'success' => true];
 
+            case 'call_webhook':
+                $url = (string) ($params['url'] ?? '');
+                if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+                    return ['type' => $type, 'success' => false, 'reason' => 'url invalida'];
+                }
+                $body = [
+                    'event' => (string) ($payload['_event'] ?? ''),
+                    'tenant_id' => $tenantId,
+                    'payload' => $payload,
+                ];
+                $resp = HttpClient::post($url, $body, [
+                    'Accept' => 'application/json',
+                    'X-Kyros-Event' => (string) ($payload['_event'] ?? ''),
+                ], 20);
+                return [
+                    'type' => $type,
+                    'success' => !empty($resp['success']),
+                    'status' => $resp['status'] ?? null,
+                    'error' => $resp['error'] ?? null,
+                ];
+
             case 'run_ai_reply':
                 $convId = (int) ($payload['conversation_id'] ?? 0);
                 $msg    = (string) ($payload['message_content'] ?? '');
                 if (!$convId || $msg === '') return ['type' => $type, 'success' => false];
-                $ai = (new ClaudeService($tenantId))->autoReply($msg);
-                if (!empty($ai['success']) && trim((string) $ai['text']) !== '') {
-                    $reply = trim((string) $ai['text']);
-                    $contactId = (int) ($payload['contact_id'] ?? 0);
-                    $phone = (string) ($payload['contact_phone'] ?? '');
-
-                    // Guardar mensaje saliente
-                    Database::insert('messages', [
-                        'tenant_id'       => $tenantId,
-                        'conversation_id' => $convId,
-                        'contact_id'      => $contactId,
-                        'direction'       => 'outbound',
-                        'type'            => 'text',
-                        'content'         => $reply,
-                        'is_ai_generated' => 1,
-                        'status'          => 'queued',
-                    ]);
-
-                    // Enviar por Wasapi si hay telefono
-                    if ($phone !== '') {
-                        (new WasapiService($tenantId))->sendTextMessage($phone, $reply);
-                    }
-                    return ['type' => $type, 'success' => true, 'reply' => $reply];
-                }
-                return ['type' => $type, 'success' => false];
+                $result = (new AiAgentService($tenantId))->autoReplyToConversation(
+                    $convId,
+                    (int) ($payload['contact_id'] ?? 0),
+                    (string) ($payload['contact_phone'] ?? ''),
+                    $msg,
+                    isset($payload['entity_id']) ? (int) $payload['entity_id'] : null
+                );
+                return ['type' => $type] + $result;
 
             default:
                 return ['type' => $type, 'success' => false, 'reason' => 'tipo desconocido'];
