@@ -10,6 +10,7 @@ use App\Controllers\AdminController;
 use App\Controllers\AuthController;
 use App\Controllers\AutomationController;
 use App\Controllers\CampaignController;
+use App\Controllers\ChangelogController;
 use App\Controllers\ContactController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeController;
@@ -23,6 +24,7 @@ use App\Controllers\TicketController;
 
 // ------------------- Publico -------------------
 $router->get('/', [HomeController::class, 'index']);
+$router->get('/changelog', [ChangelogController::class, 'publicIndex']);
 
 // ------------------- Auth (guest) -------------------
 $router->group(['middleware' => ['guest']], function ($r) {
@@ -160,11 +162,46 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
 // ------------------- Super Admin -------------------
 $router->group(['middleware' => ['auth', 'super']], function ($r) {
     $r->get('/admin',                       [AdminController::class, 'dashboard']);
-    $r->get('/admin/tenants',               [AdminController::class, 'tenants']);
-    $r->put('/admin/tenants/{id}',          [AdminController::class, 'tenantUpdate'])->middleware('csrf');
-    $r->post('/admin/tenants/{id}/suspend', [AdminController::class, 'tenantSuspend'])->middleware('csrf');
-    $r->post('/admin/tenants/{id}/activate',[AdminController::class, 'tenantActivate'])->middleware('csrf');
+
+    // Empresas / licencias
+    $r->get ('/admin/tenants',                       [AdminController::class, 'tenants']);
+    $r->get ('/admin/tenants/create',                [AdminController::class, 'tenantCreateForm']);
+    $r->post('/admin/tenants',                       [AdminController::class, 'tenantCreate'])->middleware('csrf');
+    $r->put ('/admin/tenants/{id}',                  [AdminController::class, 'tenantUpdate'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/suspend',          [AdminController::class, 'tenantSuspend'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/activate',         [AdminController::class, 'tenantActivate'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/extend-trial',     [AdminController::class, 'tenantExtendTrial'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/expiry',           [AdminController::class, 'tenantSetExpiry'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/impersonate',      [AdminController::class, 'tenantImpersonate'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/ai-assign',        [AdminController::class, 'tenantAiAssign'])->middleware('csrf');
+
+    // Usuarios (todos los tenants)
+    $r->get   ('/admin/users',                  [AdminController::class, 'usersIndex']);
+    $r->post  ('/admin/users/{id}/toggle',      [AdminController::class, 'userToggleActive'])->middleware('csrf');
+    $r->post  ('/admin/users/{id}/reset-pass',  [AdminController::class, 'userResetPassword'])->middleware('csrf');
+    $r->delete('/admin/users/{id}',             [AdminController::class, 'userDelete'])->middleware('csrf');
+
+    // AI Providers globales
+    $r->get   ('/admin/ai-providers',                [AdminController::class, 'aiProvidersIndex']);
+    $r->post  ('/admin/ai-providers',                [AdminController::class, 'aiProvidersStore'])->middleware('csrf');
+    $r->put   ('/admin/ai-providers/{id}',           [AdminController::class, 'aiProvidersUpdate'])->middleware('csrf');
+    $r->delete('/admin/ai-providers/{id}',           [AdminController::class, 'aiProvidersDelete'])->middleware('csrf');
+    $r->post  ('/admin/ai-providers/{id}/test',      [AdminController::class, 'aiProvidersTest'])->middleware('csrf');
+
+    // Planes
     $r->get('/admin/plans',                 [AdminController::class, 'plans']);
     $r->put('/admin/plans/{id}',            [AdminController::class, 'planUpdate'])->middleware('csrf');
+
+    // Changelog (administrable)
+    $r->get   ('/admin/changelog',          [AdminController::class, 'changelogIndex']);
+    $r->post  ('/admin/changelog',          [AdminController::class, 'changelogStore'])->middleware('csrf');
+    $r->put   ('/admin/changelog/{id}',     [AdminController::class, 'changelogUpdate'])->middleware('csrf');
+    $r->delete('/admin/changelog/{id}',     [AdminController::class, 'changelogDelete'])->middleware('csrf');
+
+    // Branding / landing
+    $r->get('/admin/branding',              [AdminController::class, 'branding']);
+    $r->put('/admin/branding',              [AdminController::class, 'brandingUpdate'])->middleware('csrf');
+
+    // Logs
     $r->get('/admin/logs',                  [AdminController::class, 'logs']);
 });

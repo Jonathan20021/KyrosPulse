@@ -39,6 +39,82 @@ $decode = function ($v) {
 </div>
 <?php endif; ?>
 
+<!-- Widget: Estado de IA del tenant -->
+<?php if (!empty($aiSummary) && !empty($aiSummary['source'])):
+    $isGlobal = $aiSummary['source'] === 'global';
+    $pct = (int) ($aiSummary['pct'] ?? 0);
+    $barColor = $pct >= 90 ? '#F43F5E' : ($pct >= 70 ? '#F59E0B' : null);
+?>
+<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.06)); border-color: rgba(124,58,237,.25);">
+    <div class="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,.4), transparent 70%); filter: blur(40px);"></div>
+    <div class="relative grid md:grid-cols-3 gap-4">
+        <!-- Provider en uso -->
+        <div>
+            <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500 mb-1.5 font-semibold">Tu IA actual</div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-2xl"><?= $aiSummary['provider'] === 'openai' ? '🟢' : '🟣' ?></span>
+                <div>
+                    <div class="font-bold dark:text-white text-slate-900 text-sm"><?= e((string) $aiSummary['display_name']) ?></div>
+                    <div class="text-[11px] dark:text-slate-400 text-slate-500 font-mono"><?= e((string) ($aiSummary['model'] ?? '')) ?></div>
+                </div>
+            </div>
+            <?php if ($isGlobal): ?>
+            <div class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded mt-1" style="background: rgba(6,182,212,.15); color: #06B6D4;">
+                <span>🏢</span> Provista por el SaaS
+            </div>
+            <?php else: ?>
+            <div class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded mt-1" style="background: rgba(16,185,129,.15); color: #10B981;">
+                <span>🔑</span> Tu propia API key
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Consumo -->
+        <div class="md:col-span-2">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500 font-semibold">Consumo del periodo</span>
+                <?php if (!empty($aiSummary['period_start'])): ?>
+                <span class="text-[10px] dark:text-slate-500 text-slate-400">desde <?= e(date('d M', strtotime((string) $aiSummary['period_start']))) ?></span>
+                <?php endif; ?>
+            </div>
+            <?php if ($isGlobal && $aiSummary['quota']): ?>
+                <div class="flex items-baseline justify-between mb-2">
+                    <div>
+                        <span class="text-2xl font-bold dark:text-white text-slate-900"><?= number_format((int) $aiSummary['used']) ?></span>
+                        <span class="text-sm dark:text-slate-400 text-slate-500"> / <?= number_format((int) $aiSummary['quota']) ?> tokens</span>
+                    </div>
+                    <span class="text-sm font-bold <?= $pct >= 90 ? 'text-rose-400' : ($pct >= 70 ? 'text-amber-400' : 'text-emerald-400') ?>"><?= $pct ?>%</span>
+                </div>
+                <div class="h-2 rounded-full overflow-hidden dark:bg-white/5 bg-slate-200">
+                    <div class="h-full rounded-full transition-all" style="width: <?= $pct ?>%; <?= $barColor ? "background: $barColor;" : 'background: linear-gradient(90deg,#7C3AED,#06B6D4);' ?>"></div>
+                </div>
+                <?php if ($pct >= 90): ?>
+                <p class="text-xs text-rose-400 mt-2">⚠ Estas cerca de tu cuota mensual. Si quieres tokens adicionales, contacta a tu administrador o agrega tu propia API key abajo.</p>
+                <?php endif; ?>
+            <?php elseif ($isGlobal): ?>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-2xl font-bold dark:text-white text-slate-900"><?= number_format((int) $aiSummary['used']) ?></span>
+                    <span class="text-sm dark:text-slate-400 text-slate-500">tokens · sin limite</span>
+                </div>
+                <p class="text-[11px] dark:text-slate-500 text-slate-400 mt-1">El SaaS no aplica limite mensual a tu cuenta.</p>
+            <?php else: ?>
+                <p class="text-sm dark:text-slate-300 text-slate-700 mt-1">Estas usando tu propia API key — el costo va directo a tu cuenta del proveedor. <strong class="dark:text-white text-slate-900">Sin limite</strong> impuesto por el SaaS.</p>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php elseif (!empty($aiSummary) && empty($aiSummary['source'])): ?>
+<div class="rounded-2xl p-5 mb-4 border" style="background: rgba(244,63,94,.06); border-color: rgba(244,63,94,.25);">
+    <div class="flex items-center gap-3">
+        <div class="text-3xl">⚠</div>
+        <div>
+            <div class="font-bold dark:text-white text-slate-900 mb-0.5">Sin IA disponible</div>
+            <p class="text-sm dark:text-slate-300 text-slate-700">No tienes API key propia ni un proveedor IA global asignado. Pide al administrador del SaaS que te asigne uno o agrega tu propia key en <a href="<?= url('/settings/integrations') ?>" class="underline">Integraciones</a>.</p>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
     <?php

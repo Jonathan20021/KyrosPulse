@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Core\Database;
 use App\Core\Logger;
 use App\Models\AiAgent;
+use App\Models\GlobalAiProvider;
 
 /**
  * Capa de abstraccion que decide entre Claude u OpenAI segun la
@@ -21,6 +22,7 @@ final class AiProviderService
         $row = Database::fetch(
             "SELECT name, ai_assistant_name, ai_tone, ai_enabled, ai_provider,
                     claude_api_key, claude_model, openai_api_key, openai_model,
+                    global_ai_provider_id, ai_token_quota, ai_tokens_used_period, ai_token_period_starts_at,
                     business_hours, out_of_hours_msg, welcome_message, language
              FROM tenants WHERE id = :id",
             ['id' => $this->tenantId]
@@ -28,11 +30,142 @@ final class AiProviderService
         return is_array($row) ? $row : [];
     }
 
-    public function provider(): string
+    /**
+     * Resuelve cual proveedor IA usar para este tenant.
+     * Reglas (en orden):
+     *   1. Si el tenant tiene su propia API key (claude o openai segun ai_provider) -> usa la propia.
+     *   2. Si el super admin asigno un global_ai_provider al tenant -> usa el global asignado.
+     *   3. Si hay un global_ai_provider con is_default = 1 -> usa ese.
+     *   4. Else null (sin IA disponible).
+     *
+     * Devuelve un array con: source ('own'|'global'), provider ('claude'|'openai'),
+     * api_key, model, global_provider_id (si aplica), display_name.
+     */
+    public function resolve(): ?array
     {
         $cfg = $this->tenantConfig();
-        $p = strtolower((string) ($cfg['ai_provider'] ?? 'claude'));
-        return $p === 'openai' ? 'openai' : 'claude';
+        $providerType = strtolower((string) ($cfg['ai_provider'] ?? 'claude'));
+        if (!in_array($providerType, ['claude','openai'], true)) $providerType = 'claude';
+
+        // 1) Key propia del tenant
+        $ownKey = $providerType === 'openai'
+            ? trim((string) ($cfg['openai_api_key'] ?? ''))
+            : trim((string) ($cfg['claude_api_key'] ?? ''));
+        if ($ownKey !== '') {
+            $ownModel = $providerType === 'openai'
+                ? (string) ($cfg['openai_model'] ?? '')
+                : (string) ($cfg['claude_model'] ?? '');
+            return [
+                'source'             => 'own',
+                'provider'           => $providerType,
+                'api_key'            => $ownKey,
+                'model'              => $ownModel,
+                'global_provider_id' => null,
+                'display_name'       => 'Tu key (' . ucfirst($providerType) . ')',
+            ];
+        }
+
+        // 2) Global asignado al tenant
+        if (!empty($cfg['global_ai_provider_id'])) {
+            $g = GlobalAiProvider::findById((int) $cfg['global_ai_provider_id']);
+            if ($g && !empty($g['is_active'])) {
+                return [
+                    'source'             => 'global',
+                    'provider'           => (string) $g['provider'],
+                    'api_key'            => (string) $g['api_key'],
+                    'model'              => (string) $g['model'],
+                    'global_provider_id' => (int) $g['id'],
+                    'display_name'       => (string) $g['name'],
+                ];
+            }
+        }
+
+        // 3) Default global del SaaS
+        $g = GlobalAiProvider::findDefault();
+        if ($g) {
+            return [
+                'source'             => 'global',
+                'provider'           => (string) $g['provider'],
+                'api_key'            => (string) $g['api_key'],
+                'model'              => (string) $g['model'],
+                'global_provider_id' => (int) $g['id'],
+                'display_name'       => (string) $g['name'] . ' (default)',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Reinicia el contador de tokens si entramos en un nuevo mes calendario.
+     */
+    private function ensurePeriod(): void
+    {
+        $cfg = $this->tenantConfig();
+        $start = $cfg['ai_token_period_starts_at'] ?? null;
+        $now = date('Y-m-01');
+        if ($start !== $now) {
+            Database::run(
+                "UPDATE tenants SET ai_token_period_starts_at = :s, ai_tokens_used_period = 0 WHERE id = :id",
+                ['s' => $now, 'id' => $this->tenantId]
+            );
+        }
+    }
+
+    /**
+     * Suma tokens consumidos al periodo. Solo trackeamos si la respuesta usa
+     * el provider GLOBAL (los tenants con su propia key pagan a su cuenta).
+     */
+    private function recordTokens(string $source, int $tokensIn, int $tokensOut): void
+    {
+        if ($source !== 'global') return;
+        $total = max(0, $tokensIn) + max(0, $tokensOut);
+        if ($total === 0) return;
+        Database::run(
+            "UPDATE tenants SET ai_tokens_used_period = ai_tokens_used_period + :t WHERE id = :id",
+            ['t' => $total, 'id' => $this->tenantId]
+        );
+    }
+
+    /**
+     * Verifica si al tenant le quedan tokens disponibles (solo si usa global).
+     */
+    public function hasTokensAvailable(): bool
+    {
+        $cfg = $this->tenantConfig();
+        $resolved = $this->resolve();
+        if (!$resolved || $resolved['source'] !== 'global') return true; // tenant con key propia, sin limite del SaaS
+
+        $quota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
+        if ($quota === null || $quota <= 0) return true; // sin cuota = ilimitado
+        $used = (int) ($cfg['ai_tokens_used_period'] ?? 0);
+        return $used < $quota;
+    }
+
+    /** Resumen util para mostrar al usuario en el dashboard. */
+    public function tokenSummary(): array
+    {
+        $cfg = $this->tenantConfig();
+        $resolved = $this->resolve();
+        $quota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
+        $used  = (int) ($cfg['ai_tokens_used_period'] ?? 0);
+        return [
+            'source'       => $resolved['source'] ?? null,
+            'display_name' => $resolved['display_name'] ?? null,
+            'provider'     => $resolved['provider'] ?? null,
+            'model'        => $resolved['model'] ?? null,
+            'quota'        => $quota,
+            'used'         => $used,
+            'available'    => $quota === null || $quota <= 0 ? null : max(0, $quota - $used),
+            'pct'          => $quota && $quota > 0 ? min(100, (int) round($used / $quota * 100)) : 0,
+            'period_start' => $cfg['ai_token_period_starts_at'] ?? null,
+        ];
+    }
+
+    public function provider(): string
+    {
+        $r = $this->resolve();
+        return $r['provider'] ?? 'claude';
     }
 
     public function agent(): ?array
@@ -166,68 +299,160 @@ PROMPT;
     }
 
     /**
-     * Llama al proveedor configurado. $userInput puede ser string o array
+     * Llama al proveedor IA resuelto. $userInput puede ser string o array
      * de mensajes [{role, content}]. Devuelve un shape uniforme.
      */
     public function call(string $feature, string|array $userInput, int $maxTokens = 1024, bool $allowActions = true): array
     {
-        $system = $this->buildSystemPrompt($feature, $allowActions);
-        $provider = $this->provider();
-
-        if ($provider === 'openai') {
-            $service = new OpenAiService($this->tenantId);
-            $result  = $service->call($feature, $userInput, $system, $maxTokens);
-            $modelUsed = $service->model();
-        } else {
-            $messages = is_array($userInput) ? $userInput : [['role' => 'user', 'content' => $userInput]];
-            $payload = [
-                'model'      => $this->claudeModel(),
-                'max_tokens' => $maxTokens,
-                'system'     => $system,
-                'messages'   => $messages,
+        $resolved = $this->resolve();
+        if (!$resolved) {
+            return [
+                'success' => false,
+                'error'   => 'No hay IA configurada. Agrega tu API key en Integraciones o pide al administrador que asigne un proveedor IA global.',
             ];
-
-            $apiKey = $this->claudeApiKey();
-            if ($apiKey === '') {
-                return ['success' => false, 'error' => 'No hay API key de Claude configurada.'];
-            }
-
-            $resp = HttpClient::post(
-                (string) config('services.claude.api_url'),
-                $payload,
-                [
-                    'x-api-key'         => $apiKey,
-                    'anthropic-version' => (string) config('services.claude.version', '2023-06-01'),
-                    'Content-Type'      => 'application/json',
-                ],
-                (int) config('services.claude.timeout', 60)
-            );
-
-            $output = '';
-            if (!empty($resp['body']['content']) && is_array($resp['body']['content'])) {
-                foreach ($resp['body']['content'] as $block) {
-                    if (($block['type'] ?? '') === 'text') {
-                        $output .= ($block['text'] ?? '');
-                    }
-                }
-            }
-
-            $usage = $resp['body']['usage'] ?? [];
-            $result = [
-                'success' => $resp['success'],
-                'text'    => trim($output),
-                'usage'   => [
-                    'input_tokens'  => $usage['input_tokens']  ?? null,
-                    'output_tokens' => $usage['output_tokens'] ?? null,
-                ],
-                'error'   => $resp['success'] ? null : ($resp['body']['error']['message'] ?? $resp['error'] ?? 'Error Claude.'),
-                'raw'     => $resp,
-            ];
-            $modelUsed = $this->claudeModel();
         }
 
-        $this->logCall($feature, $userInput, $result, $modelUsed, $provider);
+        // Verificar cuota si usa global
+        $this->ensurePeriod();
+        if ($resolved['source'] === 'global' && !$this->hasTokensAvailable()) {
+            return [
+                'success' => false,
+                'error'   => 'Tokens IA del periodo agotados. Contacta al administrador para ampliar tu cuota o agrega tu propia API key.',
+                'quota_exceeded' => true,
+            ];
+        }
+
+        $system = $this->buildSystemPrompt($feature, $allowActions);
+        $providerType = $resolved['provider'];
+        $apiKey       = $resolved['api_key'];
+        $model        = $resolved['model'] !== '' ? $resolved['model'] : ($providerType === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-6');
+
+        if ($providerType === 'openai') {
+            $result = $this->callOpenAi($apiKey, $model, $system, $userInput, $maxTokens);
+            $modelUsed = $model;
+        } else {
+            $result = $this->callClaude($apiKey, $this->normalizeClaudeModel($model), $system, $userInput, $maxTokens);
+            $modelUsed = $this->normalizeClaudeModel($model);
+        }
+
+        // Trackear tokens contra la cuota del tenant si usa global
+        $usage = $result['usage'] ?? [];
+        $this->recordTokens(
+            $resolved['source'],
+            (int) ($usage['input_tokens']  ?? 0),
+            (int) ($usage['output_tokens'] ?? 0)
+        );
+
+        $this->logCall($feature, $userInput, $result, $modelUsed, $providerType, $resolved['source']);
         return $result;
+    }
+
+    private function callOpenAi(string $apiKey, string $model, string $system, string|array $userInput, int $maxTokens): array
+    {
+        $messages = [['role' => 'system', 'content' => $system]];
+        if (is_array($userInput)) {
+            foreach ($userInput as $m) {
+                if (is_array($m) && isset($m['role'], $m['content'])) {
+                    $messages[] = ['role' => (string) $m['role'], 'content' => (string) $m['content']];
+                }
+            }
+        } else {
+            $messages[] = ['role' => 'user', 'content' => $userInput];
+        }
+
+        $payload = [
+            'model'       => $model,
+            'messages'    => $messages,
+            'max_tokens'  => $maxTokens,
+            'temperature' => 0.6,
+        ];
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $apiKey,
+            'Content-Type'  => 'application/json',
+        ];
+        $org = (string) config('services.openai.organization', '');
+        if ($org !== '') $headers['OpenAI-Organization'] = $org;
+
+        $resp = HttpClient::post(
+            (string) config('services.openai.api_url', 'https://api.openai.com/v1/chat/completions'),
+            $payload, $headers,
+            (int) config('services.openai.timeout', 60)
+        );
+
+        $output = '';
+        if (!empty($resp['body']['choices']) && is_array($resp['body']['choices'])) {
+            foreach ($resp['body']['choices'] as $c) {
+                if (isset($c['message']['content']) && is_string($c['message']['content'])) {
+                    $output .= $c['message']['content'];
+                }
+            }
+        }
+        $usage = $resp['body']['usage'] ?? [];
+
+        return [
+            'success' => $resp['success'],
+            'text'    => trim($output),
+            'usage'   => [
+                'input_tokens'  => $usage['prompt_tokens']     ?? null,
+                'output_tokens' => $usage['completion_tokens'] ?? null,
+            ],
+            'error'   => $resp['success'] ? null : ($resp['body']['error']['message'] ?? $resp['error'] ?? 'Error OpenAI.'),
+            'raw'     => $resp,
+        ];
+    }
+
+    private function callClaude(string $apiKey, string $model, string $system, string|array $userInput, int $maxTokens): array
+    {
+        $messages = is_array($userInput) ? $userInput : [['role' => 'user', 'content' => $userInput]];
+        $payload = [
+            'model'      => $model,
+            'max_tokens' => $maxTokens,
+            'system'     => $system,
+            'messages'   => $messages,
+        ];
+
+        $resp = HttpClient::post(
+            (string) config('services.claude.api_url'),
+            $payload,
+            [
+                'x-api-key'         => $apiKey,
+                'anthropic-version' => (string) config('services.claude.version', '2023-06-01'),
+                'Content-Type'      => 'application/json',
+            ],
+            (int) config('services.claude.timeout', 60)
+        );
+
+        $output = '';
+        if (!empty($resp['body']['content']) && is_array($resp['body']['content'])) {
+            foreach ($resp['body']['content'] as $block) {
+                if (($block['type'] ?? '') === 'text') $output .= ($block['text'] ?? '');
+            }
+        }
+        $usage = $resp['body']['usage'] ?? [];
+
+        return [
+            'success' => $resp['success'],
+            'text'    => trim($output),
+            'usage'   => [
+                'input_tokens'  => $usage['input_tokens']  ?? null,
+                'output_tokens' => $usage['output_tokens'] ?? null,
+            ],
+            'error'   => $resp['success'] ? null : ($resp['body']['error']['message'] ?? $resp['error'] ?? 'Error Claude.'),
+            'raw'     => $resp,
+        ];
+    }
+
+    private function normalizeClaudeModel(string $candidate): string
+    {
+        $aliases = [
+            'claude-sonnet-6'     => 'claude-sonnet-4-6',
+            'claude-opus-6'       => 'claude-opus-4-7',
+            'claude-haiku-6'      => 'claude-haiku-4-5-20251001',
+            'claude-3-5-sonnet'   => 'claude-sonnet-4-6',
+            'claude-3-opus'       => 'claude-opus-4-7',
+        ];
+        return $aliases[$candidate] ?? ($candidate ?: 'claude-sonnet-4-6');
     }
 
     public function ping(): array
@@ -316,45 +541,15 @@ PROMPT;
         );
     }
 
-    private function claudeApiKey(): string
-    {
-        $cfg = $this->tenantConfig();
-        if (!empty($cfg['claude_api_key'])) return (string) $cfg['claude_api_key'];
-        return (string) config('services.claude.api_key', '');
-    }
 
-    private function claudeModel(): string
-    {
-        $agent = $this->agent();
-        $candidate = '';
-        if (!empty($agent['model'])) $candidate = (string) $agent['model'];
-
-        if ($candidate === '') {
-            $cfg = $this->tenantConfig();
-            $candidate = (string) ($cfg['claude_model'] ?? '');
-        }
-        if ($candidate === '') {
-            $candidate = (string) config('services.claude.model', 'claude-sonnet-4-6');
-        }
-
-        // Normalizar IDs antiguos/erroneos a la familia 4.X actual.
-        $aliases = [
-            'claude-sonnet-6'     => 'claude-sonnet-4-6',
-            'claude-opus-6'       => 'claude-opus-4-7',
-            'claude-haiku-6'      => 'claude-haiku-4-5-20251001',
-            'claude-3-5-sonnet'   => 'claude-sonnet-4-6',
-            'claude-3-opus'       => 'claude-opus-4-7',
-        ];
-        return $aliases[$candidate] ?? $candidate;
-    }
-
-    private function logCall(string $feature, mixed $prompt, array $result, string $model, string $provider): void
+    private function logCall(string $feature, mixed $prompt, array $result, string $model, string $provider, string $source = 'own'): void
     {
         try {
             $usage = $result['usage'] ?? [];
+            $tag = $provider . ($source === 'global' ? ':global' : '');
             Database::insert('ai_logs', [
                 'tenant_id'     => $this->tenantId,
-                'feature'       => $feature . ($provider !== 'claude' ? ":$provider" : ''),
+                'feature'       => $feature . ":$tag",
                 'model'         => $model,
                 'prompt'        => is_string($prompt) ? mb_substr($prompt, 0, 4000) : (json_encode($prompt, JSON_UNESCAPED_UNICODE) ?: ''),
                 'response'      => mb_substr((string) ($result['text'] ?? ''), 0, 4000),

@@ -258,6 +258,12 @@ final class SettingsController extends Controller
             $kpi['tokens_out'] = (int) ($usage['toX'] ?? 0);
         } catch (\Throwable) {}
 
+        try {
+            $aiSummary = (new AiProviderService($tenantId))->tokenSummary();
+        } catch (\Throwable) {
+            $aiSummary = null;
+        }
+
         $this->view('settings.ai', [
             'page'      => 'configuracion',
             'tab'       => 'ai',
@@ -265,6 +271,7 @@ final class SettingsController extends Controller
             'knowledge' => KnowledgeBase::listForTenant($tenantId),
             'agents'    => $agents,
             'kpi'       => $kpi,
+            'aiSummary' => $aiSummary,
         ], 'layouts.app');
     }
 
