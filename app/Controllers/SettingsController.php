@@ -73,9 +73,9 @@ final class SettingsController extends Controller
     {
         $tenantId = Tenant::id();
         $tenant = TenantModel::findById($tenantId);
-        $this->view('settings.integrations', [
+        $this->view('settings.integrations_core', [
             'page'   => 'configuracion',
-            'tab'    => 'integrations',
+            'tab'    => 'integrations_core',
             'tenant' => $tenant,
             'webhookUrl' => url('/webhooks/wasapi/' . ($tenant['uuid'] ?? '')),
         ], 'layouts.app');
@@ -114,13 +114,13 @@ final class SettingsController extends Controller
                 'msg'    => $e->getMessage(),
             ]);
             Session::flash('error', 'No se pudieron guardar las integraciones: ' . $e->getMessage());
-            $this->redirect('/settings/integrations');
+            $this->redirect('/settings/integrations/core');
             return;
         }
 
         Audit::log('settings.integrations', 'tenant', $tenantId);
         Session::flash('success', 'Integraciones actualizadas correctamente.');
-        $this->redirect('/settings/integrations');
+        $this->redirect('/settings/integrations/core');
     }
 
     /**
@@ -206,7 +206,7 @@ final class SettingsController extends Controller
         } else {
             Session::flash('error', 'No se pudieron sincronizar plantillas: ' . ($result['error'] ?? 'Error Wasapi'));
         }
-        $this->redirect('/settings/integrations');
+        $this->redirect('/settings/integrations/core');
     }
 
     /**
@@ -246,7 +246,7 @@ final class SettingsController extends Controller
         }
 
         Session::flash('success', "Sincronizacion completa: $updated nombres actualizados de $checked revisados.");
-        $this->redirect('/settings/integrations');
+        $this->redirect('/settings/integrations/core');
     }
 
     public function ai(Request $request): void

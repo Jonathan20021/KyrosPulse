@@ -413,7 +413,9 @@ CREATE TABLE `conversations` (
     `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `tenant_id`         BIGINT UNSIGNED NOT NULL,
     `contact_id`        BIGINT UNSIGNED NOT NULL,
-    `channel`           ENUM('whatsapp','email','sms','webchat','telegram','instagram','facebook') NOT NULL DEFAULT 'whatsapp',
+    `channel`           ENUM('whatsapp','email','sms','webchat','telegram','instagram','facebook','messenger') NOT NULL DEFAULT 'whatsapp',
+    `channel_id`        BIGINT UNSIGNED NULL,
+    `from_phone`        VARCHAR(40) NULL,
     `external_id`       VARCHAR(120) NULL,
     `status`            ENUM('new','open','pending','resolved','closed') NOT NULL DEFAULT 'new',
     `priority`          ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
@@ -438,6 +440,7 @@ CREATE TABLE `conversations` (
     KEY `idx_conv_status` (`status`),
     KEY `idx_conv_assigned` (`assigned_to`),
     KEY `idx_conv_last_msg` (`last_message_at`),
+    KEY `idx_conv_channel_id` (`channel_id`),
     CONSTRAINT `fk_conv_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_conv_contact` FOREIGN KEY (`contact_id`) REFERENCES `contacts` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_conv_assigned` FOREIGN KEY (`assigned_to`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -453,6 +456,8 @@ CREATE TABLE `messages` (
     `conversation_id`   BIGINT UNSIGNED NOT NULL,
     `contact_id`        BIGINT UNSIGNED NOT NULL,
     `user_id`           BIGINT UNSIGNED NULL,
+    `channel_id`        BIGINT UNSIGNED NULL,
+    `from_phone`        VARCHAR(40) NULL,
     `direction`         ENUM('inbound','outbound') NOT NULL,
     `type`              ENUM('text','image','document','audio','video','location','contact','sticker','template','interactive','system') NOT NULL DEFAULT 'text',
     `content`           TEXT NULL,
@@ -479,6 +484,7 @@ CREATE TABLE `messages` (
     KEY `idx_msg_external` (`external_id`),
     KEY `idx_msg_status` (`status`),
     KEY `idx_msg_created` (`created_at`),
+    KEY `idx_msg_channel_id` (`channel_id`),
     CONSTRAINT `fk_msg_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_msg_conv` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_msg_contact` FOREIGN KEY (`contact_id`) REFERENCES `contacts` (`id`) ON DELETE CASCADE,
@@ -764,6 +770,8 @@ DROP TABLE IF EXISTS `whatsapp_logs`;
 CREATE TABLE `whatsapp_logs` (
     `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `tenant_id`     BIGINT UNSIGNED NOT NULL,
+    `channel_id`    BIGINT UNSIGNED NULL,
+    `provider`      VARCHAR(40) NULL,
     `direction`     ENUM('outbound','inbound','webhook') NOT NULL,
     `endpoint`      VARCHAR(255) NULL,
     `request_body`  TEXT NULL,
@@ -942,6 +950,111 @@ CREATE TABLE `rate_limits` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_rl_key` (`key_hash`),
     KEY `idx_rl_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- WhatsApp Channels (multiples numeros / proveedores por tenant)
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `whatsapp_channels`;
+CREATE TABLE `whatsapp_channels` (
+    `id`                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`          BIGINT UNSIGNED NOT NULL,
+    `uuid`               CHAR(36) NOT NULL,
+    `provider`           ENUM('wasapi','cloud','twilio','dialog360','custom') NOT NULL DEFAULT 'wasapi',
+    `label`              VARCHAR(120) NOT NULL,
+    `phone`              VARCHAR(40) NOT NULL,
+    `display_name`       VARCHAR(120) NULL,
+    `business_account_id` VARCHAR(120) NULL,
+    `phone_number_id`    VARCHAR(120) NULL,
+    `from_id`            VARCHAR(120) NULL,
+    `api_key`            VARCHAR(500) NULL,
+    `api_secret`         VARCHAR(500) NULL,
+    `access_token`       TEXT NULL,
+    `webhook_secret`     VARCHAR(255) NULL,
+    `webhook_verify`     VARCHAR(255) NULL,
+    `default_template`   VARCHAR(120) NULL,
+    `daily_limit`        INT UNSIGNED NOT NULL DEFAULT 0,
+    `messages_today`     INT UNSIGNED NOT NULL DEFAULT 0,
+    `quality_rating`     ENUM('green','yellow','red','unknown') NOT NULL DEFAULT 'unknown',
+    `messaging_limit_tier` VARCHAR(20) NULL,
+    `status`             ENUM('active','disabled','pending','error') NOT NULL DEFAULT 'active',
+    `is_default`         TINYINT(1) NOT NULL DEFAULT 0,
+    `color`              VARCHAR(20) NOT NULL DEFAULT '#7C3AED',
+    `icon`               VARCHAR(80) NULL,
+    `last_health_check`  DATETIME NULL,
+    `last_message_at`    DATETIME NULL,
+    `error_message`      TEXT NULL,
+    `settings`           JSON NULL,
+    `created_at`         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`         DATETIME NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_wac_uuid` (`uuid`),
+    UNIQUE KEY `uk_wac_tenant_phone` (`tenant_id`,`phone`),
+    KEY `idx_wac_tenant` (`tenant_id`),
+    KEY `idx_wac_status` (`status`),
+    KEY `idx_wac_provider` (`provider`),
+    CONSTRAINT `fk_wac_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Catalogo de integraciones (Slack, HubSpot, Salesforce, Stripe, etc.)
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `integrations`;
+CREATE TABLE `integrations` (
+    `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`      BIGINT UNSIGNED NOT NULL,
+    `slug`           VARCHAR(60) NOT NULL,
+    `name`           VARCHAR(120) NOT NULL,
+    `category`       VARCHAR(60) NOT NULL DEFAULT 'general',
+    `description`    VARCHAR(500) NULL,
+    `icon`           VARCHAR(80) NULL,
+    `is_enabled`     TINYINT(1) NOT NULL DEFAULT 0,
+    `is_premium`     TINYINT(1) NOT NULL DEFAULT 0,
+    `min_plan`       VARCHAR(40) NULL,
+    `status`         ENUM('disconnected','connected','error','pending') NOT NULL DEFAULT 'disconnected',
+    `config`         JSON NULL,
+    `credentials`    JSON NULL,
+    `last_sync_at`   DATETIME NULL,
+    `last_error`     TEXT NULL,
+    `webhook_url`    VARCHAR(500) NULL,
+    `connected_at`   DATETIME NULL,
+    `connected_by`   BIGINT UNSIGNED NULL,
+    `created_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_int_tenant_slug` (`tenant_id`,`slug`),
+    KEY `idx_int_tenant` (`tenant_id`),
+    KEY `idx_int_status` (`status`),
+    KEY `idx_int_category` (`category`),
+    CONSTRAINT `fk_int_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- Logs de integraciones genericas
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `integration_logs`;
+CREATE TABLE `integration_logs` (
+    `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`      BIGINT UNSIGNED NOT NULL,
+    `integration_id` BIGINT UNSIGNED NULL,
+    `slug`           VARCHAR(60) NULL,
+    `event`          VARCHAR(80) NOT NULL,
+    `direction`      ENUM('outbound','inbound','webhook','sync') NOT NULL DEFAULT 'sync',
+    `request_body`   TEXT NULL,
+    `response_body`  TEXT NULL,
+    `status_code`    INT NULL,
+    `success`        TINYINT(1) NOT NULL DEFAULT 0,
+    `error_message`  TEXT NULL,
+    `duration_ms`    INT UNSIGNED NULL,
+    `created_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_il_tenant` (`tenant_id`),
+    KEY `idx_il_integration` (`integration_id`),
+    KEY `idx_il_event` (`event`),
+    KEY `idx_il_created` (`created_at`),
+    CONSTRAINT `fk_il_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_il_integration` FOREIGN KEY (`integration_id`) REFERENCES `integrations` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

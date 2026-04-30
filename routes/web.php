@@ -11,10 +11,12 @@ use App\Controllers\AuthController;
 use App\Controllers\AutomationController;
 use App\Controllers\CampaignController;
 use App\Controllers\ChangelogController;
+use App\Controllers\ChannelController;
 use App\Controllers\ContactController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeController;
 use App\Controllers\InboxController;
+use App\Controllers\IntegrationController;
 use App\Controllers\LeadController;
 use App\Controllers\ProductController;
 use App\Controllers\ReportController;
@@ -137,11 +139,29 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     // Settings
     $r->get('/settings',                  [SettingsController::class, 'general']);
     $r->put('/settings',                  [SettingsController::class, 'updateGeneral'])->middleware('csrf');
-    $r->get('/settings/integrations',     [SettingsController::class, 'integrations']);
-    $r->put('/settings/integrations',     [SettingsController::class, 'updateIntegrations'])->middleware('csrf');
+
+    // Settings · Integraciones core (Wasapi default + IA)
+    $r->get('/settings/integrations/core',     [SettingsController::class, 'integrations']);
+    $r->put('/settings/integrations/core',     [SettingsController::class, 'updateIntegrations'])->middleware('csrf');
     $r->post('/settings/integrations/test-ai', [SettingsController::class, 'testAi'])->middleware('csrf');
     $r->post('/settings/integrations/wasapi/templates/sync', [SettingsController::class, 'syncWasapiTemplates'])->middleware('csrf');
     $r->post('/settings/integrations/wasapi/contacts/sync',  [SettingsController::class, 'syncWasapiContactNames'])->middleware('csrf');
+
+    // Settings · Catalogo de integraciones (Slack, HubSpot, Stripe, etc.)
+    $r->get   ('/settings/integrations',                [IntegrationController::class, 'index']);
+    $r->get   ('/settings/integrations/{slug}',         [IntegrationController::class, 'show']);
+    $r->post  ('/settings/integrations/{slug}/connect', [IntegrationController::class, 'connect'])->middleware('csrf');
+    $r->post  ('/settings/integrations/{slug}/disconnect', [IntegrationController::class, 'disconnect'])->middleware('csrf');
+    $r->post  ('/settings/integrations/{slug}/test',    [IntegrationController::class, 'test'])->middleware('csrf');
+
+    // Settings · Canales WhatsApp (multi-numero)
+    $r->get   ('/settings/channels',                  [ChannelController::class, 'index']);
+    $r->post  ('/settings/channels',                  [ChannelController::class, 'store'])->middleware('csrf');
+    $r->put   ('/settings/channels/{id}',             [ChannelController::class, 'update'])->middleware('csrf');
+    $r->post  ('/settings/channels/{id}/default',     [ChannelController::class, 'setDefault'])->middleware('csrf');
+    $r->post  ('/settings/channels/{id}/toggle',      [ChannelController::class, 'toggle'])->middleware('csrf');
+    $r->post  ('/settings/channels/{id}/test',        [ChannelController::class, 'test'])->middleware('csrf');
+    $r->delete('/settings/channels/{id}',             [ChannelController::class, 'destroy'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');

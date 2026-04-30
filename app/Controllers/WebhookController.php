@@ -7,12 +7,15 @@ use App\Core\Controller;
 use App\Core\Database;
 use App\Core\Logger;
 use App\Core\Request;
+use App\Models\Integration;
+use App\Models\WhatsappChannel;
 use App\Services\WasapiService;
+use App\Services\WhatsappCloudService;
 
 final class WebhookController extends Controller
 {
     /**
-     * Webhook publico de Wasapi.
+     * Webhook Wasapi (legacy).
      * URL: POST /webhooks/wasapi/{tenant_uuid}
      */
     public function wasapi(Request $request, array $params): void
@@ -27,41 +30,26 @@ final class WebhookController extends Controller
 
         $tenantId = (int) $tenant['id'];
 
-        // Log raw payload
         $rawBody = $request->rawBody();
         $signature = (string) $request->header('x-wasapi-signature', '');
-        $logId = null;
+        $logId = $this->logIncomingWebhook($tenantId, '/webhooks/wasapi', $rawBody, 'wasapi', null);
 
-        try {
-            $logId = Database::insert('whatsapp_logs', [
-                'tenant_id'    => $tenantId,
-                'direction'    => 'webhook',
-                'endpoint'     => '/webhooks/wasapi',
-                'request_body' => mb_substr($rawBody, 0, 8000),
-                'status_code'  => 200,
-                'success'      => 0,
-            ]);
-        } catch (\Throwable $e) {
-            Logger::error('No se pudo guardar log de webhook', ['msg' => $e->getMessage()]);
-        }
+        // Resolver canal por wa_id (numero destino) si esta disponible
+        $payload = $request->input();
+        $channel = $this->resolveWasapiChannel($tenantId, $payload);
 
-        $service = new WasapiService($tenantId);
+        $service = new WasapiService($tenantId, $channel);
 
-        // Validar firma si hay secret configurado
         if (!$service->validateWebhook($signature, $rawBody)) {
             Logger::warning('Webhook Wasapi con firma invalida', ['tenant' => $tenantId]);
-            $this->updateWebhookLog($logId, [
-                'status_code'   => 401,
-                'success'       => 0,
-                'error_message' => 'Firma invalida.',
-            ]);
+            $this->updateWebhookLog($logId, ['status_code' => 401, 'success' => 0, 'error_message' => 'Firma invalida.']);
             $this->json(['error' => 'Firma invalida.'], 401);
             return;
         }
 
-        $payload = $request->input();
-        $result  = $service->processWebhook($payload);
+        $result = $service->processWebhook($payload);
         $this->updateWebhookLog($logId, [
+            'channel_id'    => $channel['id'] ?? null,
             'response_body' => mb_substr(json_encode($result, JSON_UNESCAPED_UNICODE) ?: '', 0, 4000),
             'status_code'   => 200,
             'success'       => !empty($result['success']) ? 1 : 0,
@@ -71,12 +59,167 @@ final class WebhookController extends Controller
         $this->json($result);
     }
 
-    private function updateWebhookLog(?int $logId, array $data): void
+    /**
+     * Webhook Cloud API (Meta) por canal.
+     * URL: GET/POST /webhooks/cloud/{channel_uuid}
+     *
+     * GET: handshake hub.* de Meta → debe responder hub.challenge.
+     * POST: eventos.
+     */
+    public function cloudApi(Request $request, array $params): void
     {
-        if (!$logId) {
+        $uuid = (string) ($params['channel_uuid'] ?? '');
+        $channel = WhatsappChannel::findByUuid($uuid);
+        if (!$channel) {
+            $this->json(['error' => 'Canal no encontrado.'], 404);
+            return;
+        }
+        if ($channel['provider'] !== 'cloud') {
+            $this->json(['error' => 'Este canal no es Cloud API.'], 400);
             return;
         }
 
+        // GET = verificacion
+        if ($request->method() === 'GET') {
+            $mode      = (string) $request->query('hub_mode', '');
+            $verify    = (string) $request->query('hub_verify_token', '');
+            $challenge = (string) $request->query('hub_challenge', '');
+
+            $resp = WhatsappCloudService::verifyWebhook($channel, $mode, $verify, $challenge);
+            if ($resp !== null) {
+                http_response_code(200);
+                header('Content-Type: text/plain');
+                echo $resp;
+                return;
+            }
+            http_response_code(403);
+            echo 'forbidden';
+            return;
+        }
+
+        $tenantId = (int) $channel['tenant_id'];
+        $rawBody  = $request->rawBody();
+        $logId    = $this->logIncomingWebhook($tenantId, '/webhooks/cloud', $rawBody, 'cloud', (int) $channel['id']);
+
+        // Validacion firma X-Hub-Signature-256 (opcional)
+        $sig = (string) $request->header('x-hub-signature-256', '');
+        $secret = (string) ($channel['webhook_secret'] ?? '');
+        if ($sig !== '' && $secret !== '') {
+            $expected = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);
+            if (!hash_equals($expected, $sig)) {
+                $this->updateWebhookLog($logId, ['status_code' => 401, 'success' => 0, 'error_message' => 'Firma invalida.']);
+                $this->json(['error' => 'Firma invalida.'], 401);
+                return;
+            }
+        }
+
+        $payload = $request->input();
+        $svc = new WhatsappCloudService($tenantId, $channel);
+        $result = $svc->processWebhook($payload);
+
+        $this->updateWebhookLog($logId, [
+            'response_body' => mb_substr(json_encode($result, JSON_UNESCAPED_UNICODE) ?: '', 0, 4000),
+            'status_code'   => 200,
+            'success'       => !empty($result['success']) ? 1 : 0,
+            'error_message' => !empty($result['success']) ? null : ($result['error'] ?? 'Error procesando.'),
+        ]);
+        $this->json($result);
+    }
+
+    /**
+     * Webhook generico para integraciones (Stripe, MercadoPago, Telegram, etc).
+     * URL: POST /webhooks/integration/{slug}/{tenant_uuid}
+     */
+    public function integration(Request $request, array $params): void
+    {
+        $slug = (string) ($params['slug'] ?? '');
+        $uuid = (string) ($params['tenant_uuid'] ?? '');
+
+        $tenant = Database::fetch("SELECT id FROM tenants WHERE uuid = :u AND deleted_at IS NULL", ['u' => $uuid]);
+        if (!$tenant) {
+            $this->json(['error' => 'Tenant no encontrado.'], 404);
+            return;
+        }
+        $tenantId = (int) $tenant['id'];
+
+        $entry = Integration::findCatalog($slug);
+        if (!$entry) {
+            $this->json(['error' => 'Integracion desconocida.'], 404);
+            return;
+        }
+
+        $rawBody = $request->rawBody();
+        Integration::logEvent($tenantId, $slug, 'webhook.received', [
+            'direction' => 'webhook',
+            'request'   => $rawBody,
+            'success'   => 1,
+        ]);
+
+        // Aqui se podrian rutar eventos especificos (stripe.checkout.session.completed, etc).
+        // Por ahora respondemos OK y dejamos el log para procesamiento async.
+        $this->json(['success' => true, 'received' => true]);
+    }
+
+    /**
+     * Intenta resolver el canal Wasapi correcto a partir del payload.
+     */
+    private function resolveWasapiChannel(int $tenantId, array $payload): ?array
+    {
+        $data = $payload['data'] ?? $payload;
+        $fromId   = $data['from_id'] ?? $data['number_id'] ?? null;
+        $fromPhone = $data['to'] ?? $data['phone_number'] ?? null;
+
+        if ($fromId) {
+            $row = Database::fetch(
+                "SELECT * FROM whatsapp_channels WHERE tenant_id = :t AND provider = 'wasapi' AND from_id = :f LIMIT 1",
+                ['t' => $tenantId, 'f' => (string) $fromId]
+            );
+            if ($row) return $row;
+        }
+        if ($fromPhone) {
+            $digits = preg_replace('/\D+/', '', (string) $fromPhone);
+            $row = Database::fetch(
+                "SELECT * FROM whatsapp_channels
+                 WHERE tenant_id = :t AND provider = 'wasapi'
+                   AND REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = :p
+                 LIMIT 1",
+                ['t' => $tenantId, 'p' => $digits]
+            );
+            if ($row) return $row;
+        }
+
+        // Fallback: canal default Wasapi
+        $row = Database::fetch(
+            "SELECT * FROM whatsapp_channels
+             WHERE tenant_id = :t AND provider = 'wasapi' AND status = 'active' AND deleted_at IS NULL
+             ORDER BY is_default DESC, id ASC LIMIT 1",
+            ['t' => $tenantId]
+        );
+        return $row ?: null;
+    }
+
+    private function logIncomingWebhook(int $tenantId, string $endpoint, string $rawBody, string $provider, ?int $channelId): ?int
+    {
+        try {
+            return Database::insert('whatsapp_logs', [
+                'tenant_id'    => $tenantId,
+                'channel_id'   => $channelId,
+                'provider'     => $provider,
+                'direction'    => 'webhook',
+                'endpoint'     => $endpoint,
+                'request_body' => mb_substr($rawBody, 0, 8000),
+                'status_code'  => 200,
+                'success'      => 0,
+            ]);
+        } catch (\Throwable $e) {
+            Logger::error('No se pudo guardar log de webhook', ['msg' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function updateWebhookLog(?int $logId, array $data): void
+    {
+        if (!$logId) return;
         try {
             Database::update('whatsapp_logs', $data, ['id' => $logId]);
         } catch (\Throwable $e) {

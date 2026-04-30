@@ -109,7 +109,7 @@ $decode = function ($v) {
         <div class="text-3xl">⚠</div>
         <div>
             <div class="font-bold dark:text-white text-slate-900 mb-0.5">Sin IA disponible</div>
-            <p class="text-sm dark:text-slate-300 text-slate-700">No tienes API key propia ni un proveedor IA global asignado. Pide al administrador del SaaS que te asigne uno o agrega tu propia key en <a href="<?= url('/settings/integrations') ?>" class="underline">Integraciones</a>.</p>
+            <p class="text-sm dark:text-slate-300 text-slate-700">No tienes API key propia ni un proveedor IA global asignado. Pide al administrador del SaaS que te asigne uno o agrega tu propia key en <a href="<?= url('/settings/integrations/core') ?>" class="underline">Integraciones</a>.</p>
         </div>
     </div>
 </div>

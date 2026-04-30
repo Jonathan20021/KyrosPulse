@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Models\WhatsappChannel;
 
 /**
  * Servicio de integracion con Wasapi (WhatsApp).
@@ -18,7 +19,13 @@ use App\Models\Tenant;
  */
 final class WasapiService
 {
-    public function __construct(private int $tenantId) {}
+    /**
+     * @param int        $tenantId Tenant que opera.
+     * @param array|null $channel  Fila opcional de whatsapp_channels (permite soportar
+     *                              multiples numeros/cuentas Wasapi por tenant). Si se
+     *                              pasa, sus credenciales priman sobre las del tenant.
+     */
+    public function __construct(private int $tenantId, private ?array $channel = null) {}
 
     private ?int $resolvedFromId = null;
 
@@ -27,6 +34,19 @@ final class WasapiService
 
     private function credentials(): array
     {
+        // Prioridad 1: canal especifico
+        if ($this->channel) {
+            $apiKey = trim((string) ($this->channel['api_key'] ?? ''));
+            $phone  = (string) ($this->channel['phone'] ?? '');
+            if ($this->channel['from_id'] ?? null) {
+                $this->resolvedFromId = (int) $this->channel['from_id'];
+            }
+            $baseUrl = $this->normalizeBaseUrl((string) config('services.wasapi.base_url'));
+            if ($apiKey === '') $apiKey = trim((string) config('services.wasapi.api_key'));
+            return ['api_key' => $apiKey, 'base_url' => rtrim($baseUrl, '/'), 'phone' => $phone];
+        }
+
+        // Prioridad 2: tenant legacy (para retro-compat antes de migrar a canales)
         $tenant  = Tenant::findById($this->tenantId);
         $apiKey  = trim((string) ($tenant['wasapi_api_key'] ?? ''));
         $phone   = (string) ($tenant['wasapi_phone'] ?? '');
@@ -37,6 +57,11 @@ final class WasapiService
         }
 
         return ['api_key' => $apiKey, 'base_url' => rtrim($baseUrl, '/'), 'phone' => $phone];
+    }
+
+    private function channelId(): ?int
+    {
+        return isset($this->channel['id']) ? (int) $this->channel['id'] : null;
     }
 
     private function authHeaders(string $apiKey): array
@@ -355,6 +380,9 @@ final class WasapiService
 
         $contact = $this->findOrCreateContact($message['phone'], $message['contact_name']);
 
+        $channelId = $this->channelId();
+        $fromPhone = $this->channel['phone'] ?? null;
+
         // Buscar o crear conversacion abierta
         $conv = Conversation::findOpenByContact($this->tenantId, (int) $contact['id']);
         if (!$conv) {
@@ -362,6 +390,8 @@ final class WasapiService
                 'tenant_id'   => $this->tenantId,
                 'contact_id'  => (int) $contact['id'],
                 'channel'     => 'whatsapp',
+                'channel_id'  => $channelId,
+                'from_phone'  => $fromPhone,
                 'status'      => 'new',
                 'priority'    => 'normal',
                 'unread_count'=> 1,
@@ -371,6 +401,12 @@ final class WasapiService
         } else {
             $convId = (int) $conv['id'];
             $this->touchConversation($convId, $message['text'] ?: '[' . $message['type'] . ']', true);
+            if ($channelId) {
+                Database::run(
+                    "UPDATE conversations SET channel_id = :c, from_phone = :f WHERE id = :id AND (channel_id IS NULL OR channel_id = :c)",
+                    ['c' => $channelId, 'f' => $fromPhone, 'id' => $convId]
+                );
+            }
         }
 
         // Guardar mensaje
@@ -378,6 +414,8 @@ final class WasapiService
             'tenant_id'       => $this->tenantId,
             'conversation_id' => $convId,
             'contact_id'      => (int) $contact['id'],
+            'channel_id'      => $channelId,
+            'from_phone'      => $fromPhone,
             'direction'       => 'inbound',
             'type'            => $message['type'],
             'content'         => $message['text'],
@@ -388,6 +426,7 @@ final class WasapiService
         ]);
 
         Contact::touchInteraction($this->tenantId, (int) $contact['id']);
+        if ($channelId) WhatsappChannel::touchActivity($channelId);
         $this->markCampaignReply($message['phone']);
 
         // Disparar evento para automatizaciones
@@ -562,6 +601,8 @@ final class WasapiService
         try {
             Database::insert('whatsapp_logs', [
                 'tenant_id'     => $this->tenantId,
+                'channel_id'    => $this->channelId(),
+                'provider'      => 'wasapi',
                 'direction'     => 'outbound',
                 'endpoint'      => $endpoint,
                 'request_body'  => json_encode($payload, JSON_UNESCAPED_UNICODE),

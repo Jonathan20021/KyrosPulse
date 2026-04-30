@@ -40,9 +40,11 @@ final class Conversation extends Model
     public static function listOpen(int $tenantId, int $limit = 50): array
     {
         return Database::fetchAll(
-            "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email
+            "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email,
+                    wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
              FROM conversations c
              INNER JOIN contacts ct ON ct.id = c.contact_id
+             LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
              WHERE c.tenant_id = :t AND c.status NOT IN ('closed')
              ORDER BY c.last_message_at DESC
              LIMIT $limit",
@@ -62,10 +64,12 @@ final class Conversation extends Model
     {
         return Database::fetch(
             "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email, ct.company, ct.score,
-                    u.first_name AS agent_first, u.last_name AS agent_last
+                    u.first_name AS agent_first, u.last_name AS agent_last,
+                    wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
              FROM conversations c
              INNER JOIN contacts ct ON ct.id = c.contact_id
              LEFT JOIN users u ON u.id = c.assigned_to
+             LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
              WHERE c.id = :id AND c.tenant_id = :t",
             ['id' => $id, 't' => $tenantId]
         );
@@ -84,16 +88,19 @@ final class Conversation extends Model
         }
         if (!empty($filters['agent']))   { $where[] = 'c.assigned_to = :ag'; $params['ag'] = (int) $filters['agent']; }
         if (!empty($filters['channel'])) { $where[] = 'c.channel = :ch';    $params['ch'] = $filters['channel']; }
+        if (!empty($filters['channel_id'])) { $where[] = 'c.channel_id = :cid'; $params['cid'] = (int) $filters['channel_id']; }
         if (!empty($filters['q'])) {
             $where[] = '(ct.first_name LIKE :q OR ct.last_name LIKE :q OR ct.phone LIKE :q OR c.last_message LIKE :q)';
             $params['q'] = '%' . $filters['q'] . '%';
         }
 
         $sql = "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email,
-                       u.first_name AS agent_first, u.last_name AS agent_last
+                       u.first_name AS agent_first, u.last_name AS agent_last,
+                       wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
                 FROM conversations c
                 INNER JOIN contacts ct ON ct.id = c.contact_id
                 LEFT JOIN users u ON u.id = c.assigned_to
+                LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY c.last_message_at DESC, c.id DESC
                 LIMIT $limit";

@@ -399,8 +399,8 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
         <div class="empty-state-pro">
             <div class="empty-icon">💬</div>
             <h4 class="font-bold mb-1" style="color: var(--color-text-primary);">Sin conversaciones aun</h4>
-            <p class="text-sm mb-4" style="color: var(--color-text-tertiary);">Conecta Wasapi para empezar a recibir mensajes en tiempo real.</p>
-            <a href="<?= url('/settings/integrations') ?>" class="btn btn-primary btn-sm">Conectar WhatsApp</a>
+            <p class="text-sm mb-4" style="color: var(--color-text-tertiary);">Conecta tu primer numero (Wasapi o WhatsApp Cloud API) para recibir mensajes en tiempo real.</p>
+            <a href="<?= url('/settings/channels') ?>" class="btn btn-primary btn-sm">Conectar WhatsApp</a>
         </div>
         <?php else: ?>
         <div>

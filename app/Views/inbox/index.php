@@ -5,6 +5,7 @@
 /** @var array $filters */
 /** @var array $agents */
 /** @var array $aiAgents */
+/** @var array $channels */
 /** @var array $quickReplies */
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
@@ -43,6 +44,22 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
                 </a>
                 <?php endforeach; ?>
             </div>
+
+            <?php if (!empty($channels) && count($channels) > 1): ?>
+            <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1 mt-2">
+                <span class="text-[10px] uppercase font-semibold flex-shrink-0" style="color: var(--color-text-tertiary);">Numero:</span>
+                <a href="<?= url('/inbox') ?>" class="px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap" style="<?= empty($filters['channel_id']) ? 'background: var(--color-bg-active); color: var(--color-text-primary);' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">Todos</a>
+                <?php foreach ($channels as $ch):
+                    $cActive = (int) ($filters['channel_id'] ?? 0) === (int) $ch['id'];
+                ?>
+                <a href="<?= url('/inbox?channel_id=' . $ch['id']) ?>" class="px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap flex items-center gap-1"
+                   style="<?= $cActive ? 'background:' . e($ch['color']) . '22; color:' . e($ch['color']) . '; border:1px solid ' . e($ch['color']) . '55;' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">
+                    <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e($ch['color']) ?>;"></span>
+                    <?= e(mb_strimwidth($ch['label'], 0, 14, '...')) ?>
+                </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="flex-1 overflow-y-auto scrollbar-thin">
@@ -71,10 +88,15 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
                         <span class="font-semibold text-sm truncate <?= $hasUnread ? '' : '' ?>" style="color: var(--color-text-primary);"><?= e($name) ?></span>
                         <span class="text-[10px] flex-shrink-0 font-mono" style="color: <?= $hasUnread ? 'var(--color-primary)' : 'var(--color-text-muted)' ?>;"><?= time_ago((string) ($c['last_message_at'] ?? $c['updated_at'])) ?></span>
                     </div>
-                    <div class="flex items-center gap-1 mb-1">
+                    <div class="flex items-center gap-1 mb-1 flex-wrap">
                         <span class="badge <?= $c['channel'] === 'whatsapp' ? 'badge-emerald' : ($c['channel'] === 'email' ? 'badge-cyan' : 'badge-slate') ?>" style="font-size: 8px; padding: 1px 5px;">
                             <?= match($c['channel']) { 'whatsapp' => 'WA', 'email' => 'EMAIL', 'instagram' => 'IG', 'facebook' => 'FB', default => strtoupper((string) $c['channel']) } ?>
                         </span>
+                        <?php if (!empty($c['channel_label'])): ?>
+                        <span class="text-[8px] font-semibold uppercase tracking-wider px-1.5 rounded" style="background: <?= e((string) ($c['channel_color'] ?? '#7C3AED')) ?>22; color: <?= e((string) ($c['channel_color'] ?? '#7C3AED')) ?>;" title="<?= e((string) ($c['channel_phone'] ?? '')) ?>">
+                            <?= e(mb_strimwidth((string) $c['channel_label'], 0, 12, '..')) ?>
+                        </span>
+                        <?php endif; ?>
                         <?php if (!empty($c['is_starred'])): ?><span class="text-amber-400 text-[10px]">★</span><?php endif; ?>
                         <?php if (!empty($c['ai_sentiment'])):
                             $emoji = match($c['ai_sentiment']) { 'positive' => '😊', 'negative' => '😞', default => '😐' };
@@ -124,10 +146,17 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
                         <span class="badge <?= $cls ?>"><?= $lbl ?></span>
                         <?php endif; ?>
                     </div>
-                    <div class="text-xs flex items-center gap-2" style="color: var(--color-text-tertiary);">
+                    <div class="text-xs flex items-center gap-2 flex-wrap" style="color: var(--color-text-tertiary);">
                         <span class="font-mono"><?= e((string) ($active['phone'] ?? $active['email'] ?? '')) ?></span>
                         <span style="color: var(--color-text-muted);">·</span>
                         <span class="capitalize"><?= e($active['status']) ?></span>
+                        <?php if (!empty($active['channel_label'])): ?>
+                        <span style="color: var(--color-text-muted);">·</span>
+                        <span class="font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;">
+                            <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;"></span>
+                            <?= e((string) $active['channel_label']) ?>
+                        </span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -356,6 +385,28 @@ $contactName = $active ? trim(($active['first_name'] ?? '') . ' ' . ($active['la
             <?php endif; ?>
 
             <form id="composer" onsubmit="event.preventDefault(); sendMessage();">
+                <?php if (!empty($channels) && count($channels) > 1 && !$active['channel_id']): ?>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--color-text-tertiary);">Enviar desde:</span>
+                    <select id="channelSelect" class="text-xs px-2 py-1 rounded-lg border" style="background: var(--color-bg-subtle); border-color: var(--color-border-subtle); color: var(--color-text-primary);">
+                        <?php foreach ($channels as $ch): if ($ch['status'] !== 'active') continue; ?>
+                        <option value="<?= (int) $ch['id'] ?>" <?= !empty($ch['is_default']) ? 'selected' : '' ?>>
+                            <?= e($ch['label']) ?> · <?= e($ch['phone']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php elseif ($active['channel_id'] && !empty($active['channel_label'])): ?>
+                <div class="text-[11px] mb-2 flex items-center gap-1.5" style="color: var(--color-text-tertiary);">
+                    <span style="color: var(--color-text-tertiary);">Enviando desde:</span>
+                    <span class="font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;">
+                        <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;"></span>
+                        <?= e((string) $active['channel_label']) ?>
+                        <span class="font-mono opacity-70">(<?= e((string) ($active['channel_phone'] ?? '')) ?>)</span>
+                    </span>
+                </div>
+                <input type="hidden" id="channelSelect" value="<?= (int) $active['channel_id'] ?>">
+                <?php endif; ?>
                 <div class="flex items-end gap-2">
                     <div class="flex-1">
                         <textarea id="msgInput" rows="2" placeholder="Escribe un mensaje..." class="textarea resize-none text-sm focus-ring"></textarea>
@@ -482,12 +533,14 @@ async function sendMessage() {
     const text = msgInput.value.trim();
     if (!text) return;
     const isInternal = document.getElementById('isInternal').checked;
+    const chSelect = document.getElementById('channelSelect');
+    const channelId = chSelect ? parseInt(chSelect.value, 10) : null;
     msgInput.disabled = true;
     try {
         const res = await fetch('<?= url('/inbox/') ?>' + convId + '/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ message: text, is_internal: isInternal ? 1 : 0 })
+            body: JSON.stringify({ message: text, is_internal: isInternal ? 1 : 0, channel_id: channelId || null })
         });
         const data = await res.json();
         if (data.success) {

@@ -17,8 +17,10 @@ use App\Models\Message;
 use App\Models\AiAgent;
 use App\Models\QuickReply;
 use App\Models\User;
+use App\Models\WhatsappChannel;
 use App\Services\AiAgentService;
 use App\Services\AiProviderService;
+use App\Services\ChannelDispatcher;
 use App\Services\ClaudeService;
 use App\Services\WasapiService;
 
@@ -29,10 +31,11 @@ final class InboxController extends Controller
         $tenantId = Tenant::id();
 
         $filters = [
-            'status'  => (string) $request->query('status', ''),
-            'agent'   => $request->query('agent') ?: null,
-            'channel' => (string) $request->query('channel', ''),
-            'q'       => trim((string) $request->query('q', '')),
+            'status'     => (string) $request->query('status', ''),
+            'agent'      => $request->query('agent') ?: null,
+            'channel'    => (string) $request->query('channel', ''),
+            'channel_id' => $request->query('channel_id') ? (int) $request->query('channel_id') : null,
+            'q'          => trim((string) $request->query('q', '')),
         ];
 
         $conversations = Conversation::listFiltered($tenantId, $filters, 80);
@@ -55,6 +58,8 @@ final class InboxController extends Controller
             $aiAgents = [];
         }
 
+        $channels = WhatsappChannel::listForTenant($tenantId);
+
         $this->view('inbox.index', [
             'page'           => 'bandeja',
             'conversations'  => $conversations,
@@ -63,6 +68,7 @@ final class InboxController extends Controller
             'filters'        => $filters,
             'agents'         => User::listByTenant($tenantId),
             'aiAgents'       => $aiAgents,
+            'channels'       => $channels,
             'quickReplies'   => QuickReply::listForTenant($tenantId),
         ], 'layouts.app');
     }
@@ -82,10 +88,18 @@ final class InboxController extends Controller
 
         $message = trim((string) $request->input('message', ''));
         $isInternal = !empty($request->input('is_internal'));
+        $channelOverride = $request->input('channel_id') ? (int) $request->input('channel_id') : null;
 
         if ($message === '') {
             $this->json(['success' => false, 'error' => 'Mensaje vacio']);
             return;
+        }
+
+        // Resolver canal a usar
+        $channelId = $channelOverride ?? (isset($conv['channel_id']) ? (int) $conv['channel_id'] : null);
+        if (!$channelId && $conv['channel'] === 'whatsapp') {
+            $defaultChannel = WhatsappChannel::findDefault($tenantId);
+            if ($defaultChannel) $channelId = (int) $defaultChannel['id'];
         }
 
         $messageId = Database::insert('messages', [
@@ -93,6 +107,7 @@ final class InboxController extends Controller
             'conversation_id' => $convId,
             'contact_id'      => (int) $conv['contact_id'],
             'user_id'         => Auth::id(),
+            'channel_id'      => $channelId,
             'direction'       => 'outbound',
             'type'            => 'text',
             'content'         => $message,
@@ -101,18 +116,21 @@ final class InboxController extends Controller
             'sent_at'         => $isInternal ? date('Y-m-d H:i:s') : null,
         ]);
 
-        // Si no es nota interna, intentar enviar por Wasapi
+        // Si no es nota interna, intentar enviar a traves del dispatcher (Wasapi/Cloud/etc)
         $whatsappResult = ['success' => true];
         if (!$isInternal && $conv['channel'] === 'whatsapp' && !empty($conv['phone'] ?? $conv['whatsapp'])) {
             $phone = (string) ($conv['whatsapp'] ?: $conv['phone']);
-            $svc = new WasapiService($tenantId);
-            $whatsappResult = $svc->sendTextMessage($phone, $message);
+            $dispatcher = new ChannelDispatcher($tenantId);
+            $whatsappResult = $dispatcher->sendText($phone, $message, $channelId);
             Database::update('messages', [
                 'status'        => $whatsappResult['success'] ? 'sent' : 'failed',
                 'external_id'   => $whatsappResult['body']['id'] ?? null,
                 'sent_at'       => $whatsappResult['success'] ? date('Y-m-d H:i:s') : null,
                 'error_message' => $whatsappResult['success'] ? null : ($whatsappResult['error'] ?: 'Error envio'),
             ], ['id' => $messageId]);
+            if ($whatsappResult['success'] && $channelId) {
+                WhatsappChannel::touchActivity($channelId);
+            }
         }
 
         // Actualizar conversacion
@@ -120,6 +138,7 @@ final class InboxController extends Controller
             'last_message'    => mb_substr($message, 0, 200),
             'last_message_at' => date('Y-m-d H:i:s'),
             'status'          => 'open',
+            'channel_id'      => $channelId,
         ]);
 
         $this->json([

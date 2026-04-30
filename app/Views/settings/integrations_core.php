@@ -31,7 +31,7 @@ if (isset($claudeAliases[$claudeModel])) {
 </div>
 <?php endif; ?>
 
-<form id="integrationsForm" action="<?= url('/settings/integrations') ?>" method="POST" class="space-y-4">
+<form id="integrationsForm" action="<?= url('/settings/integrations/core') ?>" method="POST" class="space-y-4">
     <?= csrf_field() ?>
     <input type="hidden" name="_method" value="PUT">
 
