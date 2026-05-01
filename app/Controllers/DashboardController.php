@@ -11,6 +11,7 @@ use App\Core\Tenant;
 use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Message;
+use App\Models\Order;
 
 final class DashboardController extends Controller
 {
@@ -111,6 +112,70 @@ final class DashboardController extends Controller
             ['t' => $tenantId]
         );
 
+        // === METRICAS DE RESTAURANTE (si aplica) ===
+        $restaurantStats = null;
+        $topMenuItems = [];
+        $ordersHourly = [];
+        $aiVsHumanShare = ['ai' => 0, 'human' => 0];
+        if (!empty($tenantData['is_restaurant'])) {
+            try {
+                $restaurantStats = Order::dashboardStats($tenantId);
+
+                // Top 5 items vendidos en los ultimos 30 dias
+                $topMenuItems = Database::fetchAll(
+                    "SELECT oi.name, SUM(oi.qty) AS units, SUM(oi.subtotal) AS revenue
+                     FROM order_items oi
+                     INNER JOIN orders o ON o.id = oi.order_id
+                     WHERE oi.tenant_id = :t
+                       AND o.status NOT IN ('cancelled')
+                       AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                     GROUP BY oi.name
+                     ORDER BY units DESC
+                     LIMIT 5",
+                    ['t' => $tenantId]
+                );
+
+                // Ordenes por hora del dia (hoy)
+                $ordersHourly = Database::fetchAll(
+                    "SELECT HOUR(created_at) AS h, COUNT(*) AS total, COALESCE(SUM(total), 0) AS revenue
+                     FROM orders
+                     WHERE tenant_id = :t AND DATE(created_at) = CURDATE() AND status NOT IN ('cancelled')
+                     GROUP BY HOUR(created_at)
+                     ORDER BY h ASC",
+                    ['t' => $tenantId]
+                );
+
+                // AI vs Humano: ordenes ultimos 7 dias
+                $aiCount = (int) Database::fetchColumn(
+                    "SELECT COUNT(*) FROM orders WHERE tenant_id = :t AND is_ai_generated = 1
+                     AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND status != 'cancelled'",
+                    ['t' => $tenantId]
+                );
+                $humanCount = (int) Database::fetchColumn(
+                    "SELECT COUNT(*) FROM orders WHERE tenant_id = :t AND is_ai_generated = 0
+                     AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND status != 'cancelled'",
+                    ['t' => $tenantId]
+                );
+                $aiVsHumanShare = ['ai' => $aiCount, 'human' => $humanCount];
+
+                // Anadir tasa de conversion (orders / conversaciones unicas que tuvieron mensaje en 7d)
+                $convs7d = (int) Database::fetchColumn(
+                    "SELECT COUNT(DISTINCT c.id) FROM conversations c
+                     INNER JOIN messages m ON m.conversation_id = c.id
+                     WHERE c.tenant_id = :t AND m.direction = 'inbound'
+                       AND m.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
+                    ['t' => $tenantId]
+                );
+                $orders7d = $aiCount + $humanCount;
+                $stats['conversion_rate'] = $convs7d > 0 ? round(($orders7d / $convs7d) * 100, 1) : 0;
+                $stats['ai_share'] = $orders7d > 0 ? round(($aiCount / $orders7d) * 100, 1) : 0;
+                $stats['orders_today'] = (int) ($restaurantStats['today'] ?? 0);
+                $stats['revenue_today'] = (float) ($restaurantStats['revenue_today'] ?? 0);
+                $stats['avg_ticket'] = (float) ($restaurantStats['avg_ticket'] ?? 0);
+                $stats['orders_pending'] = (int) ($restaurantStats['pending'] ?? 0);
+            } catch (\Throwable) {}
+        }
+
         // Alertas
         $alerts = [];
         if (!empty($tenantData['trial_ends_at']) && strtotime($tenantData['trial_ends_at']) - time() < 86400 * 3) {
@@ -135,6 +200,10 @@ final class DashboardController extends Controller
             'activityFeed'         => $activityFeed,
             'alerts'               => $alerts,
             'tenantData'           => $tenantData,
+            'restaurantStats'      => $restaurantStats,
+            'topMenuItems'         => $topMenuItems,
+            'ordersHourly'         => $ordersHourly,
+            'aiVsHumanShare'       => $aiVsHumanShare,
             'page'                 => 'dashboard',
         ], 'layouts.app');
     }

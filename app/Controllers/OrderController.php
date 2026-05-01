@@ -14,6 +14,7 @@ use App\Models\DeliveryZone;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Services\ChannelDispatcher;
+use App\Services\LeadSyncService;
 
 final class OrderController extends Controller
 {
@@ -145,6 +146,15 @@ final class OrderController extends Controller
             'to_status' => 'new',
             'note'      => 'Orden creada manualmente',
         ]);
+
+        // Sincronizar con CRM/pipeline
+        try {
+            $sync = new LeadSyncService($tenantId);
+            $sync->ensureRestaurantStages();
+            $sync->syncOrderToLead($orderId);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::error('LeadSync manual fallo', ['msg' => $e->getMessage()]);
+        }
 
         Audit::log('order.created', 'order', $orderId);
         Session::flash('success', 'Orden creada.');

@@ -130,6 +130,23 @@ final class Order extends Model
             'note'        => $note ? mb_substr($note, 0, 500) : null,
         ]);
 
+        // Sincronizar con CRM/pipeline
+        try {
+            (new \App\Services\LeadSyncService($tenantId))->syncOrderToLead($orderId);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::error('LeadSync status fallo', ['msg' => $e->getMessage()]);
+        }
+
+        // Evento global
+        try {
+            \App\Core\Events::dispatch('order.status_changed', [
+                'tenant_id'   => $tenantId,
+                'order_id'    => $orderId,
+                'from_status' => $currentStatus,
+                'to_status'   => $newStatus,
+            ]);
+        } catch (\Throwable) {}
+
         return true;
     }
 

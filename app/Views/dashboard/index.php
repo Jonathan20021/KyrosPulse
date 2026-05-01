@@ -9,6 +9,10 @@
 /** @var array $activityFeed */
 /** @var array $alerts */
 /** @var array|null $tenantData */
+/** @var array|null $restaurantStats */
+/** @var array $topMenuItems */
+/** @var array $ordersHourly */
+/** @var array $aiVsHumanShare */
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
 
@@ -78,6 +82,139 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
     <?php endforeach; ?>
 </div>
 <?php endif; ?>
+
+<!-- ============================================================================
+     SECCION RESTAURANTE - Solo si tenant.is_restaurant
+     ============================================================================ -->
+<?php if (!empty($tenantData['is_restaurant']) && $restaurantStats): ?>
+<section class="mb-7 animate-fade-in">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+            <div class="text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5" style="color: #F59E0B;">🥩 Restaurante · en vivo</div>
+            <h2 class="text-lg font-bold" style="color: var(--color-text-primary);">Operacion del dia</h2>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="<?= url('/orders') ?>" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background: var(--gradient-primary); color: white;">Ir al kanban →</a>
+            <a href="<?= url('/menu') ?>" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background: var(--color-bg-subtle); color: var(--color-text-primary);">Menú</a>
+        </div>
+    </div>
+
+    <!-- Big numbers -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <?php
+        $rstKpis = [
+            ['Ordenes hoy',     number_format((int) ($restaurantStats['today'] ?? 0)),                      '#7C3AED', '📅', 'Total de ordenes hoy'],
+            ['Revenue hoy',     $currency . ' ' . number_format((float) ($restaurantStats['revenue_today'] ?? 0), 2), '#10B981', '💰', 'Ingresos del dia'],
+            ['Pendientes',      number_format((int) ($restaurantStats['pending'] ?? 0)),                    '#F59E0B', '⏳', 'En cocina + en camino'],
+            ['Ticket promedio', $currency . ' ' . number_format((float) ($restaurantStats['avg_ticket'] ?? 0), 2),    '#06B6D4', '🎯', 'Promedio 30 dias'],
+        ];
+        foreach ($rstKpis as [$lbl, $val, $col, $em, $sub]): ?>
+        <div class="surface p-4 relative overflow-hidden">
+            <div class="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-10" style="background: <?= $col ?>;"></div>
+            <div class="flex items-center justify-between mb-1 relative">
+                <span class="text-[10px] uppercase tracking-wider font-semibold" style="color: var(--color-text-tertiary);"><?= e($lbl) ?></span>
+                <span class="text-xl"><?= $em ?></span>
+            </div>
+            <div class="text-2xl font-bold mb-0.5" style="color: var(--color-text-primary);"><?= e((string) $val) ?></div>
+            <div class="text-[10px]" style="color: var(--color-text-muted);"><?= e($sub) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-3">
+        <!-- Top items vendidos -->
+        <div class="surface p-5">
+            <h3 class="font-bold text-sm mb-3 flex items-center gap-2" style="color: var(--color-text-primary);">
+                <span>🍽</span> Top 5 platos · 30 dias
+            </h3>
+            <?php if (empty($topMenuItems)): ?>
+            <p class="text-xs" style="color: var(--color-text-tertiary);">Aun no hay datos suficientes.</p>
+            <?php else:
+                $maxUnits = max(array_column($topMenuItems, 'units')) ?: 1;
+                foreach ($topMenuItems as $i => $it):
+                    $width = (int) round(((int) $it['units'] / $maxUnits) * 100);
+            ?>
+            <div class="mb-2.5">
+                <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="font-semibold truncate flex-1" style="color: var(--color-text-primary);"><?= e($it['name']) ?></span>
+                    <span class="font-mono ml-2" style="color: var(--color-primary);"><?= (int) $it['units'] ?>×</span>
+                </div>
+                <div class="h-1.5 rounded-full overflow-hidden" style="background: var(--color-bg-subtle);">
+                    <div class="h-full rounded-full transition-all duration-1000" style="width: <?= $width ?>%; background: linear-gradient(90deg,#F59E0B,#7C3AED);"></div>
+                </div>
+                <div class="text-[10px] mt-0.5" style="color: var(--color-text-tertiary);"><?= $currency ?> <?= number_format((float) $it['revenue'], 2) ?></div>
+            </div>
+            <?php endforeach; endif; ?>
+        </div>
+
+        <!-- Ordenes por hora hoy -->
+        <div class="surface p-5">
+            <h3 class="font-bold text-sm mb-3 flex items-center gap-2" style="color: var(--color-text-primary);">
+                <span>⏰</span> Ordenes por hora · hoy
+            </h3>
+            <?php
+            // Build 24h grid
+            $hourGrid = array_fill(0, 24, ['orders' => 0, 'revenue' => 0]);
+            foreach ($ordersHourly as $h) {
+                $hourGrid[(int) $h['h']] = ['orders' => (int) $h['total'], 'revenue' => (float) $h['revenue']];
+            }
+            $maxOrders = max(array_column($hourGrid, 'orders')) ?: 1;
+            ?>
+            <div class="flex items-end gap-0.5 h-32 mb-2">
+                <?php for ($h = 8; $h < 24; $h++):
+                    $cell = $hourGrid[$h];
+                    $heightPct = $cell['orders'] > 0 ? max(8, (int) round(($cell['orders'] / $maxOrders) * 100)) : 2;
+                ?>
+                <div class="flex-1 flex flex-col justify-end" title="<?= sprintf('%02d:00 — %d orden(es) — %s %s', $h, $cell['orders'], $currency, number_format($cell['revenue'], 2)) ?>">
+                    <div class="rounded-t transition-all duration-700" style="height: <?= $heightPct ?>%; background: <?= $cell['orders'] > 0 ? 'linear-gradient(180deg,#7C3AED,#06B6D4)' : 'rgba(255,255,255,0.05)' ?>;"></div>
+                </div>
+                <?php endfor; ?>
+            </div>
+            <div class="flex justify-between text-[9px] font-mono" style="color: var(--color-text-tertiary);">
+                <span>8h</span><span>12h</span><span>16h</span><span>20h</span><span>23h</span>
+            </div>
+        </div>
+
+        <!-- IA vs Humano -->
+        <div class="surface p-5">
+            <h3 class="font-bold text-sm mb-3 flex items-center gap-2" style="color: var(--color-text-primary);">
+                <span>🤖</span> IA vs Humano · 7 dias
+            </h3>
+            <?php
+            $aiC = (int) ($aiVsHumanShare['ai'] ?? 0);
+            $hC  = (int) ($aiVsHumanShare['human'] ?? 0);
+            $totalOrders = $aiC + $hC;
+            $aiPct = $totalOrders > 0 ? round(($aiC / $totalOrders) * 100) : 0;
+            ?>
+            <div class="text-3xl font-black mb-1 gradient-text-aurora"><?= $aiPct ?>%</div>
+            <p class="text-xs mb-3" style="color: var(--color-text-tertiary);">de las ordenes las cerro la IA sola</p>
+
+            <div class="h-3 rounded-full overflow-hidden flex" style="background: var(--color-bg-subtle);">
+                <div style="width: <?= $aiPct ?>%; background: linear-gradient(90deg,#7C3AED,#06B6D4);" class="transition-all duration-1000"></div>
+                <div style="width: <?= 100 - $aiPct ?>%; background: rgba(255,255,255,0.08);"></div>
+            </div>
+            <div class="flex justify-between mt-2 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full" style="background: #7C3AED;"></span>
+                    <span style="color: var(--color-text-secondary);"><strong><?= $aiC ?></strong> IA</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span style="color: var(--color-text-secondary);"><strong><?= $hC ?></strong> Humano</span>
+                    <span class="w-2 h-2 rounded-full" style="background: rgba(255,255,255,0.3);"></span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t" style="border-color: var(--color-border-subtle);">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span style="color: var(--color-text-tertiary);">Tasa de conversion (chat → orden)</span>
+                    <strong style="color: <?= ($stats['conversion_rate'] ?? 0) > 30 ? '#10B981' : '#F59E0B' ?>;"><?= (float) ($stats['conversion_rate'] ?? 0) ?>%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 
 <!-- ============================================================================
      KPI HERO - 4 Premium cards with animated counters + sparklines

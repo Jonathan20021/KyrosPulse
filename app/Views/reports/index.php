@@ -180,4 +180,154 @@ new Chart(document.getElementById('chartHours'), {
 });
 </script>
 
+<!-- ===========================================================
+     SECCION RESTAURANTE — solo si tenant.is_restaurant
+     =========================================================== -->
+<?php if (!empty($restaurant)):
+    $rs = $restaurant;
+    $cur = $rs['currency'];
+?>
+<div class="my-8 pt-6 border-t" style="border-color: var(--color-border-subtle);">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="text-2xl">🥩</span>
+        <div>
+            <div class="text-[10px] uppercase tracking-[0.15em] font-bold" style="color: #F59E0B;">Restaurante</div>
+            <h2 class="text-lg font-bold" style="color: var(--color-text-primary);">Analytics de ordenes · <?= (int) $days ?> dias</h2>
+        </div>
+    </div>
+
+    <!-- Big numbers -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
+        <?php
+        $kpisR = [
+            ['Ordenes',         number_format((int) ($rs['summary']['total_orders'] ?? 0)),                                       '#7C3AED'],
+            ['Revenue',         $cur . ' ' . number_format((float) ($rs['summary']['total_revenue'] ?? 0), 2),                    '#10B981'],
+            ['Ticket promedio', $cur . ' ' . number_format((float) ($rs['summary']['avg_ticket'] ?? 0), 2),                       '#06B6D4'],
+            ['Cerradas IA',     number_format((int) ($rs['summary']['ai_orders'] ?? 0)),                                          '#A855F7'],
+            ['Completadas',     number_format((int) ($rs['summary']['completed'] ?? 0)),                                          '#22C55E'],
+            ['Tasa conversion', ((float) ($rs['conv_rate'] ?? 0)) . '%',                                                          '#F59E0B'],
+        ];
+        foreach ($kpisR as [$lbl, $val, $col]): ?>
+        <div class="surface p-3">
+            <div class="text-[10px] uppercase tracking-wider mb-0.5" style="color: var(--color-text-tertiary);"><?= e($lbl) ?></div>
+            <div class="text-lg font-bold" style="color: <?= $col ?>;"><?= e((string) $val) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-3">
+        <!-- Revenue trend -->
+        <div class="surface p-5 lg:col-span-2">
+            <h3 class="font-bold text-sm mb-3" style="color: var(--color-text-primary);">Revenue por dia</h3>
+            <div class="relative h-64">
+                <canvas id="revChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Orders by type -->
+        <div class="surface p-5">
+            <h3 class="font-bold text-sm mb-3" style="color: var(--color-text-primary);">Por tipo de entrega</h3>
+            <?php if (empty($rs['by_type'])): ?>
+            <p class="text-xs" style="color: var(--color-text-tertiary);">Sin datos.</p>
+            <?php else:
+                $totalByType = array_sum(array_column($rs['by_type'], 'total')) ?: 1;
+                foreach ($rs['by_type'] as $t):
+                    $pct = round(((int) $t['total'] / $totalByType) * 100);
+                    $emoji = match ($t['delivery_type']) { 'pickup' => '🛍', 'dine_in' => '🍴', default => '🛵' };
+                    $lbl = match ($t['delivery_type']) { 'pickup' => 'Pickup', 'dine_in' => 'Mesa local', default => 'Delivery' };
+                    $color = match ($t['delivery_type']) { 'pickup' => '#06B6D4', 'dine_in' => '#A855F7', default => '#10B981' };
+            ?>
+            <div class="mb-3">
+                <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="font-semibold" style="color: var(--color-text-primary);"><?= $emoji ?> <?= e($lbl) ?></span>
+                    <span style="color: var(--color-text-tertiary);"><?= (int) $t['total'] ?> · <?= $pct ?>%</span>
+                </div>
+                <div class="h-1.5 rounded-full overflow-hidden" style="background: var(--color-bg-subtle);">
+                    <div class="h-full rounded-full" style="width: <?= $pct ?>%; background: <?= $color ?>;"></div>
+                </div>
+                <div class="text-[10px] mt-0.5" style="color: var(--color-text-tertiary);"><?= $cur ?> <?= number_format((float) $t['revenue'], 2) ?> · prom <?= $cur ?> <?= number_format((float) $t['avg'], 2) ?></div>
+            </div>
+            <?php endforeach; endif; ?>
+        </div>
+
+        <!-- Top items -->
+        <div class="surface p-5 lg:col-span-2">
+            <h3 class="font-bold text-sm mb-3" style="color: var(--color-text-primary);">Top platos</h3>
+            <?php if (empty($rs['top_items'])): ?>
+            <p class="text-xs" style="color: var(--color-text-tertiary);">Sin datos.</p>
+            <?php else:
+                $maxU = max(array_column($rs['top_items'], 'units')) ?: 1;
+            ?>
+            <div class="grid sm:grid-cols-2 gap-x-5 gap-y-2">
+                <?php foreach ($rs['top_items'] as $i => $it):
+                    $w = round(((int) $it['units'] / $maxU) * 100);
+                ?>
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="truncate font-semibold flex-1" style="color: var(--color-text-primary);"><?= ($i+1) ?>. <?= e($it['name']) ?></span>
+                        <span class="font-mono ml-2" style="color: var(--color-primary);"><?= (int) $it['units'] ?>×</span>
+                    </div>
+                    <div class="h-1 rounded-full overflow-hidden" style="background: var(--color-bg-subtle);">
+                        <div class="h-full" style="width: <?= $w ?>%; background: linear-gradient(90deg,#F59E0B,#7C3AED);"></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Status distribution -->
+        <div class="surface p-5">
+            <h3 class="font-bold text-sm mb-3" style="color: var(--color-text-primary);">Distribucion por estado</h3>
+            <?php
+            $statusColors = [
+                'new' => '#06B6D4', 'confirmed' => '#3B82F6', 'preparing' => '#F59E0B',
+                'ready' => '#A855F7', 'out_for_delivery' => '#EC4899', 'delivered' => '#22C55E',
+                'cancelled' => '#EF4444',
+            ];
+            $statusLabels = [
+                'new' => 'Nuevo', 'confirmed' => 'Confirmado', 'preparing' => 'En cocina',
+                'ready' => 'Listo', 'out_for_delivery' => 'En camino', 'delivered' => 'Entregado',
+                'cancelled' => 'Cancelado',
+            ];
+            $totalSt = array_sum(array_column($rs['status_dist'], 'total')) ?: 1;
+            foreach ($rs['status_dist'] as $s):
+                $pct = round(((int) $s['total'] / $totalSt) * 100);
+                $col = $statusColors[$s['status']] ?? '#94A3B8';
+                $lbl = $statusLabels[$s['status']] ?? $s['status'];
+            ?>
+            <div class="flex items-center gap-2 mb-2">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" style="background: <?= $col ?>;"></span>
+                <span class="text-xs flex-1 truncate" style="color: var(--color-text-secondary);"><?= e($lbl) ?></span>
+                <span class="text-xs font-bold" style="color: var(--color-text-primary);"><?= (int) $s['total'] ?></span>
+                <span class="text-[10px] font-mono w-10 text-right" style="color: var(--color-text-tertiary);"><?= $pct ?>%</span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
+<script>
+new Chart(document.getElementById('revChart'), {
+    type: 'line',
+    data: {
+        labels: <?= json_encode($rs['rev_labels']) ?>,
+        datasets: [
+            { label: 'Revenue (<?= e($cur) ?>)', data: <?= json_encode($rs['rev_totals']) ?>, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.12)', tension: .35, fill: true, yAxisID: 'y' },
+            { label: 'Ordenes',                  data: <?= json_encode($rs['rev_orders']) ?>, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,.06)', tension: .35, fill: false, yAxisID: 'y1' },
+            { label: 'Ordenes IA',               data: <?= json_encode($rs['rev_ai']) ?>,     borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,.06)', tension: .35, borderDash: [4,4], fill: false, yAxisID: 'y1' },
+        ],
+    },
+    options: {
+        ...baseChartOptions,
+        scales: {
+            ...baseChartOptions.scales,
+            y:  { type: 'linear', position: 'left',  ticks: { color: 'rgba(148,163,184,.65)' }, grid: { color: 'rgba(148,163,184,.08)' } },
+            y1: { type: 'linear', position: 'right', ticks: { color: 'rgba(148,163,184,.65)' }, grid: { drawOnChartArea: false } },
+        },
+    },
+});
+</script>
+<?php endif; ?>
+
 <?php \App\Core\View::stop(); ?>

@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v5_ok';
+    private const CACHE_FILE = '/cache/.schema_v6_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -407,6 +407,25 @@ SQL);
         if (!self::columnExists($pdo, 'conversations', 'cart_state')) {
             $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `cart_state` JSON NULL AFTER `from_phone`");
         }
+
+        // ----- Backfill leads desde ordenes existentes (sincronizacion CRM) -----
+        try {
+            $orders = $pdo->query(
+                "SELECT o.id, o.tenant_id
+                 FROM orders o
+                 LEFT JOIN leads l ON l.tenant_id = o.tenant_id
+                                   AND l.deleted_at IS NULL
+                                   AND l.description LIKE CONCAT('%[ORDER:', o.code, ']%')
+                 WHERE l.id IS NULL
+                 LIMIT 200"
+            )->fetchAll(\PDO::FETCH_ASSOC);
+            foreach ($orders as $o) {
+                try {
+                    (new \App\Services\LeadSyncService((int) $o['tenant_id']))->ensureRestaurantStages();
+                    (new \App\Services\LeadSyncService((int) $o['tenant_id']))->syncOrderToLead((int) $o['id']);
+                } catch (\Throwable) {}
+            }
+        } catch (\Throwable) {}
 
         // ----- Cleanup nombres genericos de agentes IA: usar nombre del owner -----
         try {

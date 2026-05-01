@@ -157,6 +157,27 @@ final class RestaurantOrderEngine
 
         Logger::info('AI order creada', ['tenant' => $this->tenantId, 'order' => $orderId, 'total' => $total]);
 
+        // Sincronizar con CRM/pipeline: crear lead asociado, actualizar contacto.
+        try {
+            $sync = new LeadSyncService($this->tenantId);
+            $sync->ensureRestaurantStages();
+            $sync->syncOrderToLead($orderId);
+        } catch (\Throwable $e) {
+            Logger::error('LeadSync fallo en createFromAi', ['msg' => $e->getMessage()]);
+        }
+
+        // Disparar evento global para automatizaciones, reportes en tiempo real, etc.
+        try {
+            \App\Core\Events::dispatch('order.created', [
+                'tenant_id'       => $this->tenantId,
+                'order_id'        => $orderId,
+                'conversation_id' => $conversationId,
+                'contact_id'      => $contactId,
+                'total'           => $total,
+                'is_ai_generated' => 1,
+            ]);
+        } catch (\Throwable) {}
+
         return ['success' => true, 'order_id' => $orderId];
     }
 
