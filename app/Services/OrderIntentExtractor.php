@@ -42,10 +42,14 @@ final class OrderIntentExtractor
     /**
      * Devuelve los items detectados en los ultimos N mensajes outbound de la IA.
      * Estructura: [['name' => ..., 'qty' => 1, 'unit_price' => 625.0], ...]
+     *
+     * Intenta en cascada:
+     *  1. Resumen formal con precios ("1x Smash Burger — DOP 625")
+     *  2. Mencion directa de items del menu ("Tu pedido: Smash Burger y Coca Cola")
      */
-    public function extractItemsFromHistory(int $conversationId, int $lookback = 6): array
+    public function extractItemsFromHistory(int $conversationId, int $lookback = 12): array
     {
-        $messages = Message::listByConversation($this->tenantId, $conversationId, max(20, $lookback * 4));
+        $messages = Message::listByConversation($this->tenantId, $conversationId, max(40, $lookback * 4));
         $messages = array_reverse($messages); // de mas reciente a mas antiguo
         $aiMessages = [];
         foreach ($messages as $m) {
@@ -56,12 +60,149 @@ final class OrderIntentExtractor
             if (count($aiMessages) >= $lookback) break;
         }
 
-        // Buscar el primero (mas reciente) que tenga forma de resumen con precios
+        // Pasada 1: formato formal con precios
         foreach ($aiMessages as $body) {
             $items = $this->parseItemsFromText($body);
             if (!empty($items)) return $items;
         }
-        return [];
+
+        // Pasada 2: menciones directas del menu (aunque sin precio)
+        foreach ($aiMessages as $body) {
+            $items = $this->scanMenuMentions($body);
+            if (!empty($items)) return $items;
+        }
+
+        // Pasada 3: combinar TODOS los mensajes recientes y escanear
+        $combined = implode("\n", $aiMessages);
+        return $this->scanMenuMentions($combined);
+    }
+
+    /**
+     * Escanea texto buscando menciones de items del menu por nombre.
+     * Util cuando la IA mencionó items sin formato de lista (ej. "te confirmo
+     * tu Smash Burger y Coca Cola para pickup").
+     */
+    public function scanMenuMentions(string $text): array
+    {
+        $text = trim($text);
+        if ($text === '') return [];
+
+        $lower = mb_strtolower($text);
+        $items = Database::fetchAll(
+            "SELECT id, name, price FROM menu_items
+             WHERE tenant_id = :t AND deleted_at IS NULL AND is_available = 1
+             ORDER BY CHAR_LENGTH(name) DESC", // mas largos primero para evitar falsos positivos
+            ['t' => $this->tenantId]
+        );
+
+        $found = [];
+        $usedRanges = []; // tracks [offset, length] ya consumidos para evitar overlap
+        foreach ($items as $item) {
+            $fullName = mb_strtolower((string) $item['name']);
+            // Generar variantes para matchear nombres parciales:
+            // "Coca Cola 12 oz" → ["coca cola 12 oz", "coca cola"]
+            // "Mojito de Menta" → ["mojito de menta", "mojito"]
+            $variants = [$fullName];
+            $stripped = preg_replace('/\s+\d+\s*(oz|ml|gr|g|cl|lt|l|onz|onzas)\b.*$/iu', '', $fullName);
+            if ($stripped !== null && $stripped !== '' && $stripped !== $fullName) {
+                $variants[] = trim($stripped);
+            }
+            // Tambien intentar quitar parentesis "(botella)", "(copa)", "(ninos)"
+            $noParens = preg_replace('/\s*\([^)]*\)\s*$/u', '', $fullName);
+            if ($noParens !== null && $noParens !== $fullName && $noParens !== '') {
+                $variants[] = trim($noParens);
+            }
+            $variants = array_values(array_unique(array_filter($variants, fn($v) => mb_strlen($v) >= 4)));
+
+            $matched = false;
+            foreach ($variants as $needle) {
+                if ($matched) break;
+
+                $offset = 0;
+                while (($pos = mb_stripos($lower, $needle, $offset)) !== false) {
+                    $isOverlap = false;
+                    foreach ($usedRanges as [$start, $len]) {
+                        if ($pos >= $start && $pos < $start + $len) { $isOverlap = true; break; }
+                    }
+                    if ($isOverlap) { $offset = $pos + mb_strlen($needle); continue; }
+
+                    // Word boundary check: no matchear si esta pegado a letras
+                    $charBefore = $pos > 0 ? mb_substr($lower, $pos - 1, 1) : ' ';
+                    $charAfter  = mb_substr($lower, $pos + mb_strlen($needle), 1);
+                    if (preg_match('/\p{L}/u', $charBefore) || preg_match('/\p{L}/u', $charAfter)) {
+                        $offset = $pos + mb_strlen($needle); continue;
+                    }
+
+                    $usedRanges[] = [$pos, mb_strlen($needle)];
+
+                    // Detectar qty antes del nombre
+                    $qty = 1;
+                    $before = mb_substr($lower, max(0, $pos - 14), min(14, $pos));
+                    if (preg_match('/(\d+)\s*[x×]?\s*$/u', $before, $m)) {
+                        $qty = max(1, (int) $m[1]);
+                    } elseif (preg_match('/\b(un|una|uno)\s*$/iu', $before)) {
+                        $qty = 1;
+                    } elseif (preg_match('/\b(dos)\s*$/iu', $before)) {
+                        $qty = 2;
+                    } elseif (preg_match('/\b(tres)\s*$/iu', $before)) {
+                        $qty = 3;
+                    } elseif (preg_match('/\b(cuatro)\s*$/iu', $before)) {
+                        $qty = 4;
+                    } elseif (preg_match('/\b(cinco)\s*$/iu', $before)) {
+                        $qty = 5;
+                    }
+
+                    $found[] = [
+                        'name'         => (string) $item['name'],
+                        'qty'          => $qty,
+                        'unit_price'   => (float) $item['price'],
+                        'menu_item_id' => (int) $item['id'],
+                    ];
+                    $matched = true;
+                    break;
+                }
+            }
+        }
+
+        // Deduplicar (mismo menu_item_id) consolidando con MAX qty
+        $byItem = [];
+        foreach ($found as $f) {
+            $key = $f['menu_item_id'];
+            if (!isset($byItem[$key])) {
+                $byItem[$key] = $f;
+            } else {
+                $byItem[$key]['qty'] = max($byItem[$key]['qty'], $f['qty']);
+            }
+        }
+        return array_values($byItem);
+    }
+
+    /**
+     * Detecta frases que sugieren que la IA esta confirmando un pedido implicitamente
+     * (sin emitir el marcador [ORDER:...]). Util para forzar la creacion de la orden
+     * cuando la IA "alucina" la confirmacion sin que el sistema la procese.
+     */
+    public function looksLikeImplicitConfirmation(string $aiReply): bool
+    {
+        $lower = mb_strtolower($aiReply);
+        $patterns = [
+            '/\b(tu\s+(pedido|orden)\s+(esta|está)\s+confirmad[oa])\b/iu',
+            '/\b(pedido\s+confirmad[oa])\b/iu',
+            '/\b(orden\s+confirmad[oa])\b/iu',
+            '/\b(quedo\s+confirmad[oa])\b/iu',
+            '/\b(te\s+(esperamos|aviso\s+cuando))\b/iu',
+            '/\b(puedes\s+pasar\s+a\s+(recogerl[oa]|buscarl[oa]))\b/iu',
+            '/\b(en\s+camino\s+a\s+(tu|su))\b/iu',
+            '/\b(saliendo\s+(de\s+)?(la\s+)?cocina)\b/iu',
+            '/\b(empezamos\s+a\s+preparar)\b/iu',
+            '/\b(recibim[oa]s\s+tu\s+(pedido|orden))\b/iu',
+            '/\b(se\s+esta\s+preparando)\b/iu',
+            '/\b(listo\s+en\s+\d+)\b/iu',
+        ];
+        foreach ($patterns as $p) {
+            if (preg_match($p, $lower)) return true;
+        }
+        return false;
     }
 
     /**

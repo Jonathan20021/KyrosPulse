@@ -131,6 +131,11 @@ final class AiAgentService
         // Aplicar acciones que la IA pidio (cierre, agenda, transfer, etc.)
         $this->applyActions($parsed['actions'], $conversationId, $contactId, $reply, (int) $agent['id']);
 
+        // SAFETY NET FINAL: Si la IA dijo "tu pedido esta confirmado" / "te esperamos"
+        // / "puedes pasar a recogerlo" pero NO emitio [ORDER:...], creamos la orden
+        // de oficio para que no quede solo en el chat.
+        $this->forceCreateOrderIfImplicitConfirmation($conversationId, $contactId, $phone, $reply, $parsed['actions']);
+
         // Refrescar metadatos generales de la conversacion + contador de exitos
         Database::run(
             "UPDATE conversations
@@ -171,6 +176,92 @@ final class AiAgentService
             if (str_contains($msg, $p)) return true;
         }
         return false;
+    }
+
+    /**
+     * Si la IA dijo "tu pedido esta confirmado" / "puedes pasar a recogerlo" /
+     * "te esperamos" pero NO emitio [ORDER:...], creamos la orden a mano usando
+     * el carrito o los items mencionados en el historial.
+     *
+     * Esta es la red de seguridad final contra alucinaciones de la IA.
+     */
+    private function forceCreateOrderIfImplicitConfirmation(int $conversationId, int $contactId, string $phone, string $aiReply, array $actions): void
+    {
+        try {
+            // Si ya hay una accion ORDER, no hacer nada
+            foreach ($actions as $a) {
+                if (($a['type'] ?? '') === 'ORDER') return;
+            }
+
+            $extractor = new OrderIntentExtractor($this->tenantId);
+            if (!$extractor->looksLikeImplicitConfirmation($aiReply)) return;
+
+            // Tenant restaurante?
+            $tenant = Database::fetch("SELECT is_restaurant FROM tenants WHERE id = :t", ['t' => $this->tenantId]);
+            if (empty($tenant['is_restaurant'])) return;
+
+            // Detectar pickup desde la respuesta de la IA (ej. "puedes pasar a recogerlo")
+            $aiLower = mb_strtolower($aiReply);
+            $impliedDelivery = null;
+            if (preg_match('/\b(pasar\s+a\s+recoger|puedes\s+pasar|recogerl[oa]|busc(arlo|arla))\b/iu', $aiLower)) {
+                $impliedDelivery = 'pickup';
+            } elseif (preg_match('/\b(en\s+camino|delivery|envio|env[ií]o|llegando\s+a)\b/iu', $aiLower)) {
+                $impliedDelivery = 'delivery';
+            } elseif (preg_match('/\b(en\s+(tu|la)\s+mesa|en\s+local|aqui\s+mismo)\b/iu', $aiLower)) {
+                $impliedDelivery = 'dine_in';
+            }
+
+            // Buscar items: carrito → historial → menciones del menu en este reply
+            $cart = $this->readCart($conversationId);
+            $items = $cart['items'] ?? [];
+            if (empty($items)) {
+                $items = $extractor->extractItemsFromHistory($conversationId, 12);
+            }
+            if (empty($items)) {
+                // Ultimo recurso: escanear este mismo reply de la IA
+                $items = $extractor->scanMenuMentions($aiReply);
+            }
+            if (empty($items)) {
+                Logger::warning('IA confirmo implicitamente pero no hay items detectables', [
+                    'conv' => $conversationId,
+                ]);
+                return;
+            }
+
+            // Construir payload
+            $context = $extractor->extractDeliveryContext($conversationId);
+            $payload = [
+                'items'         => $items,
+                'delivery_type' => $cart['delivery_type'] ?? $impliedDelivery ?? $context['delivery_type'] ?? 'delivery',
+                'payment'       => $cart['payment']       ?? $context['payment']       ?? 'cash',
+            ];
+            if (!empty($cart['address'])) $payload['address'] = $cart['address'];
+            if (!empty($cart['zone']))    $payload['zone']    = $cart['zone'];
+            elseif (!empty($context['zone'])) $payload['zone'] = $context['zone'];
+            if (!empty($cart['customer_name'])) $payload['customer_name'] = $cart['customer_name'];
+
+            $contact = Database::fetch("SELECT first_name, last_name, phone, whatsapp FROM contacts WHERE id = :c", ['c' => $contactId]);
+            if (empty($payload['customer_name']) && $contact) {
+                $name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''));
+                if ($name !== '') $payload['customer_name'] = $name;
+            }
+            if (empty($payload['customer_phone'])) {
+                $payload['customer_phone'] = (string) ($contact['whatsapp'] ?? $contact['phone'] ?? $phone);
+            }
+
+            Logger::info('Force-creando orden por confirmacion implicita de la IA', [
+                'tenant' => $this->tenantId,
+                'conv'   => $conversationId,
+                'items'  => count($items),
+            ]);
+
+            $result = (new RestaurantOrderEngine($this->tenantId))->createFromAi($payload, $conversationId, $contactId);
+            if (!empty($result['success'])) {
+                $this->clearCart($conversationId);
+            }
+        } catch (\Throwable $e) {
+            Logger::error('forceCreateOrderIfImplicitConfirmation fallo', ['msg' => $e->getMessage()]);
+        }
     }
 
     /**
