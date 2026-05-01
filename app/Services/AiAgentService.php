@@ -239,19 +239,78 @@ final class AiAgentService
 
     /**
      * Captura items mencionados en la respuesta de la IA y los persiste.
-     * Se ejecuta DESPUES de generar la respuesta para que el carrito refleje
-     * lo que el cliente ya vio en pantalla, aunque la IA haya olvidado [CART_ADD].
+     *
+     * Detecta dos casos:
+     *  - SUMMARY: el mensaje contiene total/subtotal/ITBIS → es el resumen completo
+     *    del pedido. REEMPLAZA los items del carrito con esta lista (evita duplicar
+     *    si la IA repite el resumen turno tras turno).
+     *  - INCREMENTAL: solo menciona items nuevos sin totales → AGREGA al carrito.
      */
     private function captureItemsFromAiReply(int $conversationId, string $aiReply): void
     {
         try {
             $items = (new OrderIntentExtractor($this->tenantId))->parseItemsFromText($aiReply);
-            if (!empty($items)) {
-                $this->addToCart($conversationId, ['items' => $items]);
+            if (empty($items)) return;
+
+            $isSummary = $this->looksLikeOrderSummary($aiReply);
+
+            if ($isSummary) {
+                // REPLACE: el resumen es la verdad ahora. Mantener metadata (cliente,
+                // direccion, pago) pero reemplazar items.
+                $cart = $this->readCart($conversationId);
+                $cart['items'] = $items;
+                $this->writeCart($conversationId, $cart);
+            } else {
+                // INCREMENTAL: usar MAX qty para evitar duplicar si la IA repite "1x" multiples veces.
+                $cart = $this->readCart($conversationId);
+                foreach ($items as $newItem) {
+                    $name = (string) $newItem['name'];
+                    $qty  = max(1, (int) ($newItem['qty'] ?? 1));
+                    $matched = false;
+                    foreach ($cart['items'] as &$existing) {
+                        if (strcasecmp((string) $existing['name'], $name) === 0) {
+                            // Tomar el max de los dos (no sumar)
+                            $existing['qty'] = max((int) ($existing['qty'] ?? 1), $qty);
+                            // Refrescar precio si vino con uno nuevo
+                            if (!empty($newItem['unit_price'])) {
+                                $existing['unit_price'] = $newItem['unit_price'];
+                            }
+                            $matched = true;
+                            break;
+                        }
+                    }
+                    unset($existing);
+                    if (!$matched) {
+                        $cart['items'][] = [
+                            'name'         => $name,
+                            'qty'          => $qty,
+                            'unit_price'   => $newItem['unit_price'] ?? null,
+                            'menu_item_id' => $newItem['menu_item_id'] ?? null,
+                        ];
+                    }
+                }
+                $this->writeCart($conversationId, $cart);
             }
         } catch (\Throwable $e) {
             Logger::error('captureItemsFromAiReply fallo', ['msg' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Detecta si el mensaje de la IA es un RESUMEN final del pedido
+     * (contiene totales/impuestos), no solo un agregado parcial.
+     */
+    private function looksLikeOrderSummary(string $text): bool
+    {
+        $lower = mb_strtolower($text);
+        $signals = 0;
+        foreach (['total', 'subtotal', 'itbis', 'iva', 'impuesto', 'envio', 'env[ií]o', 'delivery —', 'delivery -'] as $kw) {
+            if (preg_match('/\b' . str_replace('—', '\\—', $kw) . '\b/iu', $lower)) {
+                $signals++;
+            }
+        }
+        // 2+ palabras clave de resumen → es summary
+        return $signals >= 2;
     }
 
     /**
@@ -755,28 +814,35 @@ final class AiAgentService
         }
         $text = implode("\n", $cleanLines);
 
-        // === LIMPIEZA DE JSON / MARKERS LEAKEADOS ===
+        // === LIMPIEZA DE JSON / MARKERS LEAKEADOS (agresiva) ===
         // 1. Tags malformados sin cerrar: "[CART_ADD: {...", "[ORDER: {..." etc.
         $text = preg_replace('/\[(CART_(?:ADD|SET|CLEAR)|ORDER|ORDER_STATUS|PAYMENT_LINK|TRANSFER|CLOSE_SALE|SCHEDULE|END_CHAT|TAG|TICKET)(?::[^\]]*)?(?:\]|$)/iu', '', (string) $text) ?? $text;
 
-        // 2. Bloques JSON sueltos que la IA dejo flotando: { ... } o [ ... ] con varias lineas y sin marker.
-        //    Solo eliminamos si claramente son JSON (contienen "name":"..." o "items":[...]).
-        $text = preg_replace('/\{[^{}]*"(?:items|name|qty|delivery_type|payment|address|zone)"[^{}]*\}/su', '', (string) $text) ?? $text;
+        // 2. Bloques JSON con llaves: {"items":[...], "zone":"..."}
+        $text = preg_replace('/\{[^{}]*"(?:items|name|qty|delivery_type|payment|address|zone|customer_name|customer_phone|notes|modifiers)"[^{}]*\}/su', '', (string) $text) ?? $text;
 
-        // 3. Llaves/corchetes huerfanos al final del mensaje: "}]", "}}", "]}", "}", "]"
-        $text = preg_replace('/[\s]*[}\]]+[\s}\]]*\s*$/u', '', (string) $text) ?? $text;
+        // 3. Fragmentos JSON SIN llaves: ,"zone":"Naco","delivery_type":"delivery"
+        //    Detectamos secuencias de 2+ pares "key":"value" o "key":""
+        $text = preg_replace('/(?:,?\s*"(?:items|name|qty|delivery_type|payment|address|zone|customer_name|customer_phone|notes|modifiers)"\s*:\s*(?:"[^"]*"|\[[^\]]*\]|null|\d+|true|false)\s*){2,}/su', '', (string) $text) ?? $text;
 
-        // 4. Lineas que solo contengan llaves o corchetes
+        // 4. Pares JSON sueltos individuales como "zone":"Naco" o "payment":""
+        $text = preg_replace('/,?\s*"(?:items|delivery_type|payment|address|zone|customer_name|customer_phone)"\s*:\s*(?:"[^"]*"|\[[^\]]*\]|null|""|\d+)/su', '', (string) $text) ?? $text;
+
+        // 5. Llaves/corchetes huerfanos al final: "}]", "}}", "]}", "}", "]"
+        $text = preg_replace('/[\s]*[}\]]+[\s}\]"]*\s*$/u', '', (string) $text) ?? $text;
+
+        // 6. Lineas que solo contengan llaves, corchetes, comas, comillas
         $lines = preg_split("/(\r?\n)/u", (string) $text) ?: [];
         $cleanLines = [];
         foreach ($lines as $line) {
             $trimmed = trim($line);
-            if ($trimmed === '' || preg_match('/^[{}\[\]\s,;]+$/u', $trimmed)) continue;
+            if ($trimmed === '' || preg_match('/^[{}\[\]\s,;:"\']+$/u', $trimmed)) continue;
             $cleanLines[] = $line;
         }
         $text = implode("\n", $cleanLines);
 
-        // 5. Comas/dos-puntos huerfanos al inicio o final
+        // 7. Comas/dos-puntos huerfanos al inicio o al final (no tocamos comillas
+        //    legitimas: solo limpiamos cuando estan junto a comas/colons sin texto).
         $text = preg_replace('/^[\s,;:]+|[\s,;:]+$/u', '', (string) $text) ?? $text;
 
         // Eliminar saltos vacios dobles al inicio
