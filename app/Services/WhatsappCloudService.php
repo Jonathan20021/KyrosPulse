@@ -271,6 +271,19 @@ final class WhatsappCloudService
         Contact::touchInteraction($this->tenantId, (int) $contact['id']);
         WhatsappChannel::touchActivity((int) $this->channel['id']);
 
+        // Aplicar reglas de routing
+        try {
+            (new RoutingEngine($this->tenantId))->apply([
+                'conversation_id' => $convId,
+                'channel_id'      => (int) $this->channel['id'],
+                'channel'         => 'whatsapp',
+                'message'         => $text,
+                'contact_id'      => (int) $contact['id'],
+            ]);
+        } catch (\Throwable $e) {
+            Logger::error('RoutingEngine fallo (cloud)', ['msg' => $e->getMessage()]);
+        }
+
         \App\Core\Events::dispatch('message.received', [
             'tenant_id'       => $this->tenantId,
             'conversation_id' => $convId,

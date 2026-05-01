@@ -38,6 +38,9 @@ final class Application
 
         Session::start();
 
+        // Auto-aplicar schema multi-canal e integraciones (idempotente, cacheado)
+        Schema::ensure();
+
         // Activar motor de automatizaciones (escucha global de eventos)
         \App\Services\AutomationEngine::bootstrap();
 

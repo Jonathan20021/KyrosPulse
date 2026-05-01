@@ -39,17 +39,30 @@ final class Conversation extends Model
 
     public static function listOpen(int $tenantId, int $limit = 50): array
     {
-        return Database::fetchAll(
-            "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email,
-                    wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
-             FROM conversations c
-             INNER JOIN contacts ct ON ct.id = c.contact_id
-             LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
-             WHERE c.tenant_id = :t AND c.status NOT IN ('closed')
-             ORDER BY c.last_message_at DESC
-             LIMIT $limit",
-            ['t' => $tenantId]
-        );
+        try {
+            return Database::fetchAll(
+                "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email,
+                        wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
+                 FROM conversations c
+                 INNER JOIN contacts ct ON ct.id = c.contact_id
+                 LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
+                 WHERE c.tenant_id = :t AND c.status NOT IN ('closed')
+                 ORDER BY c.last_message_at DESC
+                 LIMIT $limit",
+                ['t' => $tenantId]
+            );
+        } catch (\Throwable) {
+            // Fallback si la tabla whatsapp_channels o columnas nuevas aun no existen
+            return Database::fetchAll(
+                "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email
+                 FROM conversations c
+                 INNER JOIN contacts ct ON ct.id = c.contact_id
+                 WHERE c.tenant_id = :t AND c.status NOT IN ('closed')
+                 ORDER BY c.last_message_at DESC
+                 LIMIT $limit",
+                ['t' => $tenantId]
+            );
+        }
     }
 
     public static function countByStatus(int $tenantId, string $status): int
@@ -62,17 +75,29 @@ final class Conversation extends Model
 
     public static function findById(int $tenantId, int $id): ?array
     {
-        return Database::fetch(
-            "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email, ct.company, ct.score,
-                    u.first_name AS agent_first, u.last_name AS agent_last,
-                    wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
-             FROM conversations c
-             INNER JOIN contacts ct ON ct.id = c.contact_id
-             LEFT JOIN users u ON u.id = c.assigned_to
-             LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
-             WHERE c.id = :id AND c.tenant_id = :t",
-            ['id' => $id, 't' => $tenantId]
-        );
+        try {
+            return Database::fetch(
+                "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email, ct.company, ct.score,
+                        u.first_name AS agent_first, u.last_name AS agent_last,
+                        wc.label AS channel_label, wc.color AS channel_color, wc.provider AS channel_provider, wc.phone AS channel_phone
+                 FROM conversations c
+                 INNER JOIN contacts ct ON ct.id = c.contact_id
+                 LEFT JOIN users u ON u.id = c.assigned_to
+                 LEFT JOIN whatsapp_channels wc ON wc.id = c.channel_id
+                 WHERE c.id = :id AND c.tenant_id = :t",
+                ['id' => $id, 't' => $tenantId]
+            );
+        } catch (\Throwable) {
+            return Database::fetch(
+                "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email, ct.company, ct.score,
+                        u.first_name AS agent_first, u.last_name AS agent_last
+                 FROM conversations c
+                 INNER JOIN contacts ct ON ct.id = c.contact_id
+                 LEFT JOIN users u ON u.id = c.assigned_to
+                 WHERE c.id = :id AND c.tenant_id = :t",
+                ['id' => $id, 't' => $tenantId]
+            );
+        }
     }
 
     public static function listFiltered(int $tenantId, array $filters, int $limit = 50): array
@@ -105,7 +130,24 @@ final class Conversation extends Model
                 ORDER BY c.last_message_at DESC, c.id DESC
                 LIMIT $limit";
 
-        return Database::fetchAll($sql, $params);
+        try {
+            return Database::fetchAll($sql, $params);
+        } catch (\Throwable) {
+            // Fallback sin JOIN a whatsapp_channels (tabla aun no creada)
+            $fallback = "SELECT c.*, ct.first_name, ct.last_name, ct.phone, ct.whatsapp, ct.email,
+                                u.first_name AS agent_first, u.last_name AS agent_last
+                         FROM conversations c
+                         INNER JOIN contacts ct ON ct.id = c.contact_id
+                         LEFT JOIN users u ON u.id = c.assigned_to
+                         WHERE " . implode(' AND ', $where) . "
+                         ORDER BY c.last_message_at DESC, c.id DESC
+                         LIMIT $limit";
+            // Quitar params channel_id del fallback si existe
+            unset($params['cid']);
+            $whereFallback = array_filter($where, fn ($w) => !str_contains($w, 'channel_id'));
+            $fallback = str_replace(implode(' AND ', $where), implode(' AND ', $whereFallback), $fallback);
+            return Database::fetchAll($fallback, $params);
+        }
     }
 
     public static function update(int $tenantId, int $id, array $data): int

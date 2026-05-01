@@ -133,13 +133,17 @@ final class InboxController extends Controller
             }
         }
 
-        // Actualizar conversacion
+        // Actualizar conversacion (channel_id en try separado por si la columna aun no existe)
         Conversation::update($tenantId, $convId, [
             'last_message'    => mb_substr($message, 0, 200),
             'last_message_at' => date('Y-m-d H:i:s'),
             'status'          => 'open',
-            'channel_id'      => $channelId,
         ]);
+        if ($channelId) {
+            try {
+                Conversation::update($tenantId, $convId, ['channel_id' => $channelId]);
+            } catch (\Throwable) { /* columna aun no creada */ }
+        }
 
         $this->json([
             'success'   => true,

@@ -429,6 +429,19 @@ final class WasapiService
         if ($channelId) WhatsappChannel::touchActivity($channelId);
         $this->markCampaignReply($message['phone']);
 
+        // Aplicar reglas de routing (auto-asignacion)
+        try {
+            (new RoutingEngine($this->tenantId))->apply([
+                'conversation_id' => $convId,
+                'channel_id'      => $channelId,
+                'channel'         => 'whatsapp',
+                'message'         => $message['text'],
+                'contact_id'      => (int) $contact['id'],
+            ]);
+        } catch (\Throwable $e) {
+            Logger::error('RoutingEngine fallo (wasapi)', ['msg' => $e->getMessage()]);
+        }
+
         // Disparar evento para automatizaciones
         \App\Core\Events::dispatch('message.received', [
             'tenant_id'       => $this->tenantId,

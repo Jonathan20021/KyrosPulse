@@ -29,9 +29,9 @@
         .channel-pill { backdrop-filter: blur(10px); }
     </style>
 </head>
-<body class="antialiased overflow-hidden">
+<body class="antialiased min-h-screen">
 
-<div class="min-h-screen grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,560px)_1fr]">
+<div class="min-h-screen grid lg:grid-cols-2 xl:grid-cols-[minmax(0,560px)_1fr]">
     <!-- Left: form -->
     <div class="flex flex-col px-6 sm:px-10 lg:px-12 py-8 lg:py-10 relative">
         <header class="flex items-center justify-between mb-10">

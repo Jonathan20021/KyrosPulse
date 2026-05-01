@@ -20,6 +20,7 @@ use App\Controllers\IntegrationController;
 use App\Controllers\LeadController;
 use App\Controllers\ProductController;
 use App\Controllers\ReportController;
+use App\Controllers\RoutingController;
 use App\Controllers\SettingsController;
 use App\Controllers\TaskController;
 use App\Controllers\TicketController;
@@ -153,6 +154,13 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/settings/integrations/{slug}/connect', [IntegrationController::class, 'connect'])->middleware('csrf');
     $r->post  ('/settings/integrations/{slug}/disconnect', [IntegrationController::class, 'disconnect'])->middleware('csrf');
     $r->post  ('/settings/integrations/{slug}/test',    [IntegrationController::class, 'test'])->middleware('csrf');
+
+    // Settings · Routing inteligente
+    $r->get   ('/settings/routing',                  [RoutingController::class, 'index']);
+    $r->post  ('/settings/routing',                  [RoutingController::class, 'store'])->middleware('csrf');
+    $r->put   ('/settings/routing/{id}',             [RoutingController::class, 'update'])->middleware('csrf');
+    $r->post  ('/settings/routing/{id}/toggle',      [RoutingController::class, 'toggle'])->middleware('csrf');
+    $r->delete('/settings/routing/{id}',             [RoutingController::class, 'destroy'])->middleware('csrf');
 
     // Settings · Canales WhatsApp (multi-numero)
     $r->get   ('/settings/channels',                  [ChannelController::class, 'index']);
