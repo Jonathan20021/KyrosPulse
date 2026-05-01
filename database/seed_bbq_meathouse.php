@@ -81,7 +81,7 @@ Database::update('tenants', [
     'language'            => 'es',
     'welcome_message'     => '¡Hola! Bienvenido a BBQ MeatHouse 🥩. Te puedo enviar nuestro menu completo, recibir tu pedido o reservar mesa. ¿Que se te antoja hoy?',
     'ai_assistant_name'   => 'Maitre BBQ',
-    'ai_tone'             => 'cercano, gourmet, experto en parrilla y orientado a vender',
+    'ai_tone'             => 'cercano, gourmet, experto en parrilla',
     'ai_enabled'          => 1,
 ], ['id' => $tenantId]);
 echo "[+] Tenant actualizado a 'BBQ MeatHouse' con modo restaurante activo.\n";
