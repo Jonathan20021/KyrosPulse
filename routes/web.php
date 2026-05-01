@@ -120,6 +120,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     // ===== Restaurante: ordenes =====
     $r->get   ('/orders',                     [OrderController::class, 'index']);
     $r->get   ('/orders/live',                [OrderController::class, 'liveSnapshot']);
+    $r->get   ('/orders/recent',              [OrderController::class, 'recent']);
     $r->get   ('/orders/create',              [OrderController::class, 'create']);
     $r->post  ('/orders',                     [OrderController::class, 'store'])->middleware('csrf');
     $r->get   ('/orders/{id}',                [OrderController::class, 'show']);

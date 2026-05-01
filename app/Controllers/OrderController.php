@@ -228,6 +228,43 @@ final class OrderController extends Controller
         $this->json(['success' => true, 'counts' => $counts, 'latest' => $latest]);
     }
 
+    /**
+     * Lista ordenes creadas despues de un timestamp dado. Usado por el inbox
+     * para mostrar un pop-up cuando se crea una orden nueva durante el chat.
+     * Param: ?since=ISO_TIMESTAMP (default: hace 5 minutos)
+     */
+    public function recent(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $since = (string) $request->query('since', '');
+        if ($since === '' || strtotime($since) === false) {
+            $since = date('Y-m-d H:i:s', time() - 300);
+        } else {
+            $since = date('Y-m-d H:i:s', strtotime($since));
+        }
+        $convId = $request->query('conversation_id') ? (int) $request->query('conversation_id') : null;
+
+        $where = 'tenant_id = :t AND created_at > :since';
+        $params = ['t' => $tenantId, 'since' => $since];
+        if ($convId) {
+            $where .= ' AND conversation_id = :c';
+            $params['c'] = $convId;
+        }
+
+        $rows = Database::fetchAll(
+            "SELECT id, code, status, customer_name, customer_phone, total, currency,
+                    delivery_type, conversation_id, is_ai_generated, created_at
+             FROM orders WHERE $where ORDER BY id DESC LIMIT 10",
+            $params
+        );
+
+        $this->json([
+            'success'  => true,
+            'orders'   => $rows,
+            'now'      => date('c'),
+        ]);
+    }
+
     private function statusMessage(array $order, string $status): string
     {
         $name = $order['customer_name'] ?: 'cliente';

@@ -31,6 +31,14 @@ final class AiAgentService
             return ['success' => true, 'transferred' => true, 'reason' => 'Cliente pidio humano.'];
         }
 
+        // FALLBACK BULLETPROOF: si el cliente confirma ("dale", "confirmo", "perfecto"),
+        // intentamos crear la orden directamente sin esperar a que la IA emita [ORDER:...].
+        // Usa el carrito persistente o, si esta vacio, parsea el ultimo resumen de la IA.
+        $autoOrderResult = $this->tryAutoCreateOrderOnConfirm($conversationId, $contactId, $phone, $incomingText);
+        if ($autoOrderResult !== null) {
+            return $autoOrderResult;
+        }
+
         $history = $this->conversationHistory($conversationId, (int) ($agent['max_context_messages'] ?? 30));
 
         // Inyectar el carrito actual como parte del contexto. Si la conversacion
@@ -154,6 +162,155 @@ final class AiAgentService
             if (str_contains($msg, $p)) return true;
         }
         return false;
+    }
+
+    /**
+     * Si el cliente esta confirmando un pedido (dale/confirmo/perfecto/si),
+     * crea la orden DIRECTAMENTE sin pasar por la IA — evitando que esta
+     * "olvide" lo que se discutio antes.
+     *
+     * Source de items (en orden):
+     *  1. Carrito persistente (cart_state)
+     *  2. Parseo del ultimo resumen de la IA en el historial
+     *
+     * Devuelve null si no aplica (no es confirmacion, no hay items detectables).
+     */
+    private function tryAutoCreateOrderOnConfirm(int $conversationId, int $contactId, string $phone, string $incomingText): ?array
+    {
+        // Solo aplica a tenants en modo restaurante
+        $tenant = Database::fetch(
+            "SELECT is_restaurant FROM tenants WHERE id = :t",
+            ['t' => $this->tenantId]
+        );
+        if (empty($tenant['is_restaurant'])) return null;
+
+        $extractor = new OrderIntentExtractor($this->tenantId);
+        if (!$extractor->isConfirmation($incomingText)) return null;
+
+        // 1. Intentar carrito persistente
+        $cart = $this->readCart($conversationId);
+        $items = $cart['items'] ?? [];
+
+        // 2. Si carrito vacio, parsear historial reciente
+        if (empty($items)) {
+            $items = $extractor->extractItemsFromHistory($conversationId, 6);
+            if (empty($items)) {
+                // No hay items detectables — dejamos que la IA conteste normal.
+                return null;
+            }
+        }
+
+        // Contexto adicional: tipo de entrega, pago, zona (del cart o del historial)
+        $context = $extractor->extractDeliveryContext($conversationId);
+        $payload = [
+            'items'         => $items,
+            'delivery_type' => $cart['delivery_type'] ?? $context['delivery_type'] ?? 'delivery',
+            'payment'       => $cart['payment']       ?? $context['payment']       ?? 'cash',
+        ];
+        if (!empty($cart['address']))      $payload['address']      = $cart['address'];
+        if (!empty($cart['zone']))         $payload['zone']         = $cart['zone'];
+        elseif (!empty($context['zone']))  $payload['zone']         = $context['zone'];
+        if (!empty($cart['customer_name'])) $payload['customer_name'] = $cart['customer_name'];
+        if (!empty($cart['customer_phone'])) $payload['customer_phone'] = $cart['customer_phone'];
+
+        // Si no hay nombre, intentar usar el del contacto
+        if (empty($payload['customer_name'])) {
+            $contact = Database::fetch("SELECT first_name, last_name FROM contacts WHERE id = :c", ['c' => $contactId]);
+            if ($contact) {
+                $name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''));
+                if ($name !== '') $payload['customer_name'] = $name;
+            }
+        }
+        if (empty($payload['customer_phone']) && $phone !== '') {
+            $payload['customer_phone'] = $phone;
+        }
+
+        Logger::info('Auto-creando orden tras confirmacion del cliente', [
+            'tenant'  => $this->tenantId,
+            'conv'    => $conversationId,
+            'items'   => count($items),
+        ]);
+
+        $result = (new RestaurantOrderEngine($this->tenantId))->createFromAi($payload, $conversationId, $contactId);
+
+        if (empty($result['success'])) {
+            // Falla la creacion → dejamos que la IA maneje
+            return null;
+        }
+
+        // Limpiar carrito
+        $this->clearCart($conversationId);
+
+        // Generar mensaje de confirmacion personalizado y enviarlo
+        $orderId = (int) ($result['order_id'] ?? 0);
+        $order = $orderId ? Database::fetch("SELECT code, total, currency, prep_time_min FROM orders WHERE id = :o", ['o' => $orderId]) : null;
+        $confirmText = $this->buildOrderConfirmationMessage($order, $payload);
+
+        $convChannelId = (int) Database::fetchColumn(
+            "SELECT channel_id FROM conversations WHERE id = :c", ['c' => $conversationId]
+        );
+        $channelId = $convChannelId > 0 ? $convChannelId : null;
+
+        $messageId = Database::insert('messages', [
+            'tenant_id'       => $this->tenantId,
+            'conversation_id' => $conversationId,
+            'contact_id'      => $contactId,
+            'channel_id'      => $channelId,
+            'direction'       => 'outbound',
+            'type'            => 'text',
+            'content'         => $confirmText,
+            'is_ai_generated' => 1,
+            'status'          => 'queued',
+            'metadata'        => json_encode(['auto_order' => true, 'order_id' => $orderId], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $send = (new ChannelDispatcher($this->tenantId))->sendText($phone, $confirmText, $channelId);
+        Database::update('messages', [
+            'status'        => !empty($send['success']) ? 'sent' : 'failed',
+            'external_id'   => $send['body']['id'] ?? null,
+            'sent_at'       => !empty($send['success']) ? date('Y-m-d H:i:s') : null,
+            'error_message' => !empty($send['success']) ? null : ($send['error'] ?: 'Error envio'),
+        ], ['id' => $messageId]);
+
+        // Actualizar conversacion
+        Database::run(
+            "UPDATE conversations SET last_message = :m, last_message_at = NOW(), ai_handled_count = ai_handled_count + 1 WHERE id = :id",
+            ['m' => mb_substr($confirmText, 0, 200), 'id' => $conversationId]
+        );
+
+        return [
+            'success'    => true,
+            'message_id' => $messageId,
+            'text'       => $confirmText,
+            'sent'       => !empty($send['success']),
+            'auto_order' => true,
+            'order_id'   => $orderId,
+        ];
+    }
+
+    private function buildOrderConfirmationMessage(?array $order, array $payload): string
+    {
+        $code   = $order['code']     ?? 'PROV-' . date('His');
+        $total  = (float) ($order['total'] ?? 0);
+        $cur    = (string) ($order['currency'] ?? 'DOP');
+        $prep   = (int) ($order['prep_time_min'] ?? 35);
+        $itemCount = is_array($payload['items'] ?? null) ? array_sum(array_column($payload['items'], 'qty')) : 0;
+
+        $lines = [];
+        $lines[] = "✅ ¡Listo! Tu orden #{$code} esta confirmada.";
+        $lines[] = '';
+        $lines[] = "📦 *{$itemCount} items* · *{$cur} " . number_format($total, 2) . "*";
+        if (!empty($payload['delivery_type']) && $payload['delivery_type'] === 'delivery') {
+            $lines[] = "🛵 Delivery" . (!empty($payload['address']) ? ' a ' . $payload['address'] : '') .
+                       (!empty($payload['zone']) ? ' · ' . $payload['zone'] : '');
+        } elseif (($payload['delivery_type'] ?? '') === 'pickup') {
+            $lines[] = "🛍 Pickup en local";
+        }
+        $lines[] = "⏱ Tiempo estimado: ~{$prep} min de preparacion";
+        $lines[] = '';
+        $lines[] = "Te aviso por aqui cuando este lista. Cualquier cosa, escribeme. 🙌";
+
+        return implode("\n", $lines);
     }
 
     // ============================================================

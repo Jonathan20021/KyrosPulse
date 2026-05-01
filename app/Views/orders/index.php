@@ -119,12 +119,69 @@ setInterval(async () => {
         const res = await fetch('<?= url('/orders/live') ?>', { headers: { 'Accept': 'application/json' } });
         const data = await res.json();
         if (data.success) {
-            // Si hay nuevas ordenes en la columna 'new', refresca
             const currentNew = parseInt(document.querySelector('[data-column="new"] .badge')?.textContent || '0', 10);
             if (data.counts.new > currentNew) location.reload();
         }
     } catch (e) {}
 }, 15000);
+
+// Pop-up de orden recien creada (mismo componente que en inbox)
+let lastOrderCheck = new Date().toISOString();
+const knownOrderIds = new Set();
+
+async function checkNewOrders() {
+    try {
+        const res = await fetch('<?= url('/orders/recent?since=') ?>' + encodeURIComponent(lastOrderCheck), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        if (!data.success) return;
+        lastOrderCheck = data.now || lastOrderCheck;
+        for (const o of (data.orders || [])) {
+            if (knownOrderIds.has(o.id)) continue;
+            knownOrderIds.add(o.id);
+            showOrderToast(o);
+        }
+    } catch (e) {}
+}
+
+function showOrderToast(o) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start(); osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {}
+
+    const wrapper = document.getElementById('orderToastContainer') || (() => {
+        const el = document.createElement('div');
+        el.id = 'orderToastContainer';
+        el.style.cssText = 'position:fixed; top:20px; right:20px; z-index:10000; display:flex; flex-direction:column; gap:12px; pointer-events:none;';
+        document.body.appendChild(el);
+        return el;
+    })();
+
+    const total = parseFloat(o.total).toFixed(2);
+    const cur = o.currency || 'DOP';
+    const tipo = o.delivery_type === 'pickup' ? '🛍 Pickup' : (o.delivery_type === 'dine_in' ? '🍴 Mesa' : '🛵 Delivery');
+    const aiBadge = o.is_ai_generated == 1 ? '<span style="padding:1px 6px;border-radius:4px;background:rgba(124,58,237,.2);color:#A78BFA;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🤖 IA</span>' : '';
+
+    const toast = document.createElement('a');
+    toast.href = '<?= url('/orders/') ?>' + o.id;
+    toast.style.cssText = `pointer-events:auto;display:block;min-width:320px;max-width:380px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(124,58,237,.12));border:1px solid rgba(16,185,129,.4);backdrop-filter:blur(20px);border-radius:16px;padding:14px 16px;box-shadow:0 10px 40px rgba(0,0,0,.4),0 0 30px rgba(16,185,129,.15);color:white;text-decoration:none;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.4);cursor:pointer;`;
+    toast.innerHTML = `<div style="display:flex;align-items:start;gap:12px;"><div style="font-size:32px;flex-shrink:0;filter:drop-shadow(0 0 8px rgba(16,185,129,.5));">🎉</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;">Nueva orden</span>${aiBadge}</div><div style="font-weight:700;font-size:15px;margin-bottom:1px;">#${o.code}</div><div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.customer_name||'Cliente'} · ${tipo}</div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:18px;font-weight:800;background:linear-gradient(135deg,#10B981,#06B6D4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">${cur} ${total}</div><span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.08);">Ver →</span></div></div><button onclick="event.preventDefault();event.stopPropagation();this.parentElement.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;padding:0;font-size:18px;line-height:1;">×</button></div>`;
+    wrapper.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+    setTimeout(() => { toast.style.transform = 'translateX(120%)'; setTimeout(() => toast.remove(), 400); }, 12000);
+}
+
+setInterval(() => { if (!document.hidden) checkNewOrders(); }, 5000);
+checkNewOrders();
 </script>
 
 <?php \App\Core\View::stop(); ?>
