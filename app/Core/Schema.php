@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v2_ok';
+    private const CACHE_FILE = '/cache/.schema_v3_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -26,9 +26,13 @@ final class Schema
 
             $pdo = Database::connection();
 
-            // Verificacion barata: si existe whatsapp_channels y la columna conversations.channel_id
-            $tableOk = self::tableExists($pdo, 'whatsapp_channels');
-            $colOk   = self::columnExists($pdo, 'conversations', 'channel_id');
+            // Verificacion barata: si existen las tablas criticas v3
+            $tableOk = self::tableExists($pdo, 'whatsapp_channels')
+                    && self::tableExists($pdo, 'menu_items')
+                    && self::tableExists($pdo, 'orders')
+                    && self::tableExists($pdo, 'channel_routing_rules');
+            $colOk   = self::columnExists($pdo, 'conversations', 'channel_id')
+                    && self::columnExists($pdo, 'tenants', 'is_restaurant');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -228,6 +232,175 @@ CREATE TABLE IF NOT EXISTS `channel_routing_rules` (
     CONSTRAINT `fk_crr_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
+
+        // ----- Restaurante: menu, ordenes, zonas -----
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `menu_categories` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `name`        VARCHAR(120) NOT NULL,
+    `slug`        VARCHAR(120) NOT NULL,
+    `icon`        VARCHAR(80) NULL,
+    `description` VARCHAR(500) NULL,
+    `sort_order`  INT NOT NULL DEFAULT 0,
+    `is_active`   TINYINT(1) NOT NULL DEFAULT 1,
+    `available_from` TIME NULL,
+    `available_to`   TIME NULL,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_mc_tenant` (`tenant_id`),
+    UNIQUE KEY `uk_mc_tenant_slug` (`tenant_id`,`slug`),
+    CONSTRAINT `fk_mc_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `menu_items` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `category_id` BIGINT UNSIGNED NULL,
+    `sku`         VARCHAR(60) NULL,
+    `name`        VARCHAR(160) NOT NULL,
+    `description` TEXT NULL,
+    `price`       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `compare_price` DECIMAL(10,2) NULL,
+    `currency`    VARCHAR(3) NOT NULL DEFAULT 'USD',
+    `photo`       VARCHAR(500) NULL,
+    `prep_time_min` INT UNSIGNED NULL,
+    `calories`    INT UNSIGNED NULL,
+    `is_available` TINYINT(1) NOT NULL DEFAULT 1,
+    `is_featured` TINYINT(1) NOT NULL DEFAULT 0,
+    `is_combo`    TINYINT(1) NOT NULL DEFAULT 0,
+    `tags`        JSON NULL,
+    `modifiers`   JSON NULL,
+    `allergens`   VARCHAR(255) NULL,
+    `stock`       INT NULL,
+    `sort_order`  INT NOT NULL DEFAULT 0,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`  DATETIME NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_mi_tenant` (`tenant_id`),
+    KEY `idx_mi_cat` (`category_id`),
+    KEY `idx_mi_avail` (`is_available`),
+    CONSTRAINT `fk_mi_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_mi_cat`    FOREIGN KEY (`category_id`) REFERENCES `menu_categories` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `delivery_zones` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `name`        VARCHAR(120) NOT NULL,
+    `fee`         DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `eta_min`     INT UNSIGNED NULL,
+    `min_order`   DECIMAL(10,2) NULL,
+    `area`        TEXT NULL,
+    `is_active`   TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_dz_tenant` (`tenant_id`),
+    CONSTRAINT `fk_dz_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `orders` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `code`        VARCHAR(40) NOT NULL,
+    `contact_id`  BIGINT UNSIGNED NULL,
+    `conversation_id` BIGINT UNSIGNED NULL,
+    `channel_id`  BIGINT UNSIGNED NULL,
+    `created_by`  BIGINT UNSIGNED NULL,
+    `customer_name`  VARCHAR(160) NULL,
+    `customer_phone` VARCHAR(40) NULL,
+    `delivery_type`  ENUM('delivery','pickup','dine_in') NOT NULL DEFAULT 'delivery',
+    `delivery_zone_id` BIGINT UNSIGNED NULL,
+    `delivery_address` TEXT NULL,
+    `delivery_notes`   TEXT NULL,
+    `kitchen_notes`    TEXT NULL,
+    `status`      ENUM('new','confirmed','preparing','ready','out_for_delivery','delivered','cancelled') NOT NULL DEFAULT 'new',
+    `payment_method` ENUM('cash','card','transfer','online','other') NULL,
+    `payment_status` ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'pending',
+    `payment_link`   VARCHAR(500) NULL,
+    `payment_ref`    VARCHAR(120) NULL,
+    `subtotal`    DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `delivery_fee` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `tax`         DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `discount`    DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `tip`         DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `total`       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `currency`    VARCHAR(3) NOT NULL DEFAULT 'USD',
+    `prep_time_min` INT UNSIGNED NULL,
+    `scheduled_at` DATETIME NULL,
+    `confirmed_at` DATETIME NULL,
+    `ready_at`     DATETIME NULL,
+    `delivered_at` DATETIME NULL,
+    `cancelled_at` DATETIME NULL,
+    `cancelled_reason` VARCHAR(255) NULL,
+    `is_ai_generated` TINYINT(1) NOT NULL DEFAULT 0,
+    `metadata`    JSON NULL,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_orders_tenant_code` (`tenant_id`,`code`),
+    KEY `idx_orders_tenant` (`tenant_id`),
+    KEY `idx_orders_status` (`status`),
+    KEY `idx_orders_contact` (`contact_id`),
+    KEY `idx_orders_created` (`created_at`),
+    CONSTRAINT `fk_orders_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_orders_contact` FOREIGN KEY (`contact_id`) REFERENCES `contacts` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `order_items` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `order_id`    BIGINT UNSIGNED NOT NULL,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `menu_item_id` BIGINT UNSIGNED NULL,
+    `name`        VARCHAR(180) NOT NULL,
+    `qty`         INT UNSIGNED NOT NULL DEFAULT 1,
+    `unit_price`  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `subtotal`    DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `modifiers`   JSON NULL,
+    `notes`       VARCHAR(500) NULL,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_oi_order` (`order_id`),
+    KEY `idx_oi_tenant` (`tenant_id`),
+    CONSTRAINT `fk_oi_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_oi_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `order_events` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `order_id`    BIGINT UNSIGNED NOT NULL,
+    `user_id`     BIGINT UNSIGNED NULL,
+    `event`       VARCHAR(40) NOT NULL,
+    `from_status` VARCHAR(40) NULL,
+    `to_status`   VARCHAR(40) NULL,
+    `note`        VARCHAR(500) NULL,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_oe_order` (`order_id`),
+    KEY `idx_oe_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Tenant flags para activar modo restaurante
+        if (!self::columnExists($pdo, 'tenants', 'is_restaurant')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `is_restaurant` TINYINT(1) NOT NULL DEFAULT 0 AFTER `industry`");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'restaurant_settings')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `restaurant_settings` JSON NULL AFTER `is_restaurant`");
+        }
 
         // ----- Backfill Wasapi -> canal default -----
         try {

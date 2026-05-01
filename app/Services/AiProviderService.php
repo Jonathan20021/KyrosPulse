@@ -224,12 +224,16 @@ ACCIONES ESPECIALES (al final de tu respuesta, en una linea aparte, puedes inclu
 - [END_CHAT: motivo] - Cierra la conversacion porque el caso fue resuelto (ej. [END_CHAT: pedido confirmado]).
 - [TAG: nombre] - Aplica una etiqueta al contacto (ej. [TAG: cliente_premium]).
 - [TICKET: titulo, prioridad] - Crea un ticket de soporte (prioridad: low, medium, high, critical).
+- [ORDER: {"items":[{"name":"Hamburguesa Clasica","qty":2,"notes":"sin cebolla"}],"delivery_type":"delivery","address":"Calle X #123","payment":"cash","customer_name":"Maria"}] - Crea una orden cuando el cliente CONFIRMA su pedido. delivery_type: delivery|pickup|dine_in. payment: cash|card|transfer|online. items.modifiers opcional.
+- [ORDER_STATUS: id, status] - Cambia el estado de una orden existente. status: confirmed|preparing|ready|out_for_delivery|delivered|cancelled.
+- [PAYMENT_LINK: id] - Genera y comparte el link de pago de una orden.
 
 NUNCA muestres los marcadores en la respuesta visible. Siempre escribe primero tu mensaje al cliente y luego en linea aparte el/los marcadores si aplican.
 ACTIONS;
         }
 
-        $productsBlock = $this->buildProductsBlock();
+        $productsBlock   = $this->buildProductsBlock();
+        $restaurantBlock = $this->buildRestaurantBlock();
 
         return <<<PROMPT
 Eres "$assistant", representante de $brand. Hablas DIRECTAMENTE con un cliente por WhatsApp.
@@ -264,7 +268,87 @@ $actionsBlock
 Base de conocimiento de $brand:
 $kbText
 $productsBlock
+$restaurantBlock
 PROMPT;
+    }
+
+    /**
+     * Inyecta menu + reglas de toma de pedidos cuando el tenant es restaurante.
+     */
+    private function buildRestaurantBlock(): string
+    {
+        try {
+            $tenant = Database::fetch(
+                "SELECT is_restaurant, restaurant_settings, currency FROM tenants WHERE id = :t",
+                ['t' => $this->tenantId]
+            );
+        } catch (\Throwable) {
+            return '';
+        }
+        if (!$tenant || empty($tenant['is_restaurant'])) return '';
+
+        $settings = !empty($tenant['restaurant_settings']) ? (json_decode((string) $tenant['restaurant_settings'], true) ?: []) : [];
+        $currency = (string) ($tenant['currency'] ?? 'USD');
+
+        $menu = '';
+        try {
+            $menu = \App\Models\MenuItem::buildPromptBlock($this->tenantId);
+        } catch (\Throwable) { $menu = ''; }
+
+        // Zonas de entrega
+        $zonesText = '';
+        try {
+            $zones = Database::fetchAll(
+                "SELECT name, fee, eta_min, min_order FROM delivery_zones
+                 WHERE tenant_id = :t AND is_active = 1 ORDER BY name ASC",
+                ['t' => $this->tenantId]
+            );
+            if (!empty($zones)) {
+                $zonesText = "\nZONAS DE ENTREGA Y COSTO:\n";
+                foreach ($zones as $z) {
+                    $eta = !empty($z['eta_min']) ? ' · ETA ~' . (int) $z['eta_min'] . ' min' : '';
+                    $min = !empty($z['min_order']) ? ' · pedido min ' . $currency . ' ' . number_format((float) $z['min_order'], 2) : '';
+                    $zonesText .= "- " . $z['name'] . " — envio " . $currency . " " . number_format((float) $z['fee'], 2) . $eta . $min . "\n";
+                }
+            }
+        } catch (\Throwable) {}
+
+        $methods = !empty($settings['payment_methods']) && is_array($settings['payment_methods'])
+            ? implode(', ', $settings['payment_methods'])
+            : 'cash, card';
+        $deliveryOps = [];
+        if (!empty($settings['allow_delivery'])) $deliveryOps[] = 'delivery';
+        if (!empty($settings['allow_pickup']))   $deliveryOps[] = 'pickup';
+        if (!empty($settings['allow_dine_in']))  $deliveryOps[] = 'dine_in';
+        $deliveryStr = empty($deliveryOps) ? 'delivery' : implode(', ', $deliveryOps);
+        $taxRate    = (float) ($settings['tax_rate'] ?? 0);
+        $minOrder   = (float) ($settings['min_order'] ?? 0);
+        $minOrderFmt = number_format($minOrder, 2);
+        $prepMin    = (int) ($settings['order_prep_min'] ?? 25);
+
+        return <<<RESTAURANT
+
+MODO RESTAURANTE ACTIVO — eres responsable de tomar pedidos por WhatsApp:
+
+REGLAS DE TOMA DE PEDIDOS:
+1. Cuando el cliente pida ver el menu, presentalo organizado por categoria (no inventes platos).
+2. Sugiere combos, postres y bebidas para subir el ticket promedio.
+3. Cuando el cliente decida que quiere ordenar, recolecta:
+   - Items y cantidades (con modificadores si aplica).
+   - Tipo de pedido: $deliveryStr.
+   - Si es delivery: direccion completa + zona.
+   - Metodo de pago: $methods.
+   - Nombre del cliente y un telefono de contacto.
+4. Antes de confirmar, RESUME el pedido con totales y pregunta "¿Confirmo el pedido?".
+5. Cuando el cliente confirme con "si", "confirmo", "dale", "perfecto", emite [ORDER: ...] con TODO el JSON.
+6. Si el cliente quiere modificar despues de confirmar, emite [ORDER_STATUS: id, cancelled] y crea uno nuevo.
+7. Tiempo de preparacion estimado: {$prepMin} minutos.
+8. Pedido minimo: {$currency} {$minOrderFmt}.
+9. Si te preguntan por una orden anterior, busca en el contexto de la conversacion el codigo "OR-...".
+10. Tras emitir [ORDER:...] confirma al cliente con codigo provisional y comparte tiempo estimado.
+$menu
+$zonesText
+RESTAURANT;
     }
 
     private function buildProductsBlock(): string

@@ -686,4 +686,34 @@ final class AdminController extends Controller
         Session::flash('success', 'Usuario eliminado (soft delete).');
         $this->redirect('/admin/users');
     }
+
+    /**
+     * Ejecuta el seeder de BBQ MeatHouse contra el tenant demo. Solo super admin.
+     * Reaplica menu, zonas y conocimiento (idempotente: borra menu previo del tenant demo).
+     */
+    public function seedDemoRestaurant(Request $request): void
+    {
+        $script = dirname(__DIR__, 2) . '/database/seed_bbq_meathouse.php';
+        if (!is_file($script)) {
+            Session::flash('error', 'Seeder no encontrado en: ' . $script);
+            $this->redirect('/admin');
+            return;
+        }
+
+        ob_start();
+        try {
+            require $script;
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            Audit::log('admin.seed_demo.failed', 'tenant', null, [], ['msg' => $e->getMessage()]);
+            Session::flash('error', 'El seeder fallo: ' . $e->getMessage());
+            $this->redirect('/admin');
+            return;
+        }
+        $output = (string) ob_get_clean();
+
+        Audit::log('admin.seed_demo.ok', 'tenant', null);
+        Session::flash('success', 'Demo BBQ MeatHouse re-cargado: ' . mb_substr(strip_tags($output), 0, 1200));
+        $this->redirect('/admin');
+    }
 }

@@ -18,8 +18,11 @@ use App\Controllers\HomeController;
 use App\Controllers\InboxController;
 use App\Controllers\IntegrationController;
 use App\Controllers\LeadController;
+use App\Controllers\MenuController;
+use App\Controllers\OrderController;
 use App\Controllers\ProductController;
 use App\Controllers\ReportController;
+use App\Controllers\RestaurantController;
 use App\Controllers\RoutingController;
 use App\Controllers\SettingsController;
 use App\Controllers\TaskController;
@@ -103,6 +106,33 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->put   ('/tickets/{id}',      [TicketController::class, 'update'])->middleware('csrf');
     $r->post  ('/tickets/{id}/comment', [TicketController::class, 'comment'])->middleware('csrf');
     $r->delete('/tickets/{id}',      [TicketController::class, 'destroy'])->middleware('csrf');
+
+    // ===== Restaurante: menu =====
+    $r->get   ('/menu',                       [MenuController::class, 'index']);
+    $r->post  ('/menu/categories',            [MenuController::class, 'categoryStore'])->middleware('csrf');
+    $r->put   ('/menu/categories/{id}',       [MenuController::class, 'categoryUpdate'])->middleware('csrf');
+    $r->delete('/menu/categories/{id}',       [MenuController::class, 'categoryDelete'])->middleware('csrf');
+    $r->post  ('/menu/items',                 [MenuController::class, 'itemStore'])->middleware('csrf');
+    $r->put   ('/menu/items/{id}',            [MenuController::class, 'itemUpdate'])->middleware('csrf');
+    $r->post  ('/menu/items/{id}/toggle',     [MenuController::class, 'itemToggle'])->middleware('csrf');
+    $r->delete('/menu/items/{id}',            [MenuController::class, 'itemDelete'])->middleware('csrf');
+
+    // ===== Restaurante: ordenes =====
+    $r->get   ('/orders',                     [OrderController::class, 'index']);
+    $r->get   ('/orders/live',                [OrderController::class, 'liveSnapshot']);
+    $r->get   ('/orders/create',              [OrderController::class, 'create']);
+    $r->post  ('/orders',                     [OrderController::class, 'store'])->middleware('csrf');
+    $r->get   ('/orders/{id}',                [OrderController::class, 'show']);
+    $r->post  ('/orders/{id}/status',         [OrderController::class, 'status'])->middleware('csrf');
+    $r->post  ('/orders/{id}/cancel',         [OrderController::class, 'cancel'])->middleware('csrf');
+    $r->post  ('/orders/{id}/notes',          [OrderController::class, 'notes'])->middleware('csrf');
+
+    // ===== Restaurante: settings + zonas =====
+    $r->get   ('/settings/restaurant',                  [RestaurantController::class, 'index']);
+    $r->put   ('/settings/restaurant',                  [RestaurantController::class, 'update'])->middleware('csrf');
+    $r->post  ('/settings/restaurant/zones',            [RestaurantController::class, 'zoneStore'])->middleware('csrf');
+    $r->put   ('/settings/restaurant/zones/{id}',       [RestaurantController::class, 'zoneUpdate'])->middleware('csrf');
+    $r->delete('/settings/restaurant/zones/{id}',       [RestaurantController::class, 'zoneDelete'])->middleware('csrf');
 
     // Productos / Catalogo
     $r->get   ('/products',         [ProductController::class, 'index']);
@@ -233,4 +263,7 @@ $router->group(['middleware' => ['auth', 'super']], function ($r) {
 
     // Logs
     $r->get('/admin/logs',                  [AdminController::class, 'logs']);
+
+    // Seeder demo restaurante (BBQ MeatHouse)
+    $r->post('/admin/seed/bbq-meathouse',   [AdminController::class, 'seedDemoRestaurant'])->middleware('csrf');
 });

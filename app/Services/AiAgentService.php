@@ -274,13 +274,25 @@ final class AiAgentService
     public function parseActions(string $text): array
     {
         $actions = [];
+
+        // [ORDER: {...}] requiere captura non-greedy con balance de llaves.
+        // Lo tratamos primero porque su contenido puede contener corchetes simples.
+        if (preg_match_all('/\[ORDER:\s*(\{.+?\})\s*\]/is', $text, $orderMatches, PREG_SET_ORDER)) {
+            foreach ($orderMatches as $m) {
+                $actions[] = ['type' => 'ORDER', 'args' => trim($m[1])];
+            }
+            $text = (string) preg_replace('/\[ORDER:\s*\{.+?\}\s*\]/is', '', $text);
+        }
+
         $patterns = [
-            'TRANSFER'   => '/\[TRANSFER\]/i',
-            'CLOSE_SALE' => '/\[CLOSE_SALE(?::\s*([^\]]+))?\]/i',
-            'SCHEDULE'   => '/\[SCHEDULE:\s*([^\]]+)\]/i',
-            'END_CHAT'   => '/\[END_CHAT(?::\s*([^\]]+))?\]/i',
-            'TAG'        => '/\[TAG:\s*([^\]]+)\]/i',
-            'TICKET'     => '/\[TICKET:\s*([^\]]+)\]/i',
+            'TRANSFER'      => '/\[TRANSFER\]/i',
+            'CLOSE_SALE'    => '/\[CLOSE_SALE(?::\s*([^\]]+))?\]/i',
+            'SCHEDULE'      => '/\[SCHEDULE:\s*([^\]]+)\]/i',
+            'END_CHAT'      => '/\[END_CHAT(?::\s*([^\]]+))?\]/i',
+            'TAG'           => '/\[TAG:\s*([^\]]+)\]/i',
+            'TICKET'        => '/\[TICKET:\s*([^\]]+)\]/i',
+            'ORDER_STATUS'  => '/\[ORDER_STATUS:\s*([^\]]+)\]/i',
+            'PAYMENT_LINK'  => '/\[PAYMENT_LINK:\s*([^\]]+)\]/i',
         ];
         foreach ($patterns as $key => $regex) {
             if (preg_match_all($regex, $text, $matches, PREG_SET_ORDER)) {
@@ -412,6 +424,35 @@ final class AiAgentService
                             'priority'        => $priority,
                             'channel'         => 'whatsapp',
                         ]);
+                        break;
+
+                    case 'ORDER':
+                        $payload = json_decode($args, true);
+                        if (!is_array($payload)) {
+                            Logger::warning('AI ORDER JSON invalido', ['args' => $args]);
+                            break;
+                        }
+                        (new RestaurantOrderEngine($this->tenantId))->createFromAi(
+                            $payload,
+                            $conversationId,
+                            $contactId
+                        );
+                        break;
+
+                    case 'ORDER_STATUS':
+                        $parts = array_map('trim', explode(',', $args, 2));
+                        $orderRef = $parts[0] ?? '';
+                        $newStatus = strtolower($parts[1] ?? '');
+                        if ($orderRef && $newStatus) {
+                            (new RestaurantOrderEngine($this->tenantId))->updateStatusByRef($orderRef, $newStatus);
+                        }
+                        break;
+
+                    case 'PAYMENT_LINK':
+                        $orderRef = trim($args);
+                        if ($orderRef !== '') {
+                            (new RestaurantOrderEngine($this->tenantId))->generatePaymentLink($orderRef, $conversationId);
+                        }
                         break;
                 }
             } catch (\Throwable $e) {

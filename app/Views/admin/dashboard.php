@@ -9,11 +9,33 @@ $_currentPageLabel = 'Dashboard';
         <h1 class="text-2xl font-bold text-white mb-1">Resumen del SaaS</h1>
         <p class="text-sm text-slate-400">Vision 360 grados de empresas, ingresos y actividad.</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
         <a href="<?= url('/admin/branding') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Branding</a>
         <a href="<?= url('/admin/changelog') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Changelog</a>
         <a href="<?= url('/admin/tenants') ?>" class="px-3 py-2 rounded-lg text-sm font-semibold text-white shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Empresas</a>
     </div>
+</div>
+
+<?php if ($flash = flash('success')): ?>
+<div class="mb-4 p-3 rounded-xl border text-sm whitespace-pre-line" style="background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3); color:#34D399;"><?= e((string) $flash) ?></div>
+<?php endif; ?>
+<?php if ($flashErr = flash('error')): ?>
+<div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(244,63,94,.08); border-color: rgba(244,63,94,.3); color:#FB7185;"><?= e((string) $flashErr) ?></div>
+<?php endif; ?>
+
+<!-- Demo seeder -->
+<div class="mb-6 rounded-2xl p-4 border flex items-center gap-3 flex-wrap" style="background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(124,58,237,.08)); border-color: rgba(245,158,11,.3);">
+    <div class="text-3xl">🥩</div>
+    <div class="flex-1 min-w-[260px]">
+        <div class="font-bold text-white text-sm mb-0.5">Demo: BBQ MeatHouse</div>
+        <p class="text-xs text-slate-400">Carga el menu completo (168 items, 22 categorias, 10 zonas de delivery) en el tenant <code class="font-mono text-amber-300">kyros-demo</code>. Idempotente: borra el menu previo.</p>
+    </div>
+    <form action="<?= url('/admin/seed/bbq-meathouse') ?>" method="POST" onsubmit="return confirm('Esto reemplaza el menu actual del tenant demo. Continuar?')">
+        <?= csrf_field() ?>
+        <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#F59E0B,#7C3AED);">
+            Cargar / Recargar demo
+        </button>
+    </form>
 </div>
 
 <!-- KPIs -->
