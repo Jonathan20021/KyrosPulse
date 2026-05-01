@@ -55,11 +55,39 @@ final class LeadController extends Controller
             $totals[$sid]['value'] += (float) $l['value'];
         }
 
+        // KPIs globales del pipeline
+        $kpis = [
+            'total_leads'       => count($leads),
+            'open_leads'        => count(array_filter($leads, fn ($l) => ($l['status'] ?? '') === 'open')),
+            'won_leads'         => count(array_filter($leads, fn ($l) => ($l['status'] ?? '') === 'won')),
+            'lost_leads'        => count(array_filter($leads, fn ($l) => ($l['status'] ?? '') === 'lost')),
+            'pipeline_value'    => array_sum(array_map(fn ($l) => ($l['status'] ?? '') === 'open' ? (float) $l['value'] : 0, $leads)),
+            'won_value'         => array_sum(array_map(fn ($l) => ($l['status'] ?? '') === 'won' ? (float) $l['value'] : 0, $leads)),
+            'weighted_value'    => array_sum(array_map(fn ($l) => ($l['status'] ?? '') === 'open' ? (float) $l['value'] * ((int) ($l['probability'] ?? 0) / 100) : 0, $leads)),
+            'ai_generated'      => count(array_filter($leads, fn ($l) => str_starts_with((string) ($l['source'] ?? ''), 'whatsapp_ia'))),
+        ];
+        $kpis['avg_value']    = $kpis['total_leads'] > 0 ? array_sum(array_column($leads, 'value')) / $kpis['total_leads'] : 0;
+        $kpis['win_rate']     = ($kpis['won_leads'] + $kpis['lost_leads']) > 0
+            ? round(($kpis['won_leads'] / ($kpis['won_leads'] + $kpis['lost_leads'])) * 100, 1)
+            : 0;
+
+        // Won del mes (para tendencia)
+        $kpis['won_this_month'] = (float) Database::fetchColumn(
+            "SELECT COALESCE(SUM(value), 0) FROM leads
+             WHERE tenant_id = :t AND status = 'won' AND deleted_at IS NULL
+               AND actual_close >= DATE_FORMAT(NOW(), '%Y-%m-01')",
+            ['t' => $tenantId]
+        );
+
+        $tenant = \App\Models\Tenant::findById($tenantId);
+
         $this->view('leads.index', [
             'page'    => 'leads',
             'stages'  => $stages,
             'byStage' => $byStage,
             'totals'  => $totals,
+            'kpis'    => $kpis,
+            'tenant'  => $tenant,
         ], 'layouts.app');
     }
 
