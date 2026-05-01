@@ -31,9 +31,12 @@ final class AiAgentService
             return ['success' => true, 'transferred' => true, 'reason' => 'Cliente pidio humano.'];
         }
 
-        // FALLBACK BULLETPROOF: si el cliente confirma ("dale", "confirmo", "perfecto"),
-        // intentamos crear la orden directamente sin esperar a que la IA emita [ORDER:...].
-        // Usa el carrito persistente o, si esta vacio, parsea el ultimo resumen de la IA.
+        // FASE 1: Capturar info del mensaje del cliente al carrito ANTES de llamar a la IA
+        // (delivery_type, payment, zona, direccion). Asi la IA tiene contexto fresco.
+        $this->captureFromClientMessage($conversationId, $incomingText);
+
+        // FASE 2: Si el cliente confirma ("dale", "confirmo", "perfecto"), intentamos crear
+        // la orden directamente sin esperar a que la IA emita [ORDER:...].
         $autoOrderResult = $this->tryAutoCreateOrderOnConfirm($conversationId, $contactId, $phone, $incomingText);
         if ($autoOrderResult !== null) {
             return $autoOrderResult;
@@ -86,6 +89,12 @@ final class AiAgentService
             // Si la IA solo emitio acciones sin texto, no enviamos basura al cliente.
             $reply = '👍';
         }
+
+        // FASE 3: Auto-detectar items mencionados en la respuesta de la IA
+        // y persistirlos en el carrito, AUNQUE la IA no haya emitido [CART_ADD].
+        // Esto es el seguro de vida — el carrito siempre refleja lo que el cliente
+        // ya vio en pantalla.
+        $this->captureItemsFromAiReply($conversationId, $reply);
 
         // Resolver canal preferido de la conversacion para enviar por el numero correcto
         $conv = Database::fetch(
@@ -162,6 +171,87 @@ final class AiAgentService
             if (str_contains($msg, $p)) return true;
         }
         return false;
+    }
+
+    /**
+     * Captura del MENSAJE DEL CLIENTE: delivery_type, payment, zona,
+     * direccion. Se ejecuta ANTES de llamar a la IA para que el contexto
+     * este al dia.
+     */
+    private function captureFromClientMessage(int $conversationId, string $clientMessage): void
+    {
+        try {
+            $msg = trim($clientMessage);
+            if ($msg === '') return;
+            $lower = mb_strtolower($msg);
+            $update = [];
+
+            // Tipo de entrega (incluye respuestas de UNA palabra)
+            if (preg_match('/^[¿\s]*(delivery|domicilio|a\s+domicilio|envio|env[ií]o)[\s\.\?\!]*$/iu', $lower)
+                || preg_match('/\b(quiero\s+delivery|para\s+delivery|es\s+delivery)\b/iu', $lower)) {
+                $update['delivery_type'] = 'delivery';
+            } elseif (preg_match('/^[¿\s]*(pickup|paso\s+a\s+buscar|recoger|recojo|busc(o|amos))[\s\.\?\!]*$/iu', $lower)
+                || preg_match('/\b(quiero\s+pickup|para\s+pickup|paso\s+a\s+recoger)\b/iu', $lower)) {
+                $update['delivery_type'] = 'pickup';
+            } elseif (preg_match('/^[¿\s]*(en\s+local|aqui|aquí|mesa|comer\s+aqui|local)[\s\.\?\!]*$/iu', $lower)
+                || preg_match('/\b(en\s+el\s+local|aqui\s+mismo|en\s+mesa)\b/iu', $lower)) {
+                $update['delivery_type'] = 'dine_in';
+            }
+
+            // Pago
+            if (preg_match('/\b(efectivo|cash|en\s+mano)\b/iu', $lower)) {
+                $update['payment'] = 'cash';
+            } elseif (preg_match('/\b(tarjeta|debito|credito|visa|master|amex)\b/iu', $lower)) {
+                $update['payment'] = 'card';
+            } elseif (preg_match('/\b(transferencia|deposito|trf)\b/iu', $lower)) {
+                $update['payment'] = 'transfer';
+            }
+
+            // Zona contra delivery_zones del tenant
+            try {
+                $zones = Database::fetchAll(
+                    "SELECT name FROM delivery_zones WHERE tenant_id = :t AND is_active = 1",
+                    ['t' => $this->tenantId]
+                );
+                foreach ($zones as $z) {
+                    $needle = preg_quote(mb_strtolower((string) $z['name']), '/');
+                    if (preg_match('/\b' . $needle . '\b/iu', $lower)) {
+                        $update['zone'] = (string) $z['name'];
+                        break;
+                    }
+                }
+            } catch (\Throwable) {}
+
+            // Direccion (heuristica: contiene calle, av., #, num.)
+            if (preg_match('/\b(calle|av\.?|avenida|c\/|#|no\.|num\.|numero)\b.+/iu', $msg)) {
+                $update['address'] = mb_substr($msg, 0, 250);
+            }
+
+            if (!empty($update)) {
+                $cart = $this->readCart($conversationId);
+                $cart = array_merge($cart, $update);
+                $this->writeCart($conversationId, $cart);
+            }
+        } catch (\Throwable $e) {
+            Logger::error('captureFromClientMessage fallo', ['msg' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Captura items mencionados en la respuesta de la IA y los persiste.
+     * Se ejecuta DESPUES de generar la respuesta para que el carrito refleje
+     * lo que el cliente ya vio en pantalla, aunque la IA haya olvidado [CART_ADD].
+     */
+    private function captureItemsFromAiReply(int $conversationId, string $aiReply): void
+    {
+        try {
+            $items = (new OrderIntentExtractor($this->tenantId))->parseItemsFromText($aiReply);
+            if (!empty($items)) {
+                $this->addToCart($conversationId, ['items' => $items]);
+            }
+        } catch (\Throwable $e) {
+            Logger::error('captureItemsFromAiReply fallo', ['msg' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -665,8 +755,32 @@ final class AiAgentService
         }
         $text = implode("\n", $cleanLines);
 
+        // === LIMPIEZA DE JSON / MARKERS LEAKEADOS ===
+        // 1. Tags malformados sin cerrar: "[CART_ADD: {...", "[ORDER: {..." etc.
+        $text = preg_replace('/\[(CART_(?:ADD|SET|CLEAR)|ORDER|ORDER_STATUS|PAYMENT_LINK|TRANSFER|CLOSE_SALE|SCHEDULE|END_CHAT|TAG|TICKET)(?::[^\]]*)?(?:\]|$)/iu', '', (string) $text) ?? $text;
+
+        // 2. Bloques JSON sueltos que la IA dejo flotando: { ... } o [ ... ] con varias lineas y sin marker.
+        //    Solo eliminamos si claramente son JSON (contienen "name":"..." o "items":[...]).
+        $text = preg_replace('/\{[^{}]*"(?:items|name|qty|delivery_type|payment|address|zone)"[^{}]*\}/su', '', (string) $text) ?? $text;
+
+        // 3. Llaves/corchetes huerfanos al final del mensaje: "}]", "}}", "]}", "}", "]"
+        $text = preg_replace('/[\s]*[}\]]+[\s}\]]*\s*$/u', '', (string) $text) ?? $text;
+
+        // 4. Lineas que solo contengan llaves o corchetes
+        $lines = preg_split("/(\r?\n)/u", (string) $text) ?: [];
+        $cleanLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '' || preg_match('/^[{}\[\]\s,;]+$/u', $trimmed)) continue;
+            $cleanLines[] = $line;
+        }
+        $text = implode("\n", $cleanLines);
+
+        // 5. Comas/dos-puntos huerfanos al inicio o final
+        $text = preg_replace('/^[\s,;:]+|[\s,;:]+$/u', '', (string) $text) ?? $text;
+
         // Eliminar saltos vacios dobles al inicio
-        $text = preg_replace("/^[\s]+/u", '', $text);
+        $text = preg_replace("/^[\s]+/u", '', (string) $text) ?? $text;
 
         return trim((string) $text);
     }
