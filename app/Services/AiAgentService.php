@@ -31,7 +31,15 @@ final class AiAgentService
             return ['success' => true, 'transferred' => true, 'reason' => 'Cliente pidio humano.'];
         }
 
-        $history = $this->conversationHistory($conversationId, (int) ($agent['max_context_messages'] ?? 12));
+        $history = $this->conversationHistory($conversationId, (int) ($agent['max_context_messages'] ?? 30));
+
+        // Inyectar el carrito actual como parte del contexto. Si la conversacion
+        // ya tiene items en curso, se los pasamos a la IA para que no los olvide.
+        $cartContext = $this->renderCartForPrompt($conversationId);
+        if ($cartContext !== '') {
+            $history .= "\n\n" . $cartContext;
+        }
+
         $provider = new AiProviderService($this->tenantId, (int) $agent['id']);
 
         // 1er intento (con prompt completo: menu + KB + productos)
@@ -148,6 +156,134 @@ final class AiAgentService
         return false;
     }
 
+    // ============================================================
+    // Carrito persistente por conversacion (sobrevive entre turnos)
+    // ============================================================
+
+    /**
+     * Lee el carrito actual de la conversacion. Estructura:
+     *   { "items": [{ "name": "Hamburguesa Clasica", "qty": 2, "modifiers": [...], "notes": "..." }, ...] }
+     */
+    public function readCart(int $conversationId): array
+    {
+        try {
+            $raw = Database::fetchColumn(
+                "SELECT cart_state FROM conversations WHERE id = :c AND tenant_id = :t",
+                ['c' => $conversationId, 't' => $this->tenantId]
+            );
+            if (!$raw) return ['items' => []];
+            $decoded = json_decode((string) $raw, true);
+            if (!is_array($decoded)) return ['items' => []];
+            if (!isset($decoded['items']) || !is_array($decoded['items'])) $decoded['items'] = [];
+            return $decoded;
+        } catch (\Throwable) {
+            return ['items' => []];
+        }
+    }
+
+    /** Escribe el carrito (reemplaza). */
+    public function writeCart(int $conversationId, array $cart): void
+    {
+        try {
+            if (!isset($cart['items']) || !is_array($cart['items'])) $cart['items'] = [];
+            Database::update('conversations',
+                ['cart_state' => json_encode($cart, JSON_UNESCAPED_UNICODE)],
+                ['id' => $conversationId, 'tenant_id' => $this->tenantId]
+            );
+        } catch (\Throwable $e) {
+            Logger::error('writeCart fallo', ['msg' => $e->getMessage()]);
+        }
+    }
+
+    /** Anade items al carrito existente, fusionando cantidades por nombre. */
+    public function addToCart(int $conversationId, array $payload): void
+    {
+        $cart = $this->readCart($conversationId);
+        $items = $payload['items'] ?? [(isset($payload['name']) ? $payload : null)];
+        if (!is_array($items)) return;
+
+        foreach ($items as $newItem) {
+            if (!is_array($newItem) || empty($newItem['name'])) continue;
+            $name = trim((string) $newItem['name']);
+            $qty  = max(1, (int) ($newItem['qty'] ?? $newItem['quantity'] ?? 1));
+
+            // Buscar match en carrito (mismo nombre + mismas notas) → sumar qty
+            $matched = false;
+            foreach ($cart['items'] as &$existing) {
+                if (strcasecmp((string) $existing['name'], $name) === 0
+                    && (string) ($existing['notes'] ?? '') === (string) ($newItem['notes'] ?? '')) {
+                    $existing['qty'] = (int) ($existing['qty'] ?? 1) + $qty;
+                    $matched = true;
+                    break;
+                }
+            }
+            unset($existing);
+
+            if (!$matched) {
+                $cart['items'][] = [
+                    'name'      => $name,
+                    'qty'       => $qty,
+                    'unit_price' => $newItem['unit_price'] ?? null,
+                    'notes'     => trim((string) ($newItem['notes'] ?? '')) ?: null,
+                    'modifiers' => is_array($newItem['modifiers'] ?? null) ? $newItem['modifiers'] : null,
+                ];
+            }
+        }
+
+        // Datos del cliente / direccion / pago si vienen
+        foreach (['customer_name','customer_phone','address','zone','payment','delivery_type','notes'] as $k) {
+            if (!empty($payload[$k])) $cart[$k] = $payload[$k];
+        }
+
+        $this->writeCart($conversationId, $cart);
+    }
+
+    public function clearCart(int $conversationId): void
+    {
+        try {
+            Database::update('conversations',
+                ['cart_state' => null],
+                ['id' => $conversationId, 'tenant_id' => $this->tenantId]
+            );
+        } catch (\Throwable) {}
+    }
+
+    /**
+     * Renderiza el carrito en formato legible para inyectar al prompt de la IA.
+     * Vacio si no hay items. Incluye datos del cliente si los tiene.
+     */
+    private function renderCartForPrompt(int $conversationId): string
+    {
+        $cart = $this->readCart($conversationId);
+        if (empty($cart['items'])) return '';
+
+        $lines = ['ESTADO ACTUAL DEL CARRITO (acumulado durante esta conversacion):'];
+        foreach ($cart['items'] as $i) {
+            $line = '  - ' . (int) ($i['qty'] ?? 1) . '× ' . ($i['name'] ?? '?');
+            if (!empty($i['modifiers']) && is_array($i['modifiers'])) {
+                $mods = array_map(fn ($m) => is_array($m) ? ($m['name'] ?? '') : (string) $m, $i['modifiers']);
+                $mods = array_filter($mods);
+                if (!empty($mods)) $line .= ' (' . implode(', ', $mods) . ')';
+            }
+            if (!empty($i['notes'])) $line .= ' [' . $i['notes'] . ']';
+            $lines[] = $line;
+        }
+
+        $extras = [];
+        foreach (['customer_name' => 'Cliente', 'address' => 'Direccion', 'zone' => 'Zona',
+                  'delivery_type' => 'Tipo', 'payment' => 'Pago'] as $k => $lbl) {
+            if (!empty($cart[$k])) $extras[] = "$lbl: {$cart[$k]}";
+        }
+        if (!empty($extras)) {
+            $lines[] = 'Datos del pedido: ' . implode(' · ', $extras);
+        }
+
+        $lines[] = '';
+        $lines[] = 'Si el cliente confirma ahora ("dale", "confirmo", "perfecto"), emite [ORDER:...] usando ESTOS items y ESTOS datos. NO pidas que vuelva a elegir.';
+
+        return implode("\n", $lines);
+    }
+
     /** Inserta una nota interna visible solo para el operador con el error de la IA. */
     private function writeAiErrorNote(int $conversationId, int $contactId, string $error, bool $transient): void
     {
@@ -262,18 +398,45 @@ final class AiAgentService
         } catch (\Throwable) {}
     }
 
+    /**
+     * Construye el historial de la conversacion para inyectar en el prompt.
+     * Usa una ventana mas amplia (default 30) y aplica un cap de caracteres
+     * (~10k) para no agotar tokens en chats muy largos.
+     *
+     * Tambien filtra notas internas + mensajes de sistema (no relevantes al cliente).
+     */
     private function conversationHistory(int $conversationId, int $limit): string
     {
-        $messages = Message::listByConversation($this->tenantId, $conversationId, max(4, $limit));
+        $effectiveLimit = max(8, $limit);
+        $messages = Message::listByConversation($this->tenantId, $conversationId, max(40, $effectiveLimit));
         $lines = [];
         foreach ($messages as $m) {
-            $who = $m['direction'] === 'inbound' ? 'Cliente' : (!empty($m['is_ai_generated']) ? 'Agente IA' : 'Agente');
+            // Saltar notas internas, mensajes system, fallidos
+            if (!empty($m['is_internal'])) continue;
+            if (($m['type'] ?? 'text') === 'system') continue;
+            if (($m['status'] ?? '') === 'failed') continue;
+
+            $who = $m['direction'] === 'inbound'
+                ? 'Cliente'
+                : (!empty($m['is_ai_generated']) ? 'IA' : 'Agente humano');
             $text = trim((string) ($m['content'] ?? ''));
             if ($text !== '') {
                 $lines[] = $who . ': ' . $text;
             }
         }
-        return implode("\n", array_slice($lines, -$limit));
+
+        // Tomar los ultimos N respetando un tope de chars
+        $lines = array_slice($lines, -max($effectiveLimit, 30));
+        $maxChars = 10000;
+        $out = [];
+        $total = 0;
+        foreach (array_reverse($lines) as $ln) {
+            $len = mb_strlen($ln) + 1;
+            if ($total + $len > $maxChars && !empty($out)) break;
+            $out[] = $ln;
+            $total += $len;
+        }
+        return implode("\n", array_reverse($out));
     }
 
     /**
@@ -291,7 +454,12 @@ final class AiAgentService
         $text = preg_replace('/\s*```\s*$/u', '', $text);
 
         // Construir lista de prefijos prohibidos (nombre del agente, rol, comunes).
-        $forbidden = ['Asistente', 'Asistente IA', 'Agente', 'Agente IA', 'Bot', 'IA', 'AI', 'Cliente', 'Tu', 'Yo', 'Usuario', 'Empresa', 'Soporte', 'Ventas', 'Operador'];
+        $forbidden = [
+            'Asistente', 'Asistente IA', 'Agente', 'Agente IA', 'Bot', 'IA', 'AI',
+            'Cliente', 'Tu', 'Yo', 'Usuario', 'Empresa', 'Soporte', 'Ventas', 'Operador',
+            'Soporte Tecnico', 'Soporte Técnico', 'Servicio al Cliente', 'Mesero', 'Mesera',
+            'Maitre', 'Maitre BBQ', 'Vendedor', 'Vendedora',
+        ];
         if (!empty($agent['name']))        $forbidden[] = (string) $agent['name'];
         if (!empty($agent['role']))        $forbidden[] = (string) $agent['role'];
         $brand = Database::fetchColumn("SELECT name FROM tenants WHERE id = :id", ['id' => $this->tenantId]);
@@ -299,36 +467,48 @@ final class AiAgentService
 
         $forbidden = array_values(array_unique(array_filter($forbidden, fn($s) => trim((string) $s) !== '')));
 
-        // Loop hasta 4 veces removiendo prefijos sucesivos como "Agente: Soporte Tecnico: Hola...".
-        for ($i = 0; $i < 4; $i++) {
+        // Loop hasta 6 veces removiendo prefijos sucesivos: "Agente: Soporte Tecnico: Hola...".
+        for ($i = 0; $i < 6; $i++) {
             $original = $text;
 
-            // 1) Prefijos exactos de la lista
+            // 1) Prefijos exactos de la lista (al inicio, multiline para cubrir nuevas lineas)
             foreach ($forbidden as $f) {
                 $escaped = preg_quote($f, '/');
                 $text = (string) preg_replace(
-                    '/^\s*\*?\*?' . $escaped . '\*?\*?\s*[:\-—–]\s*/iu',
+                    '/^\s*\*?\*?' . $escaped . '\*?\*?\s*[:\-—–]\s*\n?/iu',
                     '',
                     $text,
                     1
                 );
             }
 
-            // 2) Prefijo generico "Palabra Palabra Palabra:" al inicio (max 4 palabras Capitalizadas)
+            // 2) Prefijo generico "Palabra Palabra Palabra:" al inicio (max 4 palabras Capitalizadas seguido de :)
             $text = (string) preg_replace(
-                '/^\s*(?:[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*\s+){0,3}[A-ZÁÉÍÓÚÑ][\wáéíóúñ]{1,30}\s*:\s+/u',
+                '/^\s*\*?\*?(?:[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*\s+){0,3}[A-ZÁÉÍÓÚÑ][\wáéíóúñ]{1,30}\*?\*?\s*:\s*\n?/u',
                 '',
                 $text,
                 1
             );
 
-            // 3) Asteriscos sueltos al inicio
+            // 3) Asteriscos / saltos sueltos al inicio
             $text = ltrim($text, " *_-—–\t\r\n");
 
             if ($text === $original) break;
         }
 
-        // Eliminar lineas vacias dobles al inicio
+        // Tambien remover prefijos que quedaron al inicio de cualquier linea posterior
+        $lines = preg_split("/(\r?\n)/u", $text) ?: [$text];
+        $cleanLines = [];
+        foreach ($lines as $line) {
+            foreach ($forbidden as $f) {
+                $escaped = preg_quote($f, '/');
+                $line = (string) preg_replace('/^\s*\*?\*?' . $escaped . '\*?\*?\s*:\s*/iu', '', $line, 1);
+            }
+            $cleanLines[] = $line;
+        }
+        $text = implode("\n", $cleanLines);
+
+        // Eliminar saltos vacios dobles al inicio
         $text = preg_replace("/^[\s]+/u", '', $text);
 
         return trim((string) $text);
@@ -351,6 +531,14 @@ final class AiAgentService
             $text = (string) preg_replace('/\[ORDER:\s*\{.+?\}\s*\]/is', '', $text);
         }
 
+        // [CART_ADD: {...}] o [CART_SET: {...}] tambien JSON
+        if (preg_match_all('/\[CART_(ADD|SET):\s*(\{.+?\})\s*\]/is', $text, $cartMatches, PREG_SET_ORDER)) {
+            foreach ($cartMatches as $m) {
+                $actions[] = ['type' => 'CART_' . strtoupper($m[1]), 'args' => trim($m[2])];
+            }
+            $text = (string) preg_replace('/\[CART_(ADD|SET):\s*\{.+?\}\s*\]/is', '', $text);
+        }
+
         $patterns = [
             'TRANSFER'      => '/\[TRANSFER\]/i',
             'CLOSE_SALE'    => '/\[CLOSE_SALE(?::\s*([^\]]+))?\]/i',
@@ -360,6 +548,7 @@ final class AiAgentService
             'TICKET'        => '/\[TICKET:\s*([^\]]+)\]/i',
             'ORDER_STATUS'  => '/\[ORDER_STATUS:\s*([^\]]+)\]/i',
             'PAYMENT_LINK'  => '/\[PAYMENT_LINK:\s*([^\]]+)\]/i',
+            'CART_CLEAR'    => '/\[CART_CLEAR\]/i',
         ];
         foreach ($patterns as $key => $regex) {
             if (preg_match_all($regex, $text, $matches, PREG_SET_ORDER)) {
@@ -378,6 +567,24 @@ final class AiAgentService
     /** Ejecuta las acciones extraidas del marcador. */
     private function applyActions(array $actions, int $conversationId, int $contactId, string $reply, int $agentId): void
     {
+        // Ordenar por prioridad: primero CART_ADD/SET (alimenta carrito), despues ORDER
+        // (consume carrito), CART_CLEAR al final. Otras en medio.
+        $priority = [
+            'CART_ADD'     => 10,
+            'CART_SET'     => 11,
+            'TAG'          => 20,
+            'TICKET'       => 21,
+            'SCHEDULE'     => 22,
+            'ORDER'        => 30,
+            'ORDER_STATUS' => 31,
+            'PAYMENT_LINK' => 32,
+            'CLOSE_SALE'   => 40,
+            'CART_CLEAR'   => 80,
+            'TRANSFER'     => 90,
+            'END_CHAT'     => 99,
+        ];
+        usort($actions, fn ($a, $b) => ($priority[$a['type']] ?? 50) <=> ($priority[$b['type']] ?? 50));
+
         foreach ($actions as $a) {
             try {
                 $type = $a['type'];
@@ -499,11 +706,38 @@ final class AiAgentService
                             Logger::warning('AI ORDER JSON invalido', ['args' => $args]);
                             break;
                         }
-                        (new RestaurantOrderEngine($this->tenantId))->createFromAi(
+                        // Si la IA emite ORDER sin items, intentamos rellenar con el carrito persistente.
+                        if (empty($payload['items']) || !is_array($payload['items'])) {
+                            $cart = $this->readCart($conversationId);
+                            if (!empty($cart['items'])) $payload['items'] = $cart['items'];
+                        }
+                        $orderResult = (new RestaurantOrderEngine($this->tenantId))->createFromAi(
                             $payload,
                             $conversationId,
                             $contactId
                         );
+                        // Limpiar carrito tras crear la orden con exito
+                        if (!empty($orderResult['success'])) {
+                            $this->clearCart($conversationId);
+                        }
+                        break;
+
+                    case 'CART_ADD':
+                    case 'CART_SET':
+                        $payload = json_decode($args, true);
+                        if (!is_array($payload)) {
+                            Logger::warning('AI CART JSON invalido', ['args' => $args, 'type' => $type]);
+                            break;
+                        }
+                        if ($type === 'CART_SET') {
+                            $this->writeCart($conversationId, $payload);
+                        } else {
+                            $this->addToCart($conversationId, $payload);
+                        }
+                        break;
+
+                    case 'CART_CLEAR':
+                        $this->clearCart($conversationId);
                         break;
 
                     case 'ORDER_STATUS':

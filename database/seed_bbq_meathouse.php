@@ -435,18 +435,36 @@ foreach ($kb as $idx => [$cat, $title, $content]) {
 }
 echo "[+] " . count($kb) . " articulos de base de conocimiento agregados.\n";
 
-// 10. Asegurar que el agente IA principal del tenant este en modo restaurante
+// 10. Asegurar que el agente IA principal del tenant este en modo restaurante.
+//     Tambien renombrar agentes con nombres genericos al nombre del owner del tenant
+//     para que la IA firme como una persona real ("Jonathan" en vez de "Soporte Tecnico").
 try {
-    Database::run(
-        "UPDATE ai_agents SET
-            category    = 'sales',
-            tone        = 'cercano, gourmet, experto en parrilla y orientado a vender',
-            objective   = 'Tomar pedidos del menu de BBQ MeatHouse, sugerir combos y guarniciones, calcular total y confirmar antes de emitir [ORDER:...]. Escalar a humano si el cliente reclama.',
-            instructions = CONCAT(COALESCE(instructions, ''), '\\n\\nReglas BBQ MeatHouse:\\n- Saluda como Maitre de la casa.\\n- Sugiere proteinas premium (Tenderloin, Ribeye, Picana) y combos para grupos.\\n- Si piden delivery pregunta zona y aplica costo correcto.\\n- ITBIS 18% se anade al cobrar.\\n- Tiempo prep promedio: 35 min.\\n- Recomienda salsas (BBQ chipotle, chimichurri).')
-         WHERE tenant_id = :t",
+    $owner = Database::fetch(
+        "SELECT u.first_name, u.last_name FROM users u
+         INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = :t
+         INNER JOIN roles r ON r.id = ur.role_id
+         WHERE u.tenant_id = :t AND r.slug IN ('owner','admin') AND u.deleted_at IS NULL
+         ORDER BY FIELD(r.slug,'owner','admin'), u.id ASC LIMIT 1",
         ['t' => $tenantId]
     );
-    echo "[+] Agentes IA actualizados al modo BBQ MeatHouse.\n";
+    $ownerFirstName = trim((string) ($owner['first_name'] ?? ''));
+    if ($ownerFirstName === '') $ownerFirstName = 'BBQ';
+
+    Database::run(
+        "UPDATE ai_agents SET
+            name = CASE
+                WHEN LOWER(TRIM(name)) IN ('soporte','soporte tecnico','soporte técnico','asistente','asistente ia','asistente virtual','bot','agente','agente ia','servicio al cliente','atencion al cliente','atención al cliente','mesero','mesera','operador','operadora','vendedor','vendedora','ia','ai')
+                THEN :owner_name
+                ELSE name
+            END,
+            category    = 'sales',
+            tone        = 'cercano, gourmet, experto en parrilla',
+            objective   = 'Tomar pedidos del menu de BBQ MeatHouse, sugerir combos y calcular total. Confirmar antes de emitir [ORDER:...]. Escalar a humano si el cliente reclama.',
+            instructions = CONCAT(COALESCE(instructions, ''), '\\n\\nReglas BBQ MeatHouse:\\n- Eres parte del equipo, hablas como una persona real (no como bot).\\n- Sugiere proteinas premium (Tenderloin, Ribeye, Picana) y combos para grupos.\\n- Si piden delivery pregunta zona y aplica costo correcto.\\n- ITBIS 18% se anade al cobrar.\\n- Tiempo prep promedio: 35 min.\\n- Recomienda salsas (BBQ chipotle, chimichurri).')
+         WHERE tenant_id = :t",
+        ['t' => $tenantId, 'owner_name' => $ownerFirstName]
+    );
+    echo "[+] Agentes IA actualizados al modo BBQ MeatHouse (nombre = '$ownerFirstName').\n";
 } catch (Throwable $e) {
     echo "[!] Aviso agentes IA: " . $e->getMessage() . "\n";
 }

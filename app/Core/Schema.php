@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v3_ok';
+    private const CACHE_FILE = '/cache/.schema_v5_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -32,7 +32,8 @@ final class Schema
                     && self::tableExists($pdo, 'orders')
                     && self::tableExists($pdo, 'channel_routing_rules');
             $colOk   = self::columnExists($pdo, 'conversations', 'channel_id')
-                    && self::columnExists($pdo, 'tenants', 'is_restaurant');
+                    && self::columnExists($pdo, 'tenants', 'is_restaurant')
+                    && self::columnExists($pdo, 'conversations', 'cart_state');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -401,6 +402,36 @@ SQL);
         if (!self::columnExists($pdo, 'tenants', 'restaurant_settings')) {
             $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `restaurant_settings` JSON NULL AFTER `is_restaurant`");
         }
+
+        // Carrito en curso por conversacion (persiste entre turnos del cliente)
+        if (!self::columnExists($pdo, 'conversations', 'cart_state')) {
+            $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `cart_state` JSON NULL AFTER `from_phone`");
+        }
+
+        // ----- Cleanup nombres genericos de agentes IA: usar nombre del owner -----
+        try {
+            $pdo->exec(<<<SQL
+UPDATE ai_agents aa
+INNER JOIN (
+    SELECT u.tenant_id, u.first_name AS owner_name
+    FROM users u
+    INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
+    INNER JOIN roles r ON r.id = ur.role_id
+    WHERE u.deleted_at IS NULL AND u.is_active = 1
+      AND r.slug IN ('owner','admin')
+    GROUP BY u.tenant_id
+) o ON o.tenant_id = aa.tenant_id
+SET aa.name = o.owner_name
+WHERE LOWER(TRIM(aa.name)) IN (
+    'soporte','soporte tecnico','soporte técnico',
+    'asistente','asistente ia','asistente virtual',
+    'bot','agente','agente ia',
+    'servicio al cliente','atencion al cliente','atención al cliente',
+    'mesero','mesera','operador','operadora',
+    'vendedor','vendedora','ia','ai'
+) AND o.owner_name IS NOT NULL AND o.owner_name <> ''
+SQL);
+        } catch (\Throwable) {}
 
         // ----- Backfill Wasapi -> canal default -----
         try {

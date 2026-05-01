@@ -185,6 +185,48 @@ final class AiProviderService
     }
 
     /**
+     * Detecta nombres genericos como "Soporte", "Asistente", "Bot", etc. para
+     * preferir el nombre real del owner cuando esten configurados asi.
+     */
+    private function isGenericName(string $name): bool
+    {
+        $generic = [
+            'soporte', 'soporte tecnico', 'soporte técnico',
+            'asistente', 'asistente ia', 'asistente virtual',
+            'bot', 'ia', 'ai', 'agente', 'agente ia',
+            'servicio al cliente', 'atencion al cliente', 'atención al cliente',
+            'mesero', 'mesera', 'vendedor', 'vendedora',
+            'operador', 'operadora',
+        ];
+        return in_array(mb_strtolower(trim($name)), $generic, true);
+    }
+
+    /**
+     * Devuelve el nombre del usuario propietario del tenant para usar como
+     * identidad de la IA cuando el agente no tiene un nombre personalizado.
+     */
+    private function resolveTenantOwnerName(): string
+    {
+        try {
+            $row = Database::fetch(
+                "SELECT u.first_name, u.last_name
+                 FROM users u
+                 INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = :t
+                 INNER JOIN roles r ON r.id = ur.role_id
+                 WHERE u.tenant_id = :t AND u.deleted_at IS NULL AND u.is_active = 1
+                   AND r.slug IN ('owner','admin')
+                 ORDER BY FIELD(r.slug, 'owner','admin'), u.id ASC
+                 LIMIT 1",
+                ['t' => $this->tenantId]
+            );
+            if ($row) {
+                return trim((string) ($row['first_name'] ?? '') . ' ' . (string) ($row['last_name'] ?? ''));
+            }
+        } catch (\Throwable) {}
+        return '';
+    }
+
+    /**
      * Construye el prompt de sistema con marca, tono, rol del agente y
      * base de conocimiento. Tambien inyecta el "manual de acciones" para
      * que la IA pueda ejecutar handoff/cierre/agenda con marcadores.
@@ -195,7 +237,19 @@ final class AiProviderService
         $agent = $this->agent();
 
         $brand     = $cfg['name'] ?? 'la empresa';
-        $assistant = $agent['name'] ?? $cfg['ai_assistant_name'] ?? 'Asistente IA';
+
+        // Resolver nombre del asistente: agente -> tenant.ai_assistant_name -> nombre del owner -> default.
+        // Asi la IA siempre tiene una identidad humana y nunca firma como "Soporte Tecnico" generico.
+        $assistant = trim((string) ($agent['name'] ?? ''));
+        if ($assistant === '' || $this->isGenericName($assistant)) {
+            $assistant = trim((string) ($cfg['ai_assistant_name'] ?? ''));
+        }
+        if ($assistant === '' || $this->isGenericName($assistant)) {
+            $owner = $this->resolveTenantOwnerName();
+            if ($owner !== '') $assistant = $owner;
+        }
+        if ($assistant === '') $assistant = 'Asistente';
+
         $tone      = $agent['tone'] ?? $cfg['ai_tone'] ?? 'profesional, cercano y claro';
         $lang      = $cfg['language'] ?? 'es';
         $role      = trim((string) ($agent['role'] ?? ''));
@@ -224,7 +278,10 @@ ACCIONES ESPECIALES (al final de tu respuesta, en una linea aparte, puedes inclu
 - [END_CHAT: motivo] - Cierra la conversacion porque el caso fue resuelto (ej. [END_CHAT: pedido confirmado]).
 - [TAG: nombre] - Aplica una etiqueta al contacto (ej. [TAG: cliente_premium]).
 - [TICKET: titulo, prioridad] - Crea un ticket de soporte (prioridad: low, medium, high, critical).
-- [ORDER: {"items":[{"name":"Hamburguesa Clasica","qty":2,"notes":"sin cebolla"}],"delivery_type":"delivery","address":"Calle X #123","payment":"cash","customer_name":"Maria"}] - Crea una orden cuando el cliente CONFIRMA su pedido. delivery_type: delivery|pickup|dine_in. payment: cash|card|transfer|online. items.modifiers opcional.
+- [CART_ADD: {"items":[{"name":"Hamburguesa Clasica","qty":2,"notes":"sin cebolla","modifiers":[{"name":"Extra queso","price":50}]}]}] - Agrega items al carrito persistente cuando el cliente menciona algo (NO esperes a que confirme). El sistema acumula entre mensajes. Usa SIEMPRE que el cliente diga "quiero X", "agrega Y", "tambien una Z". El carrito se inyecta en cada turno para que no olvides.
+- [CART_ADD: {"customer_name":"Maria","address":"Calle X","zone":"Naco","payment":"cash","delivery_type":"delivery"}] - Tambien agrega/actualiza datos del cliente (sin items necesariamente).
+- [CART_CLEAR] - Vacia el carrito si el cliente quiere empezar de cero o cancelo.
+- [ORDER: {"items":[...],"delivery_type":"delivery","address":"...","payment":"cash","customer_name":"..."}] - Crea la orden FIRME cuando el cliente CONFIRMA. Si el carrito ya tiene items, puedes emitir [ORDER:{}] vacio y el sistema usa el carrito automaticamente. delivery_type: delivery|pickup|dine_in. payment: cash|card|transfer|online.
 - [ORDER_STATUS: id, status] - Cambia el estado de una orden existente. status: confirmed|preparing|ready|out_for_delivery|delivered|cancelled.
 - [PAYMENT_LINK: id] - Genera y comparte el link de pago de una orden.
 
@@ -248,10 +305,16 @@ Eres "$assistant", representante de $brand. Hablas DIRECTAMENTE con un cliente p
 
 REGLAS DE FORMATO (CRITICO - violarlas hace que el cliente reciba basura):
 1. Responde SOLO con el texto del mensaje, sin etiquetas ni encabezados.
-2. NUNCA antepongas tu nombre, tu rol o cualquier prefijo como "$assistant:", "$role:", "Agente:", "Asistente:", "Cliente:", "IA:" ni similares. Empieza directamente con el saludo o la respuesta.
+2. NUNCA antepongas tu nombre, tu rol o cualquier prefijo. Esta PROHIBIDO comenzar con "$assistant:", "$role:", "Agente:", "Asistente:", "Cliente:", "IA:", "Soporte:", "Soporte Tecnico:", "Mesero:", "Vendedor:" ni similares. Empieza DIRECTAMENTE con el saludo o la respuesta.
 3. NO uses formato tipo guion teatral. NO escribas "Yo:" ni "Tu:". Solo el mensaje natural.
 4. NO digas "Como modelo de IA..." ni reveles que eres una IA. Eres parte del equipo de $brand.
 5. Maximo 1-3 parrafos cortos, estilo conversacional WhatsApp, sin Markdown salvo *negritas* puntuales.
+6. MANEJO DEL CARRITO (CRITICO para restaurantes):
+   - CADA vez que el cliente menciona items ("quiero X", "una Y", "agrega Z", "tambien W"), emite [CART_ADD: {"items":[...]}] para guardarlos. El sistema te muestra el carrito acumulado en cada turno.
+   - SIEMPRE que el cliente confirme ("dale", "confirmo", "perfecto", "si", "esta bien", "manda"), revisa el ESTADO ACTUAL DEL CARRITO en el contexto. Si tiene items, emite [ORDER:{}] vacio (el sistema completa con el carrito) y confirma con codigo OR-...
+   - Si el cliente confirma y el carrito esta VACIO, NO digas "no hemos armado un pedido". Pregunta natural: "Genial, dime que te apetece — combo, hamburguesa, parrilla?".
+   - Antes de confirmar la orden, SIEMPRE muestra resumen con totales y pregunta "¿Confirmo?".
+   - Si el cliente cambia algo, agrega CART_ADD con el cambio (no clears completos sin razon).
 
 CONTEXTO COMERCIAL:
 - Marca: $brand
