@@ -690,6 +690,43 @@ RESTAURANT;
         );
     }
 
+    /**
+     * Transforma un texto del agente (composer) según una intención: mejorar redacción,
+     * cambiar tono, traducir, acortar, expandir, corregir gramática.
+     *
+     * Devuelve solo el texto transformado, sin comillas ni preámbulo.
+     */
+    public function transformText(string $text, string $mode, string $context = ''): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return ['success' => false, 'error' => 'Texto vacío'];
+        }
+
+        $instruction = match ($mode) {
+            'improve'    => 'Mejora la redacción de este mensaje manteniendo su intención. Hazlo más claro, profesional y conciso. NO añadas explicaciones.',
+            'formal'     => 'Reescribe este mensaje en un tono formal, profesional y respetuoso. Mantén el contenido original. NO añadas explicaciones.',
+            'casual'     => 'Reescribe este mensaje en un tono amigable, cercano y conversacional. Mantén el contenido original. NO añadas explicaciones.',
+            'shorter'    => 'Acorta este mensaje al máximo manteniendo la idea principal. NO añadas explicaciones.',
+            'longer'     => 'Expande este mensaje añadiendo detalles relevantes y contexto útil. Mantén el tono. NO añadas explicaciones.',
+            'fix'        => 'Corrige errores de ortografía, gramática y puntuación de este mensaje. NO cambies el contenido ni el tono.',
+            'translate'  => 'Traduce este mensaje al idioma del cliente según el contexto de la conversación. Si la conversación está en español, traduce al inglés y viceversa. NO añadas explicaciones.',
+            'continue'   => 'Continúa este mensaje del agente de forma natural, escribiendo la siguiente frase o dos. NO repitas lo escrito.',
+            'emojify'    => 'Añade emojis apropiados a este mensaje sin cambiar el contenido. Máximo 3 emojis bien colocados.',
+            default      => 'Mejora la redacción de este mensaje manteniendo su intención.',
+        };
+
+        $prompt  = "$instruction\n\n";
+        if ($context !== '') {
+            $prompt .= "Contexto de la conversación:\n$context\n\n";
+        }
+        $prompt .= "Mensaje original del agente:\n$text\n\nMensaje transformado:";
+
+        $maxTokens = $mode === 'shorter' ? 200 : ($mode === 'longer' ? 600 : 400);
+
+        return $this->call("transform_$mode", $prompt, $maxTokens, false);
+    }
+
     public function recommendNextAction(string $context): array
     {
         return $this->call(

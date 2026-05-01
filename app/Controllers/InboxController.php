@@ -291,7 +291,24 @@ final class InboxController extends Controller
 
         $agentId = !empty($conv['ai_agent_id']) ? (int) $conv['ai_agent_id'] : null;
         $svc = new AiProviderService($tenantId, $agentId);
-        $action = (string) $request->input('action', 'suggest');
+        $action = (string) $request->query('action', $request->input('action', 'suggest'));
+
+        // Acciones de transformación de texto del composer
+        $transformModes = ['improve', 'formal', 'casual', 'shorter', 'longer', 'fix', 'translate', 'continue', 'emojify'];
+        if (in_array($action, $transformModes, true)) {
+            $userText = trim((string) $request->input('text', ''));
+            if ($userText === '') {
+                $this->json(['success' => false, 'error' => 'No hay texto para transformar.']);
+                return;
+            }
+            $result = $svc->transformText($userText, $action, $transcript);
+            if (!empty($result['success'])) {
+                $this->json(['success' => true, 'text' => trim((string) $result['text'])]);
+            } else {
+                $this->json(['success' => false, 'error' => $result['error'] ?? 'No se pudo transformar el texto.']);
+            }
+            return;
+        }
 
         $result = match ($action) {
             'summarize' => $svc->summarizeConversation($transcript),
@@ -441,43 +458,102 @@ final class InboxController extends Controller
 
     private function renderMessagesHtml(array $messages): string
     {
+        $base = rtrim(url(''), '/');
+        $linkify = static function (string $raw) use ($base): string {
+            $escaped = e($raw);
+            $escaped = preg_replace_callback(
+                '~(?<![">\w])(https?://[^\s<]+)~i',
+                static fn ($m) => '<a href="' . $m[1] . '" target="_blank" rel="noopener" class="msg-link">' . mb_strimwidth($m[1], 0, 60, '…') . '</a>',
+                $escaped
+            );
+            $escaped = preg_replace_callback(
+                '~#?(OR-[A-Z0-9-]{4,})~i',
+                static fn ($m) => '<a href="' . $base . '/orders" class="msg-order-tag">📦 ' . strtoupper($m[1]) . '</a>',
+                $escaped
+            );
+            return $escaped;
+        };
+
         ob_start();
         $currentDate = '';
         foreach ($messages as $m):
             $msgDate = date('Y-m-d', strtotime((string) $m['created_at']));
             if ($msgDate !== $currentDate):
                 $currentDate = $msgDate;
-                $todayLabel = date('Y-m-d') === $msgDate ? 'Hoy' : (date('Y-m-d', strtotime('-1 day')) === $msgDate ? 'Ayer' : date('d M', strtotime($msgDate)));
+                $todayLabel = date('Y-m-d') === $msgDate ? 'Hoy' : (date('Y-m-d', strtotime('-1 day')) === $msgDate ? 'Ayer' : date('d M Y', strtotime($msgDate)));
         ?>
             <div class="flex justify-center my-4">
                 <span class="px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em]" style="background: var(--color-bg-elevated); color: var(--color-text-tertiary); border: 1px solid var(--color-border-subtle);"><?= $todayLabel ?></span>
             </div>
         <?php endif;
-            $isOut = $m['direction'] === 'outbound';
+            $isOut    = $m['direction'] === 'outbound';
             $internal = !empty($m['is_internal']);
-            $aiGen = !empty($m['is_ai_generated']);
+            $aiGen    = !empty($m['is_ai_generated']);
+            $body     = (string) $m['content'];
+            $isImg    = !empty($m['media_url']) && preg_match('~\.(jpe?g|png|gif|webp)(\?|$)~i', (string) $m['media_url']);
+            $isAud    = !empty($m['media_url']) && preg_match('~\.(mp3|ogg|wav|m4a|opus)(\?|$)~i', (string) $m['media_url']);
+            $isVid    = !empty($m['media_url']) && preg_match('~\.(mp4|webm|mov)(\?|$)~i', (string) $m['media_url']);
         ?>
-            <div class="flex <?= $isOut ? 'justify-end' : 'justify-start' ?> animate-fade-in" data-message-id="<?= (int) $m['id'] ?>">
-                <div class="max-w-[75%]">
+            <div class="msg-row flex <?= $isOut ? 'justify-end' : 'justify-start' ?> animate-fade-in group" data-message-id="<?= (int) $m['id'] ?>" data-search="<?= e(strtolower($body)) ?>">
+                <div class="max-w-[78%] relative">
                     <?php if ($internal): ?>
                     <div class="px-4 py-3 rounded-2xl rounded-bl-sm border" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); color: #FBBF24;">
-                        <div class="text-[10px] uppercase font-semibold tracking-wider mb-1.5">Nota interna</div>
-                        <div class="text-sm whitespace-pre-line"><?= e((string) $m['content']) ?></div>
+                        <div class="text-[10px] uppercase font-semibold tracking-wider mb-1.5 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z"/></svg>
+                            Nota interna
+                        </div>
+                        <div class="text-sm whitespace-pre-line"><?= $linkify($body) ?></div>
                     </div>
                     <?php else: ?>
-                    <div class="px-4 py-2.5 <?= $isOut ? 'rounded-2xl rounded-br-sm text-white' : 'rounded-2xl rounded-bl-sm' ?>"
+                    <div class="msg-bubble px-4 py-2.5 <?= $isOut ? 'rounded-2xl rounded-br-sm text-white' : 'rounded-2xl rounded-bl-sm' ?>"
                          style="<?= $isOut ? 'background: var(--gradient-primary); box-shadow: 0 2px 8px rgba(124,58,237,.25);' : 'background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); color: var(--color-text-primary); box-shadow: var(--shadow-xs);' ?>">
-                        <?php if ($aiGen): ?><div class="text-[10px] opacity-80 mb-1">Generado por IA</div><?php endif; ?>
-                        <?php if (!empty($m['media_url'])): ?>
-                        <div class="mb-2 text-xs opacity-80"><a href="<?= e($m['media_url']) ?>" target="_blank" class="underline">Adjunto</a></div>
+                        <?php if ($aiGen): ?>
+                        <div class="text-[10px] opacity-80 mb-1 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+                            Generado por IA
+                        </div>
                         <?php endif; ?>
-                        <div class="text-sm leading-relaxed whitespace-pre-line"><?= e((string) $m['content']) ?></div>
+                        <?php if ($isImg): ?>
+                        <a href="<?= e((string) $m['media_url']) ?>" target="_blank" class="block mb-2 -mx-1 -mt-1">
+                            <img src="<?= e((string) $m['media_url']) ?>" alt="" class="rounded-xl max-h-64 w-auto" style="max-width:100%;" loading="lazy">
+                        </a>
+                        <?php elseif ($isAud): ?>
+                        <audio controls class="mb-2 w-full" style="max-width:280px;">
+                            <source src="<?= e((string) $m['media_url']) ?>">
+                        </audio>
+                        <?php elseif ($isVid): ?>
+                        <video controls class="mb-2 rounded-xl" style="max-height:240px; max-width:100%;">
+                            <source src="<?= e((string) $m['media_url']) ?>">
+                        </video>
+                        <?php elseif (!empty($m['media_url'])): ?>
+                        <div class="mb-2 text-xs opacity-80 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/></svg>
+                            <a href="<?= e($m['media_url']) ?>" target="_blank" class="underline">Adjunto</a>
+                        </div>
+                        <?php endif; ?>
+                        <div class="text-sm leading-relaxed whitespace-pre-line"><?= $linkify($body) ?></div>
+                    </div>
+                    <div class="msg-toolbar absolute top-1 <?= $isOut ? 'left-0 -translate-x-full -ml-1' : 'right-0 translate-x-full mr-1' ?> opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 rounded-lg p-0.5 shadow-lg" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
+                        <button class="p-1 rounded hover:bg-white/5" title="Copiar" onclick="copyMsg(this)" data-text="<?= e($body) ?>">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="color: var(--color-text-secondary);"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                        <button class="p-1 rounded hover:bg-white/5" title="Citar" onclick="quoteMsg(this)" data-text="<?= e($body) ?>">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="color: var(--color-text-secondary);"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                        </button>
                     </div>
                     <?php endif; ?>
-                    <div class="text-[10px] mt-1.5 flex items-center gap-1 <?= $isOut ? 'justify-end' : '' ?>" style="color: var(--color-text-muted);">
+                    <div class="text-[10px] mt-1 flex items-center gap-1 <?= $isOut ? 'justify-end' : '' ?>" style="color: var(--color-text-muted);">
                         <?php if (!empty($m['first_name'])): ?><span class="font-medium"><?= e($m['first_name']) ?></span><span>&middot;</span><?php endif; ?>
                         <span class="font-mono"><?= date('H:i', strtotime((string) $m['created_at'])) ?></span>
-                        <?php if ($isOut): ?><span><?= e((string) $m['status']) ?></span><?php endif; ?>
+                        <?php if ($isOut):
+                            $statusIcon = match($m['status']) {
+                                'sent'      => '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>',
+                                'delivered' => '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M9 17l4-4"/></svg>',
+                                'read'      => '<svg class="w-3.5 h-3.5" fill="none" stroke="#06B6D4" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M9 17l4-4"/></svg>',
+                                default     => '',
+                            };
+                            echo $statusIcon;
+                        endif; ?>
                     </div>
                     <?php if (!empty($m['error_message'])): ?>
                     <div class="text-[10px] mt-1 text-red-400 text-right"><?= e((string) $m['error_message']) ?></div>
