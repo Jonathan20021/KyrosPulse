@@ -232,8 +232,16 @@ NUNCA muestres los marcadores en la respuesta visible. Siempre escribe primero t
 ACTIONS;
         }
 
-        $productsBlock   = $this->buildProductsBlock();
-        $restaurantBlock = $this->buildRestaurantBlock();
+        // Modo minimal: omite bloques pesados (menu, productos, KB grande) para
+        // reintentar tras un fallo (token limit, prompt demasiado largo, etc.)
+        if ($this->minimalPrompt) {
+            $kbText = '';
+            $productsBlock   = '';
+            $restaurantBlock = "\n[NOTA: el menu detallado no esta disponible en este reintento. Mantente generico, pide al cliente que precise lo que quiere; si esta listo, aplica las reglas de toma de pedidos.]\n";
+        } else {
+            $productsBlock   = $this->buildProductsBlock();
+            $restaurantBlock = $this->buildRestaurantBlock();
+        }
 
         return <<<PROMPT
 Eres "$assistant", representante de $brand. Hablas DIRECTAMENTE con un cliente por WhatsApp.
@@ -544,7 +552,7 @@ RESTAURANT;
         return $this->call('healthcheck', 'Responde unicamente con la palabra OK.', 8, false);
     }
 
-    public function autoReply(string $userMessage, string $history = ''): array
+    public function autoReply(string $userMessage, string $history = '', bool $minimal = false): array
     {
         $messages = [];
         if ($history !== '') {
@@ -552,8 +560,21 @@ RESTAURANT;
             $messages[] = ['role' => 'assistant', 'content' => 'Entendido. Continuo la conversacion.'];
         }
         $messages[] = ['role' => 'user', 'content' => $userMessage];
-        return $this->call('auto_reply', $messages, (int) config('services.claude.max_tokens', 1024));
+
+        // Modo minimal: usado en reintento cuando el primer intento fallo.
+        // Reduce maxTokens y desactiva inyecciones grandes (menu/KB/productos)
+        // via flag interno leido por buildSystemPrompt.
+        $maxTokens = $minimal ? 600 : (int) config('services.claude.max_tokens', 1024);
+        $this->minimalPrompt = $minimal;
+        try {
+            return $this->call('auto_reply', $messages, $maxTokens);
+        } finally {
+            $this->minimalPrompt = false;
+        }
     }
+
+    /** Flag transitorio para que buildSystemPrompt sepa si debe omitir bloques pesados. */
+    private bool $minimalPrompt = false;
 
     public function summarizeConversation(string $transcript): array
     {

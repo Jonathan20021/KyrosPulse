@@ -32,11 +32,34 @@ final class AiAgentService
         }
 
         $history = $this->conversationHistory($conversationId, (int) ($agent['max_context_messages'] ?? 12));
-        $ai = (new AiProviderService($this->tenantId, (int) $agent['id']))->autoReply($incomingText, $history);
+        $provider = new AiProviderService($this->tenantId, (int) $agent['id']);
+
+        // 1er intento (con prompt completo: menu + KB + productos)
+        $ai = $provider->autoReply($incomingText, $history);
+
+        // Reintento con prompt MUCHO mas pequeno si fallo (sin menu/kb)
         if (empty($ai['success']) || trim((string) ($ai['text'] ?? '')) === '') {
-            $this->log($agent, $conversationId, $inboundMessageId, 'auto_reply', $history, '', false, $ai['error'] ?? 'IA sin respuesta.');
-            $this->incrementFailedAttempts($conversationId, (int) ($agent['max_retries'] ?? 3));
-            return ['success' => false, 'error' => $ai['error'] ?? 'IA sin respuesta.'];
+            Logger::warning('AI primer intento fallo, reintentando con prompt minimo', [
+                'conv'  => $conversationId,
+                'error' => $ai['error'] ?? 'sin texto',
+            ]);
+            $ai = $provider->autoReply($incomingText, $history, true /* minimal */);
+        }
+
+        if (empty($ai['success']) || trim((string) ($ai['text'] ?? '')) === '') {
+            $errorMsg = (string) ($ai['error'] ?? 'IA sin respuesta');
+            $this->log($agent, $conversationId, $inboundMessageId, 'auto_reply', $history, '', false, $errorMsg);
+            $isTransient = $this->isTransientError($errorMsg);
+
+            // Solo escalar si NO es un error transitorio (red, timeout, rate limit)
+            if (!$isTransient) {
+                $this->incrementFailedAttempts($conversationId, (int) ($agent['max_retries'] ?? 3));
+            }
+
+            // Visibilidad: nota interna en el chat para que el operador vea el error
+            $this->writeAiErrorNote($conversationId, $contactId, $errorMsg, $isTransient);
+
+            return ['success' => false, 'error' => $errorMsg, 'transient' => $isTransient];
         }
 
         $rawReply = (string) $ai['text'];
@@ -44,13 +67,22 @@ final class AiAgentService
         $reply    = $this->sanitizeReply($parsed['text'], $agent);
 
         if ($reply === '') {
-            $reply = 'Te conecto con un agente para asistirte mejor.';
+            // Si la IA solo emitio acciones sin texto, no enviamos basura al cliente.
+            $reply = '👍';
         }
+
+        // Resolver canal preferido de la conversacion para enviar por el numero correcto
+        $conv = Database::fetch(
+            "SELECT channel_id FROM conversations WHERE id = :id AND tenant_id = :t",
+            ['id' => $conversationId, 't' => $this->tenantId]
+        );
+        $channelId = isset($conv['channel_id']) ? (int) $conv['channel_id'] : null;
 
         $messageId = Database::insert('messages', [
             'tenant_id'       => $this->tenantId,
             'conversation_id' => $conversationId,
             'contact_id'      => $contactId,
+            'channel_id'      => $channelId,
             'direction'       => 'outbound',
             'type'            => 'text',
             'content'         => $reply,
@@ -62,12 +94,13 @@ final class AiAgentService
             ], JSON_UNESCAPED_UNICODE),
         ]);
 
-        $send = (new WasapiService($this->tenantId))->sendTextMessage($phone, $reply);
+        // Enviar a traves del dispatcher para soportar multi-canal (Wasapi/Cloud/Twilio)
+        $send = (new ChannelDispatcher($this->tenantId))->sendText($phone, $reply, $channelId);
         Database::update('messages', [
             'status'        => !empty($send['success']) ? 'sent' : 'failed',
             'external_id'   => $send['body']['id'] ?? null,
             'sent_at'       => !empty($send['success']) ? date('Y-m-d H:i:s') : null,
-            'error_message' => !empty($send['success']) ? null : ($send['error'] ?: 'Error envio Wasapi'),
+            'error_message' => !empty($send['success']) ? null : ($send['error'] ?: 'Error envio'),
         ], ['id' => $messageId]);
 
         // Aplicar acciones que la IA pidio (cierre, agenda, transfer, etc.)
@@ -99,6 +132,40 @@ final class AiAgentService
             'actions'    => $parsed['actions'],
             'error'      => $send['error'] ?? null,
         ];
+    }
+
+    /**
+     * Detecta errores transitorios que NO deben contar como fallo logico para escalar.
+     * Network timeout, rate limit, gateway 5xx, etc.
+     */
+    private function isTransientError(string $errorMsg): bool
+    {
+        $msg = strtolower($errorMsg);
+        $patterns = ['timeout', 'connection', 'curl', 'rate limit', 'rate_limit', '429', '502', '503', '504', 'gateway', 'overloaded', 'unavailable'];
+        foreach ($patterns as $p) {
+            if (str_contains($msg, $p)) return true;
+        }
+        return false;
+    }
+
+    /** Inserta una nota interna visible solo para el operador con el error de la IA. */
+    private function writeAiErrorNote(int $conversationId, int $contactId, string $error, bool $transient): void
+    {
+        try {
+            $prefix = $transient ? '⚠ Reintentando despues del proximo mensaje' : '✗ IA fallo';
+            Database::insert('messages', [
+                'tenant_id'       => $this->tenantId,
+                'conversation_id' => $conversationId,
+                'contact_id'      => $contactId,
+                'direction'       => 'outbound',
+                'type'            => 'system',
+                'content'         => $prefix . ': ' . mb_substr($error, 0, 250),
+                'is_internal'     => 1,
+                'is_ai_generated' => 1,
+                'status'          => 'sent',
+                'sent_at'         => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable) {}
     }
 
     /**

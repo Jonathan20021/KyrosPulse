@@ -9,6 +9,7 @@ use App\Core\Logger;
 use App\Core\Request;
 use App\Models\Integration;
 use App\Models\WhatsappChannel;
+use App\Services\AiAgentService;
 use App\Services\WasapiService;
 use App\Services\WhatsappCloudService;
 
@@ -56,7 +57,10 @@ final class WebhookController extends Controller
             'error_message' => !empty($result['success']) ? null : ($result['error'] ?? 'Error procesando webhook.'),
         ]);
 
+        // Responder a Wasapi de inmediato y luego procesar las IA en background
         $this->json($result);
+        $this->releaseConnection();
+        $this->flushAiQueue($tenantId, $service->pendingAiCalls());
     }
 
     /**
@@ -124,6 +128,8 @@ final class WebhookController extends Controller
             'error_message' => !empty($result['success']) ? null : ($result['error'] ?? 'Error procesando.'),
         ]);
         $this->json($result);
+        $this->releaseConnection();
+        $this->flushAiQueue($tenantId, $svc->pendingAiCalls());
     }
 
     /**
@@ -225,5 +231,84 @@ final class WebhookController extends Controller
         } catch (\Throwable $e) {
             Logger::error('No se pudo actualizar log de webhook', ['msg' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Cierra la conexion HTTP con el cliente (Wasapi/Meta) sin terminar el script.
+     * Permite que la respuesta llegue al webhook en <100ms y que la IA se procese
+     * en background sin que el proveedor reintente por timeout.
+     */
+    private function releaseConnection(): void
+    {
+        @ignore_user_abort(true);
+        @set_time_limit(120);
+
+        // PHP-FPM: cierra la conexion limpiamente
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+            return;
+        }
+
+        // mod_php fallback: forzar flush + cerrar
+        if (!headers_sent()) {
+            @header('Connection: close');
+            @header('Content-Encoding: none');
+            @header('Content-Length: ' . ob_get_length());
+        }
+        while (ob_get_level() > 0) @ob_end_flush();
+        @flush();
+    }
+
+    /**
+     * Procesa las auto-respuestas IA encoladas. Cualquier error queda como
+     * nota interna en la conversacion para visibilidad del operador.
+     */
+    private function flushAiQueue(int $tenantId, array $queue): void
+    {
+        if (empty($queue)) return;
+
+        $service = new AiAgentService($tenantId);
+        foreach ($queue as $call) {
+            try {
+                $service->autoReplyToConversation(
+                    (int) ($call['conversation_id'] ?? 0),
+                    (int) ($call['contact_id'] ?? 0),
+                    (string) ($call['phone'] ?? ''),
+                    (string) ($call['text'] ?? ''),
+                    isset($call['inbound_id']) ? (int) $call['inbound_id'] : null
+                );
+            } catch (\Throwable $e) {
+                Logger::error('AI auto-reply fallo en webhook async', [
+                    'tenant'        => $tenantId,
+                    'conversation'  => $call['conversation_id'] ?? null,
+                    'msg'           => $e->getMessage(),
+                ]);
+                $this->writeSystemNote(
+                    $tenantId,
+                    (int) ($call['conversation_id'] ?? 0),
+                    (int) ($call['contact_id'] ?? 0),
+                    'IA fallo: ' . mb_substr($e->getMessage(), 0, 200)
+                );
+            }
+        }
+    }
+
+    private function writeSystemNote(int $tenantId, int $convId, int $contactId, string $text): void
+    {
+        if ($convId <= 0) return;
+        try {
+            Database::insert('messages', [
+                'tenant_id'       => $tenantId,
+                'conversation_id' => $convId,
+                'contact_id'      => $contactId,
+                'direction'       => 'outbound',
+                'type'            => 'system',
+                'content'         => $text,
+                'is_internal'     => 1,
+                'is_ai_generated' => 1,
+                'status'          => 'sent',
+                'sent_at'         => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable) {}
     }
 }

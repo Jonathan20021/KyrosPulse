@@ -29,6 +29,16 @@ final class WasapiService
 
     private ?int $resolvedFromId = null;
 
+    /**
+     * Cola de auto-respuestas IA pendientes despues de procesar webhook.
+     * El controller las dispara DESPUES de responder al webhook (fastcgi_finish_request)
+     * para que Wasapi no haga timeout esperando a Claude/OpenAI.
+     */
+    private array $pendingAiCalls = [];
+
+    /** @return array<int, array> */
+    public function pendingAiCalls(): array { return $this->pendingAiCalls; }
+
     /** Cache en memoria por request: wa_id => ['first_name' => ..., 'last_name' => ...] */
     private array $contactProfileCache = [];
 
@@ -458,21 +468,14 @@ final class WasapiService
             'entity_id'       => $messageId,
         ]);
 
-        try {
-            (new AiAgentService($this->tenantId))->autoReplyToConversation(
-                $convId,
-                (int) $contact['id'],
-                $message['phone'],
-                $message['text'],
-                $messageId
-            );
-        } catch (\Throwable $e) {
-            Logger::error('No se pudo ejecutar agente IA automatico', [
-                'tenant' => $this->tenantId,
-                'conversation' => $convId,
-                'msg' => $e->getMessage(),
-            ]);
-        }
+        // Encolar para procesar DESPUES de cerrar el webhook (no bloquear a Wasapi)
+        $this->pendingAiCalls[] = [
+            'conversation_id' => $convId,
+            'contact_id'      => (int) $contact['id'],
+            'phone'           => $message['phone'],
+            'text'            => $message['text'],
+            'inbound_id'      => $messageId,
+        ];
 
         return [
             'success'         => true,

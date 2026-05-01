@@ -22,11 +22,15 @@ final class WhatsappCloudService
     private const GRAPH_URL = 'https://graph.facebook.com/v20.0';
 
     private array $channel;
+    private array $pendingAiCalls = [];
 
     public function __construct(private int $tenantId, array $channel)
     {
         $this->channel = $channel;
     }
+
+    /** @return array<int, array> */
+    public function pendingAiCalls(): array { return $this->pendingAiCalls; }
 
     public static function forChannelId(int $tenantId, int $channelId): ?self
     {
@@ -299,17 +303,14 @@ final class WhatsappCloudService
             'entity_id'       => $messageId,
         ]);
 
-        try {
-            (new AiAgentService($this->tenantId))->autoReplyToConversation(
-                $convId,
-                (int) $contact['id'],
-                $phone,
-                $text,
-                $messageId
-            );
-        } catch (\Throwable $e) {
-            Logger::error('No se pudo ejecutar IA automatica (cloud)', ['msg' => $e->getMessage()]);
-        }
+        // Encolar AI para despues de responder el webhook
+        $this->pendingAiCalls[] = [
+            'conversation_id' => $convId,
+            'contact_id'      => (int) $contact['id'],
+            'phone'           => $phone,
+            'text'            => $text,
+            'inbound_id'      => $messageId,
+        ];
 
         return [
             'success' => true,

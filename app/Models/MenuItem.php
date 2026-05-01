@@ -114,8 +114,12 @@ final class MenuItem extends Model
         return $bestScore >= 0.45 ? $best : null;
     }
 
-    /** Bloque para inyectar en el system prompt de la IA. */
-    public static function buildPromptBlock(int $tenantId, int $maxItems = 60): string
+    /**
+     * Bloque para inyectar en el system prompt de la IA.
+     * Limita por categoria y por total para mantener el prompt bajo ~6000 chars
+     * y evitar agotar tokens / disparar timeouts.
+     */
+    public static function buildPromptBlock(int $tenantId, int $maxItems = 80, int $maxItemsPerCategory = 10, int $maxChars = 6000): string
     {
         $cats = MenuCategory::listForTenant($tenantId, true);
         if (empty($cats)) {
@@ -124,6 +128,10 @@ final class MenuItem extends Model
             $out = "\nMENU DEL RESTAURANTE (precios en moneda local):\n";
             foreach (array_slice($items, 0, $maxItems) as $i) {
                 $out .= self::formatItemLine($i);
+                if (mb_strlen($out) > $maxChars) {
+                    $out .= "[...mas opciones disponibles, pregunta al cliente que prefiere para detallar...]\n";
+                    break;
+                }
             }
             return $out;
         }
@@ -133,10 +141,28 @@ final class MenuItem extends Model
         foreach ($cats as $cat) {
             $items = self::listForTenant($tenantId, ['category_id' => (int) $cat['id'], 'available_only' => true]);
             if (empty($items)) continue;
+
+            // Priorizar destacados primero
+            usort($items, fn ($a, $b) => ((int) $b['is_featured']) <=> ((int) $a['is_featured']));
+
             $out .= "\n=== " . $cat['name'] . " ===\n";
+            $perCategory = 0;
             foreach ($items as $i) {
-                if ($count++ >= $maxItems) break 2;
+                if ($count >= $maxItems) {
+                    $out .= "[...y mas en otras categorias. Pregunta al cliente que tipo de plato busca.]\n";
+                    return mb_substr($out, 0, $maxChars);
+                }
+                if ($perCategory >= $maxItemsPerCategory) {
+                    $remaining = count($items) - $perCategory;
+                    if ($remaining > 0) {
+                        $out .= "(+ {$remaining} opciones mas en " . $cat['name'] . ")\n";
+                    }
+                    break;
+                }
                 $out .= self::formatItemLine($i);
+                $count++;
+                $perCategory++;
+                if (mb_strlen($out) > $maxChars) return mb_substr($out, 0, $maxChars) . "\n[...truncado por tamano]\n";
             }
         }
         return $out;
