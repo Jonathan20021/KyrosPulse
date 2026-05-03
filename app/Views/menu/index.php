@@ -11,6 +11,37 @@
     'subtitle' => 'Categorias, platos, modificadores y disponibilidad. La IA lee este menu para tomar pedidos.',
 ]); ?>
 
+<?php
+$tenantInfo = tenant();
+$publicMenuUrl = !empty($tenantInfo['uuid']) ? url('/m/' . $tenantInfo['uuid']) : '';
+$publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_enabled'] ?? 1) === 1;
+?>
+<?php if ($publicMenuUrl !== '' && $publicMenuOn): ?>
+<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.06)); border-color: rgba(124,58,237,.25);"
+     x-data="{ copied: false, copy() { navigator.clipboard.writeText('<?= e($publicMenuUrl) ?>'); this.copied = true; setTimeout(() => this.copied = false, 1800); } }">
+    <div class="absolute -top-12 -right-12 w-44 h-44 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,.4), transparent 70%); filter: blur(40px);"></div>
+    <div class="relative grid md:grid-cols-[1fr_auto] gap-4 items-center">
+        <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-2xl">🔗</span>
+                <h3 class="font-bold dark:text-white text-slate-900">Menu publico online</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-bold uppercase tracking-wider">Live</span>
+            </div>
+            <p class="text-xs dark:text-slate-400 text-slate-500 mb-2">Comparte este link a tus clientes. Arman su orden y vuelven a WhatsApp con el resumen listo para confirmar. La IA lo envia automaticamente cuando alguien pide ver el menu.</p>
+            <code class="block text-xs font-mono px-3 py-2 rounded-lg dark:bg-white/5 bg-slate-100 break-all dark:text-cyan-300 text-cyan-700"><?= e($publicMenuUrl) ?></code>
+        </div>
+        <div class="flex flex-row md:flex-col gap-2 flex-shrink-0">
+            <button @click="copy()" class="px-4 py-2 rounded-xl text-sm font-semibold dark:bg-white/10 bg-slate-200 dark:text-white text-slate-900 hover:bg-white/20 transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
+                <span x-text="copied ? '✓ Copiado' : '📋 Copiar'"></span>
+            </button>
+            <a href="<?= e($publicMenuUrl) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                Abrir menu →
+            </a>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if ($flash = flash('success')): ?>
 <div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3); color:#34D399;"><?= e((string) $flash) ?></div>
 <?php endif; ?>

@@ -710,7 +710,7 @@ final class AiAgentService
     private function activeAgentForConversation(int $conversationId, string $incomingText = ''): ?array
     {
         $tenant = Database::fetch(
-            "SELECT ai_enabled FROM tenants WHERE id = :id",
+            "SELECT ai_enabled, ai_force_all FROM tenants WHERE id = :id",
             ['id' => $this->tenantId]
         );
 
@@ -724,7 +724,11 @@ final class AiAgentService
         if (in_array((string) $conversation['status'], ['closed', 'resolved'], true)) return null;
         if (!empty($conversation['ai_paused_until']) && strtotime((string) $conversation['ai_paused_until']) > time()) return null;
 
-        $takeover = !empty($conversation['ai_takeover']);
+        // "Autopilot Total" — el tenant fuerza IA en TODA conversacion entrante,
+        // sin necesidad de activar el bot manualmente por chat. Sigue respetando
+        // ai_paused_until (snooze 5min cuando un humano toma manualmente).
+        $forceAll = !empty($tenant['ai_force_all']);
+        $takeover = !empty($conversation['ai_takeover']) || $forceAll;
         if (!$takeover) {
             if (empty($tenant['ai_enabled'])) return null;
             if (empty($conversation['bot_enabled'])) return null;
@@ -779,11 +783,24 @@ final class AiAgentService
     /** Marca la conversacion como pendiente de humano y desactiva auto-respuesta. */
     private function escalateToHuman(int $conversationId, string $reason): void
     {
-        Database::update('conversations', [
+        // Si el tenant tiene "Autopilot Total", ademas pausamos la IA 1h para
+        // darle tiempo real al operador. Sin este pause, force_all reactivaria
+        // la IA en el siguiente mensaje y la escalacion seria invisible.
+        $forceAll = (bool) Database::fetchColumn(
+            "SELECT ai_force_all FROM tenants WHERE id = :id",
+            ['id' => $this->tenantId]
+        );
+
+        $update = [
             'status'      => 'pending',
             'bot_enabled' => 0,
             'ai_takeover' => 0,
-        ], ['id' => $conversationId, 'tenant_id' => $this->tenantId]);
+        ];
+        if ($forceAll) {
+            $update['ai_paused_until'] = date('Y-m-d H:i:s', time() + 3600);
+        }
+
+        Database::update('conversations', $update, ['id' => $conversationId, 'tenant_id' => $this->tenantId]);
 
         try {
             Database::insert('conversation_assignments', [

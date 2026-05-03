@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v6_ok';
+    private const CACHE_FILE = '/cache/.schema_v7_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -33,7 +33,9 @@ final class Schema
                     && self::tableExists($pdo, 'channel_routing_rules');
             $colOk   = self::columnExists($pdo, 'conversations', 'channel_id')
                     && self::columnExists($pdo, 'tenants', 'is_restaurant')
-                    && self::columnExists($pdo, 'conversations', 'cart_state');
+                    && self::columnExists($pdo, 'conversations', 'cart_state')
+                    && self::columnExists($pdo, 'tenants', 'ai_force_all')
+                    && self::columnExists($pdo, 'tenants', 'public_menu_enabled');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -406,6 +408,18 @@ SQL);
         // Carrito en curso por conversacion (persiste entre turnos del cliente)
         if (!self::columnExists($pdo, 'conversations', 'cart_state')) {
             $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `cart_state` JSON NULL AFTER `from_phone`");
+        }
+
+        // Master switch IA "Autopilot Total" (responde TODAS las conversaciones,
+        // ignorando bot_enabled per-conversacion). El operador puede pausar 5min
+        // tomando manualmente una conversacion (ai_paused_until sigue respetado).
+        if (!self::columnExists($pdo, 'tenants', 'ai_force_all')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `ai_force_all` TINYINT(1) NOT NULL DEFAULT 0 AFTER `ai_enabled`");
+        }
+
+        // Activar/desactivar el menu publico (link compartible) por restaurante
+        if (!self::columnExists($pdo, 'tenants', 'public_menu_enabled')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `public_menu_enabled` TINYINT(1) NOT NULL DEFAULT 1 AFTER `is_restaurant`");
         }
 
         // ----- Backfill leads desde ordenes existentes (sincronizacion CRM) -----

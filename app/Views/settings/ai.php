@@ -33,6 +33,77 @@ $decode = function ($v) {
 <?php \App\Core\View::include('components.page_header', ['title' => 'IA y agentes', 'subtitle' => 'Crea multiples agentes IA especializados que atienden por ti.']); ?>
 <?php \App\Core\View::include('settings._tabs', ['tab' => 'ai']); ?>
 
+<?php
+$autopilotOn = !empty($tenant['ai_force_all']);
+?>
+<!-- Autopilot Total: boton grande que activa IA en TODAS las conversaciones -->
+<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border <?= $autopilotOn ? 'border-emerald-500/40' : 'border-white/10' ?>"
+     style="background: <?= $autopilotOn
+        ? 'linear-gradient(135deg, rgba(16,185,129,.12), rgba(6,182,212,.08))'
+        : 'linear-gradient(135deg, rgba(124,58,237,.06), rgba(15,23,42,.6))' ?>;">
+    <div class="absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-30" style="background: radial-gradient(circle, <?= $autopilotOn ? 'rgba(16,185,129,.5)' : 'rgba(124,58,237,.4)' ?>, transparent 70%); filter: blur(50px);"></div>
+
+    <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-start gap-4 min-w-0">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
+                 style="background: <?= $autopilotOn ? 'linear-gradient(135deg,#10B981,#06B6D4)' : 'linear-gradient(135deg,#7C3AED,#06B6D4)' ?>;">
+                <?= $autopilotOn ? '🤖' : '⚡' ?>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-black text-lg dark:text-white text-slate-900">Autopilot Total</h3>
+                    <?php if ($autopilotOn): ?>
+                    <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style="background: rgba(16,185,129,.18); color:#34D399;">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Activo
+                    </span>
+                    <?php else: ?>
+                    <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-slate-500/15 text-slate-400">○ Inactivo</span>
+                    <?php endif; ?>
+                </div>
+                <p class="text-sm dark:text-slate-300 text-slate-600 mt-1 max-w-xl">
+                    <?php if ($autopilotOn): ?>
+                        La IA esta respondiendo TODOS los mensajes entrantes en todos los chats automaticamente. Cuando un humano responde manualmente, la IA se pausa 5 minutos en ese chat y luego retoma.
+                    <?php else: ?>
+                        Activa este modo para que la IA responda <strong>todos</strong> los mensajes entrantes sin tener que activar el bot manualmente en cada conversacion.
+                    <?php endif; ?>
+                </p>
+            </div>
+        </div>
+
+        <form action="<?= url('/settings/ai/autopilot') ?>" method="POST" class="flex-shrink-0">
+            <?= csrf_field() ?>
+            <input type="hidden" name="enable" value="<?= $autopilotOn ? 0 : 1 ?>">
+            <button type="submit"
+                    onclick="<?= $autopilotOn ? "return confirm('Apagar Autopilot Total? La IA dejara de responder automaticamente en chats nuevos.')" : "return true" ?>"
+                    class="w-full md:w-auto px-6 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-white transition-all hover:scale-[1.02] active:scale-95"
+                    style="background: <?= $autopilotOn ? 'linear-gradient(135deg,#F43F5E,#9F1239)' : 'linear-gradient(135deg,#10B981,#06B6D4)' ?>; box-shadow: 0 8px 30px <?= $autopilotOn ? 'rgba(244,63,94,.35)' : 'rgba(16,185,129,.35)' ?>;">
+                <?php if ($autopilotOn): ?>
+                    <span>⏸</span><span>Apagar Autopilot</span>
+                <?php else: ?>
+                    <span>▶</span><span>Activar Autopilot Total</span>
+                <?php endif; ?>
+            </button>
+        </form>
+    </div>
+
+    <?php if ($autopilotOn): ?>
+    <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5">
+            <span class="text-emerald-400">✓</span>
+            <span class="dark:text-slate-300 text-slate-600">Responde mensajes nuevos</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5">
+            <span class="text-emerald-400">✓</span>
+            <span class="dark:text-slate-300 text-slate-600">Atiende chats reabiertos</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5">
+            <span class="text-emerald-400">✓</span>
+            <span class="dark:text-slate-300 text-slate-600">Respeta pausa manual del operador</span>
+        </div>
+    </div>
+    <?php endif; ?>
+</div>
+
 <?php if ($flash = flash('success')): ?>
 <div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3); color:#34D399;">
     <?= e((string) $flash) ?>

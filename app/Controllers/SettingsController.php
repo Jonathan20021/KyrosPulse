@@ -318,11 +318,54 @@ final class SettingsController extends Controller
     public function updateAi(Request $request): void
     {
         $tenantId = Tenant::id();
-        $data = $request->only(['ai_assistant_name','ai_tone','ai_enabled','out_of_hours_msg','welcome_message']);
-        $data['ai_enabled'] = !empty($data['ai_enabled']) ? 1 : 0;
+        $data = $request->only(['ai_assistant_name','ai_tone','ai_enabled','ai_force_all','out_of_hours_msg','welcome_message']);
+        $data['ai_enabled']   = !empty($data['ai_enabled']) ? 1 : 0;
+        $data['ai_force_all'] = !empty($data['ai_force_all']) ? 1 : 0;
+        // Si se activa "Autopilot Total", asegurar que el master switch tambien quede ON.
+        if ($data['ai_force_all']) $data['ai_enabled'] = 1;
         Database::update('tenants', $data, ['id' => $tenantId]);
         Audit::log('settings.ai', 'tenant', $tenantId);
         Session::flash('success', 'Configuracion de IA actualizada.');
+        $this->redirect('/settings/ai');
+    }
+
+    /**
+     * Endpoint dedicado para el boton grande "Autopilot Total" — toggle rapido
+     * que activa/desactiva la IA en TODAS las conversaciones (sin pasar por el
+     * formulario completo). Tambien limpia ai_paused_until de conversaciones
+     * activas para reanudar inmediatamente la respuesta automatica.
+     */
+    public function aiAutopilotToggle(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $enable = !empty($request->input('enable')) ? 1 : 0;
+
+        Database::update('tenants', [
+            'ai_force_all' => $enable,
+            'ai_enabled'   => $enable ? 1 : (int) Database::fetchColumn(
+                "SELECT ai_enabled FROM tenants WHERE id = :id",
+                ['id' => $tenantId]
+            ),
+        ], ['id' => $tenantId]);
+
+        if ($enable) {
+            // Reanudar respuesta automatica en conversaciones activas
+            Database::run(
+                "UPDATE conversations
+                 SET ai_paused_until = NULL,
+                     ai_failed_attempts = 0
+                 WHERE tenant_id = :t AND status IN ('open','pending')",
+                ['t' => $tenantId]
+            );
+        }
+
+        Audit::log('settings.ai_autopilot', 'tenant', $tenantId, [], ['enabled' => $enable]);
+
+        if ($request->expectsJson()) {
+            $this->json(['success' => true, 'enabled' => (bool) $enable]);
+            return;
+        }
+        Session::flash('success', $enable ? 'Autopilot Total activado: la IA responde TODOS los mensajes.' : 'Autopilot Total desactivado.');
         $this->redirect('/settings/ai');
     }
 

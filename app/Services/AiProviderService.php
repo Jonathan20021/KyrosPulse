@@ -351,7 +351,7 @@ PROMPT;
     {
         try {
             $tenant = Database::fetch(
-                "SELECT is_restaurant, restaurant_settings, currency FROM tenants WHERE id = :t",
+                "SELECT id, uuid, is_restaurant, restaurant_settings, currency, public_menu_enabled FROM tenants WHERE id = :t",
                 ['t' => $this->tenantId]
             );
         } catch (\Throwable) {
@@ -362,9 +362,25 @@ PROMPT;
         $settings = !empty($tenant['restaurant_settings']) ? (json_decode((string) $tenant['restaurant_settings'], true) ?: []) : [];
         $currency = (string) ($tenant['currency'] ?? 'USD');
 
+        // Link al menu publico web. La IA debe priorizar enviar este link en
+        // lugar de pegar el menu en texto plano (mejor UX, mas conversion).
+        $publicMenuLink = '';
+        $publicMenuRule = '';
+        if (!empty($tenant['uuid']) && (int) ($tenant['public_menu_enabled'] ?? 1) === 1) {
+            $publicMenuLink = url('/m/' . $tenant['uuid']);
+            $publicMenuRule = "\nMENU PUBLICO ONLINE: {$publicMenuLink}\n"
+                . "→ Cuando el cliente pregunte por el menu, los precios o que tienen, ENVIA SIEMPRE este link primero con un mensaje breve y amable. NO pegues la lista completa en texto plano (es ilegible en WhatsApp). Ejemplo: \"Aqui tienes nuestro menu para que armes tu pedido facil 👉 {$publicMenuLink}\". El cliente puede armar su orden en el link y volvera con el resumen para confirmar.\n"
+                . "→ Si el cliente pide UN plato concreto (\"cuanto cuesta X\", \"que tienen de Y\"), responde la info especifica en el chat sin enviar el link de nuevo.\n"
+                . "→ Cuando el cliente regrese del link con un mensaje tipo \"Hola! Quiero confirmar mi orden #OR-XXXX:\" YA HAY UNA ORDEN CREADA con ese codigo. Solo confirma con el cliente, no la dupliques.\n";
+        }
+
         $menu = '';
         try {
-            $menu = \App\Models\MenuItem::buildPromptBlock($this->tenantId);
+            // Si hay link publico, mantener el bloque de menu MAS pequeno (solo
+            // como referencia para responder preguntas puntuales sobre platos).
+            $menu = $publicMenuLink !== ''
+                ? \App\Models\MenuItem::buildPromptBlock($this->tenantId, 40, 6, 3000)
+                : \App\Models\MenuItem::buildPromptBlock($this->tenantId);
         } catch (\Throwable) { $menu = ''; }
 
         // Zonas de entrega
@@ -403,7 +419,7 @@ PROMPT;
 MODO RESTAURANTE ACTIVO — eres responsable de tomar pedidos por WhatsApp:
 
 REGLAS DE TOMA DE PEDIDOS:
-1. Cuando el cliente pida ver el menu, presentalo organizado por categoria (no inventes platos).
+1. Cuando el cliente pida ver el menu, ENVIA EL LINK del menu publico online (ver arriba). Si no hay link, presentalo organizado por categoria sin inventar platos.
 2. Sugiere combos, postres y bebidas para subir el ticket promedio.
 3. Cuando el cliente decida que quiere ordenar, recolecta:
    - Items y cantidades (con modificadores si aplica).
@@ -418,6 +434,7 @@ REGLAS DE TOMA DE PEDIDOS:
 8. Pedido minimo: {$currency} {$minOrderFmt}.
 9. Si te preguntan por una orden anterior, busca en el contexto de la conversacion el codigo "OR-...".
 10. Tras emitir [ORDER:...] confirma al cliente con codigo provisional y comparte tiempo estimado.
+$publicMenuRule
 $menu
 $zonesText
 RESTAURANT;

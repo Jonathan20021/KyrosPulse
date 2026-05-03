@@ -21,6 +21,7 @@ use App\Controllers\LeadController;
 use App\Controllers\MenuController;
 use App\Controllers\OrderController;
 use App\Controllers\ProductController;
+use App\Controllers\PublicMenuController;
 use App\Controllers\ReportController;
 use App\Controllers\RestaurantController;
 use App\Controllers\RoutingController;
@@ -31,6 +32,10 @@ use App\Controllers\TicketController;
 // ------------------- Publico -------------------
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/changelog', [ChangelogController::class, 'publicIndex']);
+
+// Menu publico web (link compartible) — sin auth, sin CSRF
+$router->get ('/m/{uuid}',          [PublicMenuController::class, 'show']);
+$router->post('/m/{uuid}/checkout', [PublicMenuController::class, 'checkout']);
 
 // ------------------- Auth (guest) -------------------
 $router->group(['middleware' => ['guest']], function ($r) {
@@ -203,6 +208,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->delete('/settings/channels/{id}',             [ChannelController::class, 'destroy'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
+    $r->post('/settings/ai/autopilot',    [SettingsController::class, 'aiAutopilotToggle'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');
     $r->put ('/settings/ai/agents/{id}',  [SettingsController::class, 'aiAgentUpdate'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
