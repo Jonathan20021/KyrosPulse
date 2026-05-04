@@ -42,14 +42,25 @@ final class PublicMenuController extends Controller
         $channel = WhatsappChannel::findDefault($tenantId);
         $waPhone = $channel['phone'] ?? ($tenant['wasapi_phone'] ?? '');
 
+        // Restaurant settings (prep time, payment methods, address, cuisine, etc.)
+        $settings = !empty($tenant['restaurant_settings'])
+            ? (json_decode((string) $tenant['restaurant_settings'], true) ?: [])
+            : [];
+
+        // Featured items para hero (max 6)
+        $featured = array_values(array_filter($items, fn ($i) => !empty($i['is_featured'])));
+        $featured = array_slice($featured, 0, 6);
+
         \App\Core\View::display('public.menu', [
             'tenant'     => $tenant,
+            'settings'   => $settings,
             'categories' => $categories,
             'items'      => $items,
             'grouped'    => $grouped,
+            'featured'   => $featured,
             'zones'      => $zones,
             'waPhone'    => $this->normalizePhone((string) $waPhone),
-            'currency'   => $items[0]['currency'] ?? 'USD',
+            'currency'   => $items[0]['currency'] ?? ($settings['currency'] ?? 'USD'),
             'menuUrl'    => url('/m/' . $tenant['uuid']),
         ]);
     }
