@@ -60,7 +60,7 @@ $products = $products ?? [];
                 <input type="checkbox" name="is_active" value="1" checked class="w-4 h-4 rounded">
                 Activo (la IA lo puede ofrecer)
             </label>
-            <button type="submit" class="w-full px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar producto</button>
+            <button type="submit" class="w-full px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar producto</button>
         </div>
     </form>
 
@@ -78,7 +78,7 @@ $products = $products ?? [];
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <span class="font-bold dark:text-white text-slate-900"><?= e($p['name']) ?></span>
-                        <?php if (!empty($p['sku'])): ?><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/10 text-violet-300"><?= e($p['sku']) ?></span><?php endif; ?>
+                        <?php if (!empty($p['sku'])): ?><span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300"><?= e($p['sku']) ?></span><?php endif; ?>
                         <?php if (!empty($p['category'])): ?><span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300"><?= e($p['category']) ?></span><?php endif; ?>
                         <?php if (empty($p['is_active'])): ?><span class="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-slate-400">Inactivo</span><?php endif; ?>
                     </div>
@@ -129,7 +129,7 @@ $products = $products ?? [];
                     Activo
                 </label>
                 <div class="flex items-center gap-2 justify-end">
-                    <button type="submit" class="px-4 py-2 rounded-lg text-white text-xs font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar cambios</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg text-white text-xs font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar cambios</button>
                 </div>
             </form>
             <form action="<?= url('/products/' . $p['id']) ?>" method="POST" class="mt-2 text-right" onsubmit="return confirm('Eliminar este producto?')">

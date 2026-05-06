@@ -17,9 +17,9 @@ $publicMenuUrl = !empty($tenantInfo['uuid']) ? url('/m/' . $tenantInfo['uuid']) 
 $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_enabled'] ?? 1) === 1;
 ?>
 <?php if ($publicMenuUrl !== '' && $publicMenuOn): ?>
-<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.06)); border-color: rgba(124,58,237,.25);"
+<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(16,185,129,.08), rgba(6,182,212,.06)); border-color: rgba(16,185,129,.25);"
      x-data="{ copied: false, copy() { navigator.clipboard.writeText('<?= e($publicMenuUrl) ?>'); this.copied = true; setTimeout(() => this.copied = false, 1800); } }">
-    <div class="absolute -top-12 -right-12 w-44 h-44 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,.4), transparent 70%); filter: blur(40px);"></div>
+    <div class="absolute -top-12 -right-12 w-44 h-44 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(16,185,129,.4), transparent 70%); filter: blur(40px);"></div>
     <div class="relative grid md:grid-cols-[1fr_auto] gap-4 items-center">
         <div class="min-w-0">
             <div class="flex items-center gap-2 mb-1">
@@ -34,7 +34,7 @@ $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_
             <button @click="copy()" class="px-4 py-2 rounded-xl text-sm font-semibold dark:bg-white/10 bg-slate-200 dark:text-white text-slate-900 hover:bg-white/20 transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
                 <span x-text="copied ? '✓ Copiado' : '📋 Copiar'"></span>
             </button>
-            <a href="<?= e($publicMenuUrl) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            <a href="<?= e($publicMenuUrl) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                 Abrir menu →
             </a>
         </div>
@@ -52,7 +52,7 @@ $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_
 <!-- KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
     <?php foreach ([
-        ['Categorias', $totals['categories'], '#7C3AED', '🗂'],
+        ['Categorias', $totals['categories'], '#10B981', '🗂'],
         ['Articulos',  $totals['items'],      '#06B6D4', '🍔'],
         ['Disponibles', $totals['available'], '#10B981', '✅'],
         ['Destacados', $totals['featured'],   '#F59E0B', '⭐'],
@@ -74,7 +74,7 @@ $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_
         Nueva categoria
     </button>
     <button @click="itemOpen = !itemOpen; catOpen = false" type="button" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2"
-            style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            style="background: linear-gradient(135deg,#10B981,#06B6D4);">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Nuevo articulo
     </button>
@@ -98,7 +98,7 @@ $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_
             </div>
             <div class="md:col-span-4 flex justify-end gap-2">
                 <button @click="catOpen = false" type="button" class="px-4 py-2 rounded-xl text-sm" style="color: var(--color-text-secondary);">Cancelar</button>
-                <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Crear</button>
+                <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Crear</button>
             </div>
         </form>
     </div>
@@ -155,7 +155,7 @@ $publicMenuOn  = !empty($tenantInfo['uuid']) && (int) ($tenantInfo['public_menu_
             </div>
             <div class="md:col-span-4 flex justify-end gap-2">
                 <button @click="itemOpen = false" type="button" class="px-4 py-2 rounded-xl text-sm" style="color: var(--color-text-secondary);">Cancelar</button>
-                <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Crear articulo</button>
+                <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Crear articulo</button>
             </div>
         </form>
     </div>

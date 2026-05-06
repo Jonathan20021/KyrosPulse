@@ -17,7 +17,7 @@
 <!-- KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
     <?php foreach ([
-        ['Hoy', $stats['today'], '#7C3AED', '📅'],
+        ['Hoy', $stats['today'], '#10B981', '📅'],
         ['Ingresos hoy', '$' . number_format((float) $stats['revenue_today'], 2), '#10B981', '💰'],
         ['Pendientes', $stats['pending'], '#F59E0B', '⏳'],
         ['Ticket promedio (30d)', '$' . number_format((float) $stats['avg_ticket'], 2), '#06B6D4', '🎯'],
@@ -33,7 +33,7 @@
 </div>
 
 <div class="flex items-center gap-2 mb-4">
-    <a href="<?= url('/orders/create') ?>" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+    <a href="<?= url('/orders/create') ?>" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Nueva orden manual
     </a>
@@ -61,7 +61,7 @@
                 $name = trim((($o['first_name'] ?? '') . ' ' . ($o['last_name'] ?? '')) ?: ($o['customer_name'] ?? 'Cliente'));
                 $minsAgo = floor((time() - strtotime((string) $o['created_at'])) / 60);
             ?>
-            <a href="<?= url('/orders/' . $o['id']) ?>" class="block rounded-xl p-3 mb-2 border hover:border-violet-500/40 transition" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
+            <a href="<?= url('/orders/' . $o['id']) ?>" class="block rounded-xl p-3 mb-2 border hover:border-emerald-500/40 transition" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-[10px] font-mono font-bold" style="color: <?= $color ?>;">#<?= e((string) $o['code']) ?></span>
                     <span class="text-[10px]" style="color: var(--color-text-tertiary);"><?= $minsAgo < 60 ? $minsAgo . 'm' : floor($minsAgo / 60) . 'h' ?></span>
@@ -72,7 +72,7 @@
                         <?= match($o['delivery_type']) { 'pickup' => '🛍 Pickup', 'dine_in' => '🍴 Mesa', default => '🛵 Delivery' } ?>
                     </span>
                     <?php if (!empty($o['is_ai_generated'])): ?>
-                    <span class="px-1.5 py-0.5 rounded" style="background: rgba(124,58,237,.15); color:#A78BFA;">🤖 IA</span>
+                    <span class="px-1.5 py-0.5 rounded" style="background: rgba(16,185,129,.15); color:#34D399;">🤖 IA</span>
                     <?php endif; ?>
                     <span class="ml-auto font-bold" style="color: var(--color-primary);"><?= e((string) $o['currency']) ?> <?= number_format((float) $o['total'], 2) ?></span>
                 </div>
@@ -169,11 +169,11 @@ function showOrderToast(o) {
     const total = parseFloat(o.total).toFixed(2);
     const cur = o.currency || 'DOP';
     const tipo = o.delivery_type === 'pickup' ? '🛍 Pickup' : (o.delivery_type === 'dine_in' ? '🍴 Mesa' : '🛵 Delivery');
-    const aiBadge = o.is_ai_generated == 1 ? '<span style="padding:1px 6px;border-radius:4px;background:rgba(124,58,237,.2);color:#A78BFA;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🤖 IA</span>' : '';
+    const aiBadge = o.is_ai_generated == 1 ? '<span style="padding:1px 6px;border-radius:4px;background:rgba(16,185,129,.2);color:#34D399;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🤖 IA</span>' : '';
 
     const toast = document.createElement('a');
     toast.href = '<?= url('/orders/') ?>' + o.id;
-    toast.style.cssText = `pointer-events:auto;display:block;min-width:320px;max-width:380px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(124,58,237,.12));border:1px solid rgba(16,185,129,.4);backdrop-filter:blur(20px);border-radius:16px;padding:14px 16px;box-shadow:0 10px 40px rgba(0,0,0,.4),0 0 30px rgba(16,185,129,.15);color:white;text-decoration:none;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.4);cursor:pointer;`;
+    toast.style.cssText = `pointer-events:auto;display:block;min-width:320px;max-width:380px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(16,185,129,.12));border:1px solid rgba(16,185,129,.4);backdrop-filter:blur(20px);border-radius:16px;padding:14px 16px;box-shadow:0 10px 40px rgba(0,0,0,.4),0 0 30px rgba(16,185,129,.15);color:white;text-decoration:none;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.4);cursor:pointer;`;
     toast.innerHTML = `<div style="display:flex;align-items:start;gap:12px;"><div style="font-size:32px;flex-shrink:0;filter:drop-shadow(0 0 8px rgba(16,185,129,.5));">🎉</div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#10B981;">Nueva orden</span>${aiBadge}</div><div style="font-weight:700;font-size:15px;margin-bottom:1px;">#${o.code}</div><div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.customer_name||'Cliente'} · ${tipo}</div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><div style="font-size:18px;font-weight:800;background:linear-gradient(135deg,#10B981,#06B6D4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">${cur} ${total}</div><span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.08);">Ver →</span></div></div><button onclick="event.preventDefault();event.stopPropagation();this.parentElement.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;padding:0;font-size:18px;line-height:1;">×</button></div>`;
     wrapper.appendChild(toast);
     requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });

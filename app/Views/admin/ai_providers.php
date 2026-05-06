@@ -9,7 +9,7 @@ $providers = $providers ?? [];
         <h1 class="text-2xl font-bold text-white mb-1">Proveedores IA globales</h1>
         <p class="text-sm text-slate-400">Configura las API keys del SaaS. Los tenants sin key propia usaran lo que asignes aqui.</p>
     </div>
-    <button onclick="document.getElementById('newProviderForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">+ Nuevo proveedor</button>
+    <button onclick="document.getElementById('newProviderForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">+ Nuevo proveedor</button>
 </div>
 
 <?php if (empty($providers)): ?>
@@ -21,7 +21,7 @@ $providers = $providers ?? [];
 <?php else: ?>
 <div class="space-y-3 mb-6">
     <?php foreach ($providers as $p):
-        $color = $p['provider'] === 'openai' ? '#10B981' : '#A78BFA';
+        $color = $p['provider'] === 'openai' ? '#10B981' : '#34D399';
         $usagePct = (!empty($p['monthly_token_limit']) && (int) $p['monthly_token_limit'] > 0)
             ? min(100, (int) round(((int) $p['_used_period']) / max(1, (int) $p['monthly_token_limit']) * 100))
             : 0;
@@ -66,7 +66,7 @@ $providers = $providers ?? [];
                 </div>
                 <div class="h-2 rounded-full bg-white/5 overflow-hidden">
                     <div class="h-full rounded-full <?= $usagePct >= 90 ? 'bg-rose-500' : ($usagePct >= 70 ? 'bg-amber-500' : '') ?>"
-                         style="width: <?= $usagePct ?>%; <?= $usagePct < 70 ? 'background: linear-gradient(90deg,#7C3AED,#06B6D4);' : '' ?>"></div>
+                         style="width: <?= $usagePct ?>%; <?= $usagePct < 70 ? 'background: linear-gradient(90deg,#10B981,#06B6D4);' : '' ?>"></div>
                 </div>
             </div>
             <?php endif; ?>
@@ -127,7 +127,7 @@ $providers = $providers ?? [];
                             <input type="hidden" name="_method" value="DELETE">
                             <button class="px-3 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10">Eliminar</button>
                         </form>
-                        <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Guardar cambios</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Guardar cambios</button>
                     </div>
                 </div>
             </form>
@@ -184,7 +184,7 @@ $providers = $providers ?? [];
             </label>
         </div>
     </div>
-    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Crear proveedor</button>
+    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Crear proveedor</button>
 </form>
 
 <script>

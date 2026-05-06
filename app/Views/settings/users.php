@@ -23,7 +23,7 @@
                     <tr>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">
+                                <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">
                                     <?= e(strtoupper(mb_substr((string) $u['first_name'], 0, 1) . mb_substr((string) $u['last_name'], 0, 1))) ?>
                                 </div>
                                 <span class="font-semibold dark:text-white text-slate-900"><?= e($u['first_name'] . ' ' . $u['last_name']) ?></span>
@@ -59,7 +59,7 @@
                 <option value="<?= (int) $r['id'] ?>"><?= e($r['name']) ?></option>
                 <?php endforeach; ?>
             </select>
-            <button type="submit" class="w-full px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Invitar</button>
+            <button type="submit" class="w-full px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Invitar</button>
         </div>
     </form>
 </div>

@@ -32,7 +32,7 @@ foreach ($tickets as $t) {
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
     <?php
     $stats = [
-        ['Total tickets',  $totalTickets,    'En esta vista',     '#7C3AED', 'M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12'],
+        ['Total tickets',  $totalTickets,    'En esta vista',     '#10B981', 'M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12'],
         ['Abiertos',       $openCount,        'Requieren atencion','#06B6D4', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
         ['Criticos',       $criticalCount,    'Prioridad alta',   '#F43F5E', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'],
         ['Vencidos',       $overdueCount,     'Fuera de SLA',      '#F59E0B', 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],

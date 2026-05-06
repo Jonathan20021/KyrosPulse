@@ -8,7 +8,7 @@
         <h1 class="text-2xl font-bold text-white mb-1">Empresas y licencias</h1>
         <p class="text-sm text-slate-400"><?= count($tenants) ?> tenants registrados · gestiona plan, vigencia, IA y acceso.</p>
     </div>
-    <a href="<?= url('/admin/tenants/create') ?>" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">+ Nueva empresa</a>
+    <a href="<?= url('/admin/tenants/create') ?>" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">+ Nueva empresa</a>
 </div>
 
 <div class="space-y-3">
@@ -17,7 +17,7 @@
             'active'    => '#10B981',
             'trial'     => '#F59E0B',
             'suspended' => '#F43F5E',
-            'expired'   => '#A78BFA',
+            'expired'   => '#34D399',
             'cancelled' => '#64748B',
             default     => '#64748B',
         };
@@ -26,13 +26,13 @@
     <details class="admin-card rounded-2xl">
         <summary class="cursor-pointer list-none p-4 flex items-center justify-between gap-3 flex-wrap">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold text-white flex-shrink-0" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"><?= e(strtoupper(mb_substr((string) $t['name'], 0, 2))) ?></div>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold text-white flex-shrink-0" style="background: linear-gradient(135deg,#10B981,#06B6D4);"><?= e(strtoupper(mb_substr((string) $t['name'], 0, 2))) ?></div>
                 <div class="min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-white truncate"><?= e($t['name']) ?></span>
                         <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded" style="background: <?= $statusClr ?>22; color: <?= $statusClr ?>;"><?= e($t['status']) ?></span>
                         <?php if (!empty($t['plan_name'] ?? null)): ?>
-                        <span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/15 text-violet-300"><?= e((string) $t['plan_name']) ?></span>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300"><?= e((string) $t['plan_name']) ?></span>
                         <?php endif; ?>
                     </div>
                     <div class="text-xs text-slate-500 mt-0.5"><?= e((string) $t['email']) ?> · <?= e((string) $t['country']) ?></div>
@@ -71,7 +71,7 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <button type="submit" class="w-full px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Guardar plan</button>
+                    <button type="submit" class="w-full px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Guardar plan</button>
                 </div>
             </form>
 
@@ -85,21 +85,21 @@
                     </div>
                     <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold bg-amber-500/30 hover:bg-amber-500/40">+ Dias</button>
                 </form>
-                <form action="<?= url('/admin/tenants/' . $t['id'] . '/expiry') ?>" method="POST" class="flex items-end gap-2 p-3 rounded-lg bg-violet-500/5 border border-violet-500/15">
+                <form action="<?= url('/admin/tenants/' . $t['id'] . '/expiry') ?>" method="POST" class="flex items-end gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
                     <?= csrf_field() ?>
                     <div class="flex-1">
-                        <label class="text-[10px] uppercase tracking-wider text-violet-300">Vigencia de licencia (expires_at)</label>
+                        <label class="text-[10px] uppercase tracking-wider text-emerald-300">Vigencia de licencia (expires_at)</label>
                         <input type="date" name="expires_at" value="<?= !empty($t['expires_at']) ? date('Y-m-d', strtotime((string) $t['expires_at'])) : '' ?>" class="w-full mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm">
                     </div>
-                    <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold bg-violet-500/30 hover:bg-violet-500/40">Guardar</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold bg-emerald-500/30 hover:bg-emerald-500/40">Guardar</button>
                 </form>
             </div>
 
             <!-- IA y cuota de tokens -->
-            <form action="<?= url('/admin/tenants/' . $t['id'] . '/ai-assign') ?>" method="POST" class="p-3 rounded-lg bg-violet-500/5 border border-violet-500/15 space-y-3">
+            <form action="<?= url('/admin/tenants/' . $t['id'] . '/ai-assign') ?>" method="POST" class="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 space-y-3">
                 <?= csrf_field() ?>
                 <div class="flex items-center justify-between">
-                    <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold">🤖 IA y tokens</div>
+                    <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">🤖 IA y tokens</div>
                     <?php
                     $usedTokens = (int) ($t['ai_tokens_used_period'] ?? 0);
                     $quota = $t['ai_token_quota'] !== null ? (int) $t['ai_token_quota'] : null;
@@ -116,12 +116,12 @@
                 <?php if ($quota): ?>
                 <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
                     <div class="h-full rounded-full <?= $pct >= 90 ? 'bg-rose-500' : ($pct >= 70 ? 'bg-amber-500' : '') ?>"
-                         style="width: <?= $pct ?>%; <?= $pct < 70 ? 'background: linear-gradient(90deg,#7C3AED,#06B6D4);' : '' ?>"></div>
+                         style="width: <?= $pct ?>%; <?= $pct < 70 ? 'background: linear-gradient(90deg,#10B981,#06B6D4);' : '' ?>"></div>
                 </div>
                 <?php endif; ?>
                 <div class="grid md:grid-cols-3 gap-2">
                     <div>
-                        <label class="text-[10px] text-violet-300/80">Proveedor IA global asignado</label>
+                        <label class="text-[10px] text-emerald-300/80">Proveedor IA global asignado</label>
                         <select name="global_ai_provider_id" class="w-full mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm">
                             <option value="">— Que use el default / su key propia —</option>
                             <?php foreach ($providers as $p): ?>
@@ -132,7 +132,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[10px] text-violet-300/80">Cuota tokens/mes</label>
+                        <label class="text-[10px] text-emerald-300/80">Cuota tokens/mes</label>
                         <input type="number" name="ai_token_quota" value="<?= e((string) ($t['ai_token_quota'] ?? '')) ?>" placeholder="vacio = ilimitado" class="w-full mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm">
                     </div>
                     <div class="flex items-end gap-2">
@@ -144,7 +144,7 @@
                             <input type="checkbox" name="enable_ai" value="1" class="w-3.5 h-3.5 rounded">
                             Activar IA
                         </label>
-                        <button type="submit" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-semibold bg-violet-500/30 hover:bg-violet-500/40">Guardar IA</button>
+                        <button type="submit" class="flex-1 px-3 py-2 rounded-lg text-white text-xs font-semibold bg-emerald-500/30 hover:bg-emerald-500/40">Guardar IA</button>
                     </div>
                 </div>
                 <p class="text-[11px] text-slate-500 leading-relaxed">

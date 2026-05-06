@@ -122,7 +122,7 @@
 
     <div class="flex justify-end gap-2">
         <a href="<?= url('/admin/tenants') ?>" class="px-4 py-2 rounded-lg text-sm text-slate-300 bg-white/5">Cancelar</a>
-        <button type="submit" class="px-6 py-2.5 rounded-xl text-white text-sm font-semibold shadow-xl shadow-violet-500/40" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Crear empresa</button>
+        <button type="submit" class="px-6 py-2.5 rounded-xl text-white text-sm font-semibold shadow-xl shadow-emerald-500/40" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Crear empresa</button>
     </div>
 </form>
 

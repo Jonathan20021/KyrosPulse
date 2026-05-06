@@ -13,7 +13,7 @@
             <input type="text" name="shortcut" required placeholder="/saludo" class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900 text-sm font-mono">
             <input type="text" name="title" placeholder="Titulo (opcional)" class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900 text-sm">
             <textarea name="body" rows="4" required placeholder="Contenido de la respuesta..." class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900 text-sm"></textarea>
-            <button type="submit" class="w-full px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar</button>
+            <button type="submit" class="w-full px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar</button>
         </div>
     </form>
 

@@ -61,15 +61,15 @@ $navSections = [
     <script>
         if (localStorage.getItem('km') !== 'light') document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
-        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono','monospace'] }, colors: { primary: '#7C3AED', cyan: '#06B6D4' }, animation: { 'fade-up': 'fadeUp 0.5s ease forwards', 'fade-in': 'fadeIn 0.4s ease forwards' }, keyframes: { fadeUp: { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } }, fadeIn: { '0%':{opacity:0}, '100%':{opacity:1} } } } } };
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono','monospace'] }, colors: { primary: '#10B981', cyan: '#06B6D4' }, animation: { 'fade-up': 'fadeUp 0.5s ease forwards', 'fade-in': 'fadeIn 0.4s ease forwards' }, keyframes: { fadeUp: { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } }, fadeIn: { '0%':{opacity:0}, '100%':{opacity:1} } } } } };
     </script>
     <style>
-        .admin-shell { background: linear-gradient(180deg, #050817 0%, #0A0F25 100%); }
+        .admin-shell { background: linear-gradient(180deg, #060B16 0%, #0B1220 100%); }
         .admin-card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(12px); }
-        .admin-card:hover { border-color: rgba(124,58,237,0.4); }
+        .admin-card:hover { border-color: rgba(16,185,129,0.4); }
         .admin-nav-link { display:flex; align-items:center; gap:.75rem; padding:.55rem .85rem; border-radius:.65rem; font-size:.85rem; transition: all .2s; color:#CBD5E1; }
         .admin-nav-link:hover { background: rgba(255,255,255,0.05); color:#fff; }
-        .admin-nav-link.active { background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.10)); color:#fff; box-shadow: inset 2px 0 0 #7C3AED; }
+        .admin-nav-link.active { background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.10)); color:#fff; box-shadow: inset 2px 0 0 #10B981; }
         .admin-nav-section { font-size: 10px; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:#64748B; padding: 0.75rem 0.85rem 0.4rem; }
         @media (prefers-reduced-motion: no-preference) {
             .admin-card { animation: fadeUp .5s ease both; }
@@ -81,10 +81,10 @@ $navSections = [
 <div class="min-h-screen flex" x-data="{ open:false }">
     <!-- Sidebar -->
     <aside :class="sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'"
-           class="hidden lg:flex flex-col border-r border-white/5 bg-[#070C20]/80 backdrop-blur-xl sticky top-0 h-screen transition-all duration-200">
+           class="hidden lg:flex flex-col border-r border-white/5 bg-[#070D17]/85 backdrop-blur-xl sticky top-0 h-screen transition-all duration-200">
         <div class="p-4 flex items-center justify-between gap-2 border-b border-white/5">
             <a href="<?= url('/admin') ?>" class="flex items-center gap-2 min-w-0">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/40" style="background: linear-gradient(135deg,#10B981,#0EA572);">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <div x-show="!sidebarCollapsed" x-cloak class="min-w-0">

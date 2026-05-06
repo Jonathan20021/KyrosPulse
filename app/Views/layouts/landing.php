@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><?= e((string) config('app.name', 'Kyros Pulse')) ?> — La plataforma SaaS todo-en-uno para CRM, WhatsApp e IA</title>
     <meta name="description" content="Centraliza CRM, WhatsApp multiagente, automatizaciones e inteligencia artificial Claude Sonnet 6 en un solo panel. Para empresas que venden mas y atienden mejor.">
-    <meta name="theme-color" content="#0A0F25">
+    <meta name="theme-color" content="#060B16">
 
     <meta property="og:title" content="<?= e((string) config('app.name')) ?> — CRM + WhatsApp + IA">
     <meta property="og:description" content="La plataforma SaaS premium para gestionar clientes, ventas y conversaciones con inteligencia artificial.">
@@ -25,7 +25,8 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
                     colors: {
-                        primary: '#7C3AED',
+                        primary: '#0EA572',
+                        accent:  '#4F46E5',
                         cyan:    '#06B6D4',
                     }
                 }
@@ -37,7 +38,7 @@
 
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-[#050817] text-slate-200 antialiased overflow-x-hidden">
+<body class="bg-[#060B16] text-slate-200 antialiased overflow-x-hidden">
     <?= \App\Core\View::section('content') ?>
 
 <script>
@@ -96,7 +97,7 @@ document.querySelectorAll('.spotlight-card').forEach(card => {
 
 <style>
 .nav-scrolled {
-    background: rgba(5, 8, 23, 0.85);
+    background: rgba(6, 11, 22, 0.88);
     backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -104,9 +105,9 @@ document.querySelectorAll('.spotlight-card').forEach(card => {
 .spotlight-card::before {
     content: '';
     position: absolute;
-    width: 400px; height: 400px;
+    width: 460px; height: 460px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent 70%);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 70%);
     transform: translate(-50%, -50%);
     left: var(--mx, 50%); top: var(--my, 50%);
     opacity: 0;
@@ -114,6 +115,33 @@ document.querySelectorAll('.spotlight-card').forEach(card => {
     pointer-events: none;
 }
 .spotlight-card:hover::before { opacity: 1; }
+
+/* Landing-only chat preview chrome - aligned with new green palette */
+.lp-glow-green {
+    box-shadow:
+        0 0 0 1px rgba(16, 185, 129, 0.25),
+        0 30px 80px -20px rgba(16, 185, 129, 0.35),
+        0 12px 40px -8px rgba(0, 0, 0, 0.6);
+}
+.lp-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    transition: all .3s var(--easing-spring, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.lp-card:hover {
+    border-color: rgba(16,185,129,0.40);
+    background: rgba(16,185,129,0.04);
+    transform: translateY(-3px);
+}
+.lp-feature-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(16,185,129,0.20), rgba(16,185,129,0.08));
+    border: 1px solid rgba(16,185,129,0.25);
+    color: #34D399;
+}
 </style>
 
 </body>

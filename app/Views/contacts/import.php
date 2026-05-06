@@ -31,7 +31,7 @@
                 </div>
             </div>
 
-            <label class="block rounded-2xl p-10 text-center cursor-pointer transition-colors hover:border-violet-500/50" style="border: 2px dashed var(--color-border-default); background: var(--color-bg-subtle);" id="dropZone">
+            <label class="block rounded-2xl p-10 text-center cursor-pointer transition-colors hover:border-emerald-500/50" style="border: 2px dashed var(--color-border-default); background: var(--color-bg-subtle);" id="dropZone">
                 <div class="text-6xl mb-3" id="dropIcon">📂</div>
                 <h3 class="font-bold text-base mb-1" style="color: var(--color-text-primary);">Click para seleccionar o arrastra aquí</h3>
                 <p class="text-xs mb-4" style="color: var(--color-text-tertiary);">CSV hasta 10 MB · UTF-8 · primera fila = encabezados</p>
@@ -102,7 +102,7 @@ Juan,Perez,+18091234567,+18091234567
 Maria,Lopez,,+18095555555</code>
         </div>
 
-        <div class="form-tip" style="background: linear-gradient(135deg, rgba(124,58,237,.06), rgba(168,85,247,.04)); border-color: rgba(124,58,237,.2);">
+        <div class="form-tip" style="background: linear-gradient(135deg, rgba(16,185,129,.06), rgba(168,85,247,.04)); border-color: rgba(16,185,129,.2);">
             <div class="form-tip-title">🤖 Después de importar</div>
             <p>Cuando los contactos te escriban por WhatsApp, la IA tendrá su contexto y los saludará por su nombre.</p>
         </div>
@@ -131,8 +131,8 @@ Maria,Lopez,,+18095555555</code>
     ['dragover','dragenter'].forEach(ev => {
         dropZone.addEventListener(ev, e => {
             e.preventDefault();
-            dropZone.style.borderColor = '#7C3AED';
-            dropZone.style.background = 'rgba(124,58,237,.08)';
+            dropZone.style.borderColor = '#10B981';
+            dropZone.style.background = 'rgba(16,185,129,.08)';
         });
     });
     ['dragleave','drop'].forEach(ev => {

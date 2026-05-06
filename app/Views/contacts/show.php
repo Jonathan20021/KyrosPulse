@@ -6,7 +6,7 @@ $name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''
 
 <div class="mb-6 flex items-center justify-between gap-3 flex-wrap">
     <div class="flex items-center gap-4">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">
             <?= e(strtoupper(mb_substr($name, 0, 1))) ?>
         </div>
         <div>
@@ -86,7 +86,7 @@ $name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''
         <div class="space-y-3">
             <?php foreach ($timeline as $t):
                 $iconCls = match ($t['kind']) {
-                    'message' => $t['direction'] === 'inbound' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-violet-500/20 text-violet-300',
+                    'message' => $t['direction'] === 'inbound' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300',
                     'task'    => 'bg-yellow-500/20 text-yellow-300',
                     'ticket'  => 'bg-pink-500/20 text-pink-300',
                     default   => 'bg-slate-500/20 text-slate-300',

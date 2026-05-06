@@ -10,7 +10,7 @@ $categories = $categories ?? [];
         <h1 class="text-2xl font-bold text-white mb-1">Changelog</h1>
         <p class="text-sm text-slate-400">Comunica novedades del SaaS a tus clientes en <a href="<?= url('/changelog') ?>" target="_blank" class="text-cyan-400 hover:underline">/changelog</a></p>
     </div>
-    <button onclick="document.getElementById('newEntryForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">+ Nueva entrada</button>
+    <button onclick="document.getElementById('newEntryForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4)">+ Nueva entrada</button>
 </div>
 
 <!-- Listado existente -->
@@ -24,7 +24,7 @@ $categories = $categories ?? [];
 <div class="space-y-3 mb-6">
     <?php foreach ($entries as $e):
         $cat = (string) ($e['category'] ?? 'feature');
-        [$catLabel, $catColor] = $categories[$cat] ?? ['Otro', '#A78BFA'];
+        [$catLabel, $catColor] = $categories[$cat] ?? ['Otro', '#34D399'];
         $tags = $e['tags'] ? (json_decode((string) $e['tags'], true) ?: []) : [];
     ?>
     <details class="admin-card rounded-2xl p-4">
@@ -112,7 +112,7 @@ $categories = $categories ?? [];
                     <input type="hidden" name="_method" value="DELETE">
                     <button class="px-3 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10">Eliminar</button>
                 </form>
-                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar cambios</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar cambios</button>
             </div>
         </form>
     </details>
@@ -173,7 +173,7 @@ Detalles tecnicos opcionales..." class="w-full mt-1 px-3 py-2 rounded-lg bg-whit
             Marcar como destacada
         </label>
     </div>
-    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Crear entrada</button>
+    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Crear entrada</button>
 </form>
 
 <?php \App\Core\View::stop(); ?>

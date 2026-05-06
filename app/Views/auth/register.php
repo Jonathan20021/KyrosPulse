@@ -79,7 +79,7 @@ $errors = $errors ?? [];
         </div>
 
         <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer pt-1">
-            <input type="checkbox" name="terms" value="1" required class="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-violet-500 flex-shrink-0">
+            <input type="checkbox" name="terms" value="1" required class="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-emerald-500 flex-shrink-0">
             <span class="text-xs leading-relaxed">Acepto los <a href="#" class="text-cyan-400 hover:text-cyan-300">Terminos</a> y la <a href="#" class="text-cyan-400 hover:text-cyan-300">Privacidad</a>.</span>
         </label>
         <?php if ($e = error_for('terms', $errors)): ?><p class="text-xs text-rose-400"><?= e($e) ?></p><?php endif; ?>
@@ -107,7 +107,7 @@ $errors = $errors ?? [];
 
     <div class="mt-6 text-center text-sm text-slate-400">
         Ya tienes cuenta?
-        <a href="<?= url('/login') ?>" class="text-white font-semibold hover:text-violet-400 transition">Iniciar sesion →</a>
+        <a href="<?= url('/login') ?>" class="text-white font-semibold hover:text-emerald-400 transition">Iniciar sesion →</a>
     </div>
 </div>
 <?php \App\Core\View::stop(); ?>

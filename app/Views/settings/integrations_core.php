@@ -96,8 +96,8 @@ if (isset($claudeAliases[$claudeModel])) {
     <!-- Proveedor de IA principal -->
     <div class="glass rounded-2xl p-5">
         <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(124,58,237,.2), rgba(6,182,212,.2));">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#A78BFA;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.2));">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#34D399;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
             </div>
             <div>
                 <h3 class="font-bold dark:text-white text-slate-900">Proveedor de IA</h3>
@@ -105,7 +105,7 @@ if (isset($claudeAliases[$claudeModel])) {
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <label class="flex-1 min-w-[180px] cursor-pointer rounded-xl border-2 p-3 transition" style="<?= $provider === 'claude' ? 'border-color:#7C3AED; background: rgba(124,58,237,.08);' : 'border-color: var(--color-border-subtle, rgba(148,163,184,.2));' ?>">
+            <label class="flex-1 min-w-[180px] cursor-pointer rounded-xl border-2 p-3 transition" style="<?= $provider === 'claude' ? 'border-color:#10B981; background: rgba(16,185,129,.08);' : 'border-color: var(--color-border-subtle, rgba(148,163,184,.2));' ?>">
                 <input type="radio" name="ai_provider" value="claude" class="hidden" <?= $provider === 'claude' ? 'checked' : '' ?>>
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-xl">🟣</span>
@@ -127,8 +127,8 @@ if (isset($claudeAliases[$claudeModel])) {
     <!-- Claude -->
     <div class="glass rounded-2xl p-5">
         <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                <svg class="w-6 h-6 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             <div>
                 <h3 class="font-bold dark:text-white text-slate-900">IA Claude (Anthropic)</h3>
@@ -204,7 +204,7 @@ if (isset($claudeAliases[$claudeModel])) {
         </button>
         <div class="flex items-center gap-2">
             <span id="aiTestResult" class="text-xs"></span>
-            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">
+            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold shadow-lg" style="background:linear-gradient(135deg,#10B981,#06B6D4)">
                 Guardar integraciones
             </button>
         </div>
@@ -243,8 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = r.closest('label');
                 if (!card) return;
                 if (r.checked) {
-                    card.style.borderColor = r.value === 'claude' ? '#7C3AED' : '#06B6D4';
-                    card.style.background  = r.value === 'claude' ? 'rgba(124,58,237,.08)' : 'rgba(6,182,212,.08)';
+                    card.style.borderColor = r.value === 'claude' ? '#10B981' : '#06B6D4';
+                    card.style.background  = r.value === 'claude' ? 'rgba(16,185,129,.08)' : 'rgba(6,182,212,.08)';
                 } else {
                     card.style.borderColor = 'rgba(148,163,184,.2)';
                     card.style.background  = '';

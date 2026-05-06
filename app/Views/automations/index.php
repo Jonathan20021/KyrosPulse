@@ -29,7 +29,7 @@
     <div class="surface p-5 flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-4 min-w-0 flex-1">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
-                 style="background: <?= $a['is_active'] ? 'linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15))' : 'var(--color-bg-subtle)' ?>;">
+                 style="background: <?= $a['is_active'] ? 'linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15))' : 'var(--color-bg-subtle)' ?>;">
                 ⚡
             </div>
             <div class="min-w-0">

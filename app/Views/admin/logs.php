@@ -14,7 +14,7 @@
         <button @click="tab = '<?= $key ?>'" type="button"
                 :class="tab === '<?= $key ?>' ? 'text-white' : 'text-slate-400 hover:text-white'"
                 class="px-4 py-2 rounded-lg text-sm font-medium transition relative">
-            <span :class="tab === '<?= $key ?>' ? 'absolute inset-0 rounded-lg' : 'hidden'" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"></span>
+            <span :class="tab === '<?= $key ?>' ? 'absolute inset-0 rounded-lg' : 'hidden'" style="background: linear-gradient(135deg,#10B981,#06B6D4);"></span>
             <span class="relative z-10"><?= $label ?></span>
         </button>
         <?php endforeach; ?>
@@ -93,7 +93,7 @@
                     <tr class="hover:bg-white/[0.03] transition <?= !$log['success'] ? 'bg-rose-500/5' : '' ?>">
                         <td class="px-4 py-2.5 text-xs font-semibold text-white"><?= e((string) ($log['tenant_name'] ?? '—')) ?></td>
                         <td class="px-4 py-2.5 text-xs font-mono text-cyan-400"><?= e((string) $log['feature']) ?></td>
-                        <td class="px-4 py-2.5 text-xs font-mono text-violet-300"><?= e((string) ($log['model'] ?? '')) ?></td>
+                        <td class="px-4 py-2.5 text-xs font-mono text-emerald-300"><?= e((string) ($log['model'] ?? '')) ?></td>
                         <td class="px-4 py-2.5 text-xs text-slate-300"><?= (int) $log['tokens_input'] ?> / <?= (int) $log['tokens_output'] ?></td>
                         <td class="px-4 py-2.5 text-xs text-slate-400"><?= (int) ($log['duration_ms'] ?? 0) ?>ms</td>
                         <td class="px-4 py-2.5 text-xs text-slate-500"><?= time_ago((string) $log['created_at']) ?></td>

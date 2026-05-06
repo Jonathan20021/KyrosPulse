@@ -16,7 +16,7 @@
 
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-lg shadow-violet-500/30" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"><?= e(strtoupper(mb_substr($plan['name'], 0, 1))) ?></div>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-lg shadow-emerald-500/30" style="background: linear-gradient(135deg,#10B981,#06B6D4);"><?= e(strtoupper(mb_substr($plan['name'], 0, 1))) ?></div>
                 <div>
                     <h3 class="font-bold text-white"><?= e($plan['name']) ?></h3>
                     <code class="text-xs text-slate-500"><?= e($plan['slug']) ?></code>
@@ -72,7 +72,7 @@
             <?php endforeach; ?>
         </div>
 
-        <button type="submit" class="w-full px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-lg shadow-violet-500/20" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Guardar plan</button>
+        <button type="submit" class="w-full px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-lg shadow-emerald-500/20" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Guardar plan</button>
     </form>
     <?php endforeach; ?>
 </div>

@@ -12,7 +12,7 @@ $_currentPageLabel = 'Dashboard';
     <div class="flex items-center gap-2 flex-wrap">
         <a href="<?= url('/admin/branding') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Branding</a>
         <a href="<?= url('/admin/changelog') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Changelog</a>
-        <a href="<?= url('/admin/tenants') ?>" class="px-3 py-2 rounded-lg text-sm font-semibold text-white shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Empresas</a>
+        <a href="<?= url('/admin/tenants') ?>" class="px-3 py-2 rounded-lg text-sm font-semibold text-white shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Empresas</a>
     </div>
 </div>
 
@@ -24,7 +24,7 @@ $_currentPageLabel = 'Dashboard';
 <?php endif; ?>
 
 <!-- Demo seeder -->
-<div class="mb-6 rounded-2xl p-4 border flex items-center gap-3 flex-wrap" style="background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(124,58,237,.08)); border-color: rgba(245,158,11,.3);">
+<div class="mb-6 rounded-2xl p-4 border flex items-center gap-3 flex-wrap" style="background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(16,185,129,.08)); border-color: rgba(245,158,11,.3);">
     <div class="text-3xl">🥩</div>
     <div class="flex-1 min-w-[260px]">
         <div class="font-bold text-white text-sm mb-0.5">Demo: BBQ MeatHouse</div>
@@ -32,7 +32,7 @@ $_currentPageLabel = 'Dashboard';
     </div>
     <form action="<?= url('/admin/seed/bbq-meathouse') ?>" method="POST" onsubmit="return confirm('Esto reemplaza el menu actual del tenant demo. Continuar?')">
         <?= csrf_field() ?>
-        <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#F59E0B,#7C3AED);">
+        <button type="submit" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#F59E0B,#10B981);">
             Cargar / Recargar demo
         </button>
     </form>
@@ -43,12 +43,12 @@ $_currentPageLabel = 'Dashboard';
     <?php
     $kpis = [
         ['MRR mensual',     '$' . number_format((float) $stats['mrr'], 2), 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'from-emerald-500/20 to-emerald-500/0', '#10B981'],
-        ['Empresas activas', $stats['tenants_active'],  'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5', 'from-violet-500/20 to-violet-500/0',  '#7C3AED'],
+        ['Empresas activas', $stats['tenants_active'],  'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5', 'from-emerald-500/20 to-emerald-500/0',  '#10B981'],
         ['En trial',         $stats['tenants_trial'],   'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',                                       'from-amber-500/20 to-amber-500/0',    '#F59E0B'],
         ['Suspendidas',      $stats['tenants_suspended'],'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'from-rose-500/20 to-rose-500/0',     '#F43F5E'],
         ['Mensajes 24h',     number_format($stats['messages_24h']),  'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', 'from-cyan-500/20 to-cyan-500/0', '#06B6D4'],
         ['Mensajes 30d',     number_format($stats['messages_30d']),  'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',  'from-cyan-500/20 to-cyan-500/0', '#06B6D4'],
-        ['Altas 7d',         $stats['new_signups_7d'],  'M13 10V3L4 14h7v7l9-11h-7z', 'from-violet-500/20 to-violet-500/0', '#A78BFA'],
+        ['Altas 7d',         $stats['new_signups_7d'],  'M13 10V3L4 14h7v7l9-11h-7z', 'from-emerald-500/20 to-emerald-500/0', '#34D399'],
         ['Churn 30d',        $stats['churn_30d'],       'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6', 'from-rose-500/20 to-rose-500/0', '#F43F5E'],
     ];
     foreach ($kpis as $i => [$label, $value, $iconPath, $bg, $color]):
@@ -93,7 +93,7 @@ $_currentPageLabel = 'Dashboard';
                     <span class="text-slate-400"><?= $total ?> · $<?= number_format((float) $p['price_monthly']) ?>/mes</span>
                 </div>
                 <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                    <div class="h-full rounded-full" style="width: <?= $pct ?>%; background: linear-gradient(90deg,#7C3AED,#06B6D4);"></div>
+                    <div class="h-full rounded-full" style="width: <?= $pct ?>%; background: linear-gradient(90deg,#10B981,#06B6D4);"></div>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -144,7 +144,7 @@ $_currentPageLabel = 'Dashboard';
                     <span class="text-slate-400 flex-shrink-0 font-mono"><?= number_format($count) ?></span>
                 </div>
                 <div class="h-1 rounded-full bg-white/5 overflow-hidden">
-                    <div class="h-full rounded-full" style="width: <?= $pct ?>%; background: linear-gradient(90deg,#06B6D4,#7C3AED);"></div>
+                    <div class="h-full rounded-full" style="width: <?= $pct ?>%; background: linear-gradient(90deg,#06B6D4,#10B981);"></div>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -180,12 +180,12 @@ $_currentPageLabel = 'Dashboard';
     const labels = <?= json_encode($messagesChart['labels']) ?>;
     const data   = <?= json_encode($messagesChart['data']) ?>;
     const grad = ctx.getContext('2d').createLinearGradient(0,0,0,200);
-    grad.addColorStop(0, 'rgba(124,58,237,0.45)');
-    grad.addColorStop(1, 'rgba(124,58,237,0.0)');
+    grad.addColorStop(0, 'rgba(16,185,129,0.45)');
+    grad.addColorStop(1, 'rgba(16,185,129,0.0)');
     new Chart(ctx, {
         type: 'line',
         data: { labels, datasets: [{
-            label: 'Mensajes', data, borderColor: '#7C3AED', backgroundColor: grad,
+            label: 'Mensajes', data, borderColor: '#10B981', backgroundColor: grad,
             tension: 0.4, fill: true, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
         }] },
         options: {

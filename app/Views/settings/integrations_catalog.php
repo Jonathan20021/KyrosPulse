@@ -26,7 +26,7 @@
 <!-- KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
     <?php foreach ([
-        ['Total disponibles', $totals['total'],      '#7C3AED', '🧩'],
+        ['Total disponibles', $totals['total'],      '#10B981', '🧩'],
         ['Conectadas',        $totals['connected'],  '#10B981', '✅'],
         ['Sin conectar',      max(0, $totals['disconnected']), '#94A3B8', '⏸'],
         ['Con errores',       $totals['errors'],     '#F43F5E', '⚠'],
@@ -51,7 +51,7 @@
         <?php endif; ?>
     </form>
     <a href="<?= url('/settings/integrations') ?>" class="px-3 py-1.5 rounded-full text-xs font-medium <?= $filterCat === '' ? 'font-semibold' : '' ?>"
-       style="<?= $filterCat === '' ? 'background: var(--color-bg-active); color: var(--color-text-primary); border:1px solid rgba(124,58,237,0.2);' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">Todas</a>
+       style="<?= $filterCat === '' ? 'background: var(--color-bg-active); color: var(--color-text-primary); border:1px solid rgba(16,185,129,0.2);' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">Todas</a>
     <?php foreach ($categories as $key => [$label, $color, $iconKey]):
         $active = $filterCat === $key;
     ?>

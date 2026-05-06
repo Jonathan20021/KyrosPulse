@@ -4,8 +4,8 @@
 ?>
 <div class="text-center">
     <div class="relative w-20 h-20 mx-auto mb-6">
-        <div class="absolute inset-0 rounded-2xl blur-xl opacity-50" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"></div>
-        <div class="relative w-20 h-20 rounded-2xl flex items-center justify-center" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+        <div class="absolute inset-0 rounded-2xl blur-xl opacity-50" style="background: linear-gradient(135deg,#10B981,#06B6D4);"></div>
+        <div class="relative w-20 h-20 rounded-2xl flex items-center justify-center" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
     </div>
@@ -37,7 +37,7 @@
                 <span>Carga tu catalogo y FAQ para alimentar a la IA</span>
             </li>
             <li class="flex items-start gap-2">
-                <div class="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style="background:#7C3AED22; color:#7C3AED;">3</div>
+                <div class="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style="background:#10B98122; color:#10B981;">3</div>
                 <span>Crea tu primer agente IA (vendedor o soporte)</span>
             </li>
         </ul>

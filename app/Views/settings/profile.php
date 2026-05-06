@@ -38,7 +38,7 @@
     </div>
 
     <div class="flex justify-end mt-6">
-        <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar perfil</button>
+        <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar perfil</button>
     </div>
 </form>
 <?php \App\Core\View::stop(); ?>

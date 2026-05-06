@@ -30,7 +30,7 @@
                     </option>
                     <?php endforeach; ?>
                 </select>
-                <button type="button" @click="addLine()" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">+ Agregar</button>
+                <button type="button" @click="addLine()" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background: linear-gradient(135deg,#10B981,#06B6D4);">+ Agregar</button>
             </div>
 
             <template x-if="lines.length === 0">
@@ -98,7 +98,7 @@
             <input type="number" name="tip" step="0.01" placeholder="Propina" class="input">
         </div>
 
-        <button type="submit" class="w-full px-4 py-3 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+        <button type="submit" class="w-full px-4 py-3 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
             Crear orden
         </button>
     </aside>

@@ -14,7 +14,7 @@
         <?php if (in_array($campaign['status'], ['draft','scheduled'], true)): ?>
         <form action="<?= url('/campaigns/' . $campaign['id'] . '/send') ?>" method="POST" onsubmit="return confirm('Enviar la campana ahora a ' + <?= (int) $campaign['total_recipients'] ?> + ' destinatarios?')">
             <?= csrf_field() ?>
-            <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">🚀 Enviar ahora</button>
+            <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">🚀 Enviar ahora</button>
         </form>
         <?php endif; ?>
         <form action="<?= url('/campaigns/' . $campaign['id']) ?>" method="POST" onsubmit="return confirm('Eliminar la campana?')">

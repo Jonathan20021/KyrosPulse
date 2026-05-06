@@ -96,7 +96,7 @@
                 <?php foreach (['cash' => 'Efectivo', 'card' => 'Tarjeta', 'transfer' => 'Transferencia', 'online' => 'Pago online (Stripe/MP)'] as $key => $lbl):
                     $active = in_array($key, (array) ($settings['payment_methods'] ?? []), true);
                 ?>
-                <label class="px-3 py-1.5 rounded-lg cursor-pointer text-sm" style="background: <?= $active ? 'rgba(124,58,237,.15); color:#A78BFA; border:1px solid rgba(124,58,237,.4)' : 'var(--color-bg-subtle); color: var(--color-text-secondary)' ?>;">
+                <label class="px-3 py-1.5 rounded-lg cursor-pointer text-sm" style="background: <?= $active ? 'rgba(16,185,129,.15); color:#34D399; border:1px solid rgba(16,185,129,.4)' : 'var(--color-bg-subtle); color: var(--color-text-secondary)' ?>;">
                     <input type="checkbox" name="payment_methods[]" value="<?= $key ?>" <?= $active ? 'checked' : '' ?> class="hidden">
                     <?= e($lbl) ?>
                 </label>
@@ -113,7 +113,7 @@
     </div>
 
     <div class="flex justify-end">
-        <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Guardar configuracion</button>
+        <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Guardar configuracion</button>
     </div>
 </form>
 
@@ -132,7 +132,7 @@
         <input type="number" name="fee" required step="0.01" class="input" placeholder="Costo envio">
         <input type="number" name="eta_min" class="input" placeholder="ETA min">
         <input type="number" name="min_order" step="0.01" class="input" placeholder="Min pedido">
-        <button type="submit" class="px-3 py-2 rounded-xl text-white text-sm font-semibold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Agregar zona</button>
+        <button type="submit" class="px-3 py-2 rounded-xl text-white text-sm font-semibold" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Agregar zona</button>
     </form>
 
     <?php if (empty($zones)): ?>

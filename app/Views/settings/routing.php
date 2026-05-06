@@ -30,7 +30,7 @@
     $totalExec   = array_sum(array_map(fn ($r) => (int) ($r['executions_count'] ?? 0), $rules));
     $aiRouted    = count(array_filter($rules, fn ($r) => $r['assign_strategy'] === 'ai_agent'));
     foreach ([
-        ['🎯', 'Reglas creadas',     $totalRules,  '#7C3AED'],
+        ['🎯', 'Reglas creadas',     $totalRules,  '#10B981'],
         ['✅', 'Activas',            $activeRules, '#10B981'],
         ['⚡', 'Ejecuciones totales', $totalExec,   '#06B6D4'],
         ['🤖', 'Con IA asignada',    $aiRouted,    '#F59E0B'],
@@ -48,7 +48,7 @@
 <!-- Form crear/editar -->
 <div x-data="{ open: false, editing: null }" class="mb-5">
     <button @click="open = !open; editing = null" type="button" class="w-full sm:w-auto px-4 py-2.5 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2"
-            style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            style="background: linear-gradient(135deg,#10B981,#06B6D4);">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Nueva regla de routing
     </button>
@@ -189,7 +189,7 @@
 
             <div class="flex items-center justify-end gap-2">
                 <button type="button" @click="open = false; editing = null" class="px-4 py-2 rounded-xl text-sm" style="color: var(--color-text-secondary);">Cancelar</button>
-                <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                     <span x-text="editing ? 'Guardar cambios' : 'Crear regla'"></span>
                 </button>
             </div>
@@ -226,7 +226,7 @@
     ?>
     <div class="surface p-4">
         <div class="flex items-start gap-3 flex-wrap">
-            <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                 <?= (int) $rule['priority'] ?>
             </div>
             <div class="flex-1 min-w-0">
@@ -237,7 +237,7 @@
                         <?= $isActive ? 'Activa' : 'Pausada' ?>
                     </span>
                     <?php if (!empty($rule['channel_label'])): ?>
-                    <span class="text-[10px] font-semibold px-1.5 rounded" style="background: <?= e((string) ($rule['channel_color'] ?? '#7C3AED')) ?>22; color: <?= e((string) ($rule['channel_color'] ?? '#7C3AED')) ?>;">
+                    <span class="text-[10px] font-semibold px-1.5 rounded" style="background: <?= e((string) ($rule['channel_color'] ?? '#10B981')) ?>22; color: <?= e((string) ($rule['channel_color'] ?? '#10B981')) ?>;">
                         <?= e((string) $rule['channel_label']) ?>
                     </span>
                     <?php endif; ?>
@@ -251,7 +251,7 @@
                     <span>· <?= e(($rule['first_name'] ?? '') . ' ' . ($rule['last_name'] ?? '')) ?></span>
                     <?php endif; ?>
                     <?php if (!empty($rule['ai_agent_name'])): ?>
-                    <span class="px-1.5 rounded" style="background: rgba(124,58,237,.15); color:#A78BFA;">🤖 <?= e($rule['ai_agent_name']) ?></span>
+                    <span class="px-1.5 rounded" style="background: rgba(16,185,129,.15); color:#34D399;">🤖 <?= e($rule['ai_agent_name']) ?></span>
                     <?php endif; ?>
                 </div>
                 <?php if (!empty($rule['auto_tag']) || !empty($rule['auto_priority']) || !empty($rule['auto_reply_enabled'])): ?>

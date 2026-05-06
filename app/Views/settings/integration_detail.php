@@ -66,7 +66,7 @@ $config = $existing && !empty($existing['config']) ? (json_decode((string) $exis
                     <?php if ($type === 'textarea'): ?>
                     <textarea name="<?= e($field['key']) ?>" class="input font-mono text-xs" rows="6" <?= !empty($field['required']) && empty($val) ? 'required' : '' ?>><?= e((string) $val) ?></textarea>
                     <?php elseif ($type === 'color'): ?>
-                    <input type="color" name="<?= e($field['key']) ?>" value="<?= e((string) ($val ?: '#7C3AED')) ?>" class="input h-[42px] p-1">
+                    <input type="color" name="<?= e($field['key']) ?>" value="<?= e((string) ($val ?: '#10B981')) ?>" class="input h-[42px] p-1">
                     <?php elseif ($type === 'password'): ?>
                     <input type="password" name="<?= e($field['key']) ?>" placeholder="<?= !empty($val) ? '•••••• (reemplazar)' : '' ?>" class="input font-mono text-sm">
                     <?php if (!empty($val)): ?><p class="text-[10px] mt-1" style="color: var(--color-text-tertiary);">Deja vacio para mantener el valor actual.</p><?php endif; ?>
@@ -77,7 +77,7 @@ $config = $existing && !empty($existing['config']) ? (json_decode((string) $exis
                 <?php endforeach; ?>
 
                 <div class="flex items-center justify-end gap-2 pt-2">
-                    <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                    <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                         <?= $isConnected ? 'Guardar cambios' : 'Conectar ' . e($entry['name']) ?>
                     </button>
                 </div>

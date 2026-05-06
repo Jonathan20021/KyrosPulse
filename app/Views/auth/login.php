@@ -6,9 +6,9 @@ $errors = $errors ?? [];
 ?>
 <div>
     <div class="mb-8">
-        <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-violet-500/10 border border-violet-500/20">
+        <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <span class="live-dot"></span>
-            <span class="text-[11px] font-semibold text-violet-300 tracking-wider uppercase">Bienvenido de vuelta</span>
+            <span class="text-[11px] font-semibold text-emerald-300 tracking-wider uppercase">Bienvenido de vuelta</span>
         </div>
         <h1 class="text-3xl font-black text-white mb-2 tracking-tight">Entra a tu workspace</h1>
         <p class="text-slate-400 text-sm">Atiende clientes, gestiona equipos IA y cierra mas ventas — desde donde quieras.</p>
@@ -53,7 +53,7 @@ $errors = $errors ?? [];
         </div>
 
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-            <input type="checkbox" name="remember" value="1" class="w-4 h-4 rounded border-white/10 bg-white/5 text-violet-500">
+            <input type="checkbox" name="remember" value="1" class="w-4 h-4 rounded border-white/10 bg-white/5 text-emerald-500">
             <span>Mantener sesion iniciada</span>
         </label>
 
@@ -71,7 +71,7 @@ $errors = $errors ?? [];
 
     <div class="text-center text-sm text-slate-400">
         No tienes cuenta?
-        <a href="<?= url('/register') ?>" class="text-white font-semibold hover:text-violet-400 transition">Crear cuenta gratis →</a>
+        <a href="<?= url('/register') ?>" class="text-white font-semibold hover:text-emerald-400 transition">Crear cuenta gratis →</a>
     </div>
 
     <div class="mt-8 p-4 rounded-2xl border border-white/5 bg-white/[0.02]">

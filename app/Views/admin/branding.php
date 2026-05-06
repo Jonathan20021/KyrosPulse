@@ -122,7 +122,7 @@ $g = fn(string $k, string $d = '') => (string) ($settings[$k] ?? $d);
     </div>
 
     <div class="flex justify-end sticky bottom-3">
-        <button type="submit" class="px-6 py-2.5 rounded-xl text-white text-sm font-semibold shadow-xl shadow-violet-500/40" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">
+        <button type="submit" class="px-6 py-2.5 rounded-xl text-white text-sm font-semibold shadow-xl shadow-emerald-500/40" style="background:linear-gradient(135deg,#10B981,#06B6D4)">
             Guardar cambios
         </button>
     </div>

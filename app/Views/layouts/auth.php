@@ -15,7 +15,7 @@
 
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        body { background: #050817; color: #F8FAFC; }
+        body { background: #060B16; color: #F8FAFC; }
         .auth-noise::before {
             content: '';
             position: absolute; inset: 0;
@@ -36,7 +36,7 @@
     <div class="flex flex-col px-6 sm:px-10 lg:px-12 py-8 lg:py-10 relative">
         <header class="flex items-center justify-between mb-10">
             <a href="<?= url('/') ?>" class="inline-flex items-center gap-2.5 group">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/40 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#10B981,#0EA572);">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <span class="font-bold text-white tracking-tight"><?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
@@ -64,11 +64,11 @@
     </div>
 
     <!-- Right: visual showcase -->
-    <div class="hidden lg:flex relative overflow-hidden auth-noise" style="background: radial-gradient(ellipse at top, #1A1240 0%, #050817 70%);">
+    <div class="hidden lg:flex relative overflow-hidden auth-noise" style="background: radial-gradient(ellipse at top, #0E2A2A 0%, #060B16 70%);">
         <div class="absolute inset-0 bg-grid bg-grid-fade opacity-40"></div>
-        <div class="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-30" style="background: radial-gradient(circle, #7C3AED, transparent 60%); filter: blur(80px);"></div>
-        <div class="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full opacity-25" style="background: radial-gradient(circle, #06B6D4, transparent 60%); filter: blur(80px);"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-15" style="background: radial-gradient(circle, #EC4899, transparent 60%); filter: blur(100px);"></div>
+        <div class="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-30" style="background: radial-gradient(circle, #10B981, transparent 60%); filter: blur(80px);"></div>
+        <div class="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full opacity-22" style="background: radial-gradient(circle, #4F46E5, transparent 60%); filter: blur(80px);"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-12" style="background: radial-gradient(circle, #06B6D4, transparent 60%); filter: blur(100px);"></div>
 
         <!-- Content -->
         <div class="relative z-10 flex flex-col justify-center px-10 xl:px-16 py-16 w-full">
@@ -88,7 +88,7 @@
 
             <!-- Floating mockup: omni-channel inbox -->
             <div class="relative max-w-md">
-                <div class="absolute -inset-6 bg-gradient-to-tr from-violet-500 via-fuchsia-500 to-cyan-500 rounded-[2rem] blur-3xl opacity-30"></div>
+                <div class="absolute -inset-6 bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 rounded-[2rem] blur-3xl opacity-30"></div>
                 <div class="browser-chrome relative shadow-2xl">
                     <div class="browser-chrome-bar">
                         <span class="browser-dot bg-rose-500/70"></span>
@@ -96,7 +96,7 @@
                         <span class="browser-dot bg-emerald-500/70"></span>
                         <div class="ml-3 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-slate-500 font-mono">app.kyrospulse.com/inbox</div>
                     </div>
-                    <div class="bg-[#0A0F25] p-4 space-y-3">
+                    <div class="bg-[#0B1220] p-4 space-y-3">
                         <!-- Channels switcher -->
                         <div class="flex gap-1.5 flex-wrap">
                             <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] font-bold border" style="background: rgba(16,185,129,.15); color:#10B981; border-color: rgba(16,185,129,.4);">● DO · +1809</span>
@@ -107,7 +107,7 @@
 
                         <!-- KPIs -->
                         <div class="grid grid-cols-3 gap-2">
-                            <?php foreach ([['Mensajes', '1.2k', '#7C3AED'], ['Leads', '83', '#06B6D4'], ['Cierres IA', '47', '#10B981']] as $kpi): ?>
+                            <?php foreach ([['Mensajes', '1.2k', '#10B981'], ['Leads', '83', '#06B6D4'], ['Cierres IA', '47', '#10B981']] as $kpi): ?>
                             <div class="bg-white/5 rounded-lg p-2.5 border border-white/5">
                                 <div class="text-[9px] text-slate-500 uppercase tracking-wider"><?= $kpi[0] ?></div>
                                 <div class="font-bold text-white text-sm mt-0.5"><?= $kpi[1] ?></div>
@@ -134,7 +134,7 @@
                         </div>
 
                         <!-- AI suggestion -->
-                        <div class="rounded-lg p-2.5 border border-violet-500/30" style="background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15));">
+                        <div class="rounded-lg p-2.5 border border-emerald-500/30" style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15));">
                             <div class="flex items-center gap-2">
                                 <span class="text-base">🤖</span>
                                 <div>
@@ -164,7 +164,7 @@
                     </div>
                 </div>
                 <div class="absolute -left-10 -bottom-4 p-3 rounded-xl flex items-center gap-2 float-3 shadow-xl backdrop-blur-xl bg-white/5 border border-white/10">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">⚡</div>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#10B981,#06B6D4);">⚡</div>
                     <div>
                         <div class="text-[11px] font-semibold text-white">3 numeros</div>
                         <div class="text-[9px] text-slate-400">Operando</div>

@@ -104,7 +104,7 @@
 const isDark = document.documentElement.classList.contains('dark');
 const grid = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.05)';
 const tick = isDark ? '#64748B' : '#94A3B8';
-const tooltipBg = isDark ? '#0F1530' : '#fff';
+const tooltipBg = isDark ? '#0B1220' : '#fff';
 const tooltipText = isDark ? '#F8FAFC' : '#0F172A';
 
 const baseChartOptions = {
@@ -131,7 +131,7 @@ new Chart(document.getElementById('chartMessages'), {
     data: {
         labels: <?= json_encode($labels) ?>,
         datasets: [
-            { label: 'Recibidos', data: <?= json_encode($inbound) ?>, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,.15)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 0 },
+            { label: 'Recibidos', data: <?= json_encode($inbound) ?>, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.15)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 0 },
             { label: 'Enviados',  data: <?= json_encode($outbound) ?>, borderColor: '#06B6D4', backgroundColor: 'rgba(6,182,212,.15)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 0 }
         ]
     },
@@ -165,7 +165,7 @@ new Chart(document.getElementById('chartChannels'), {
     type: 'doughnut',
     data: {
         labels: <?= json_encode(array_column($channels, 'channel')) ?>,
-        datasets: [{ data: <?= json_encode(array_map('intval', array_column($channels, 'total'))) ?>, backgroundColor: ['#10B981','#7C3AED','#06B6D4','#F59E0B','#F43F5E','#3B82F6','#A855F7'], borderWidth: 0 }]
+        datasets: [{ data: <?= json_encode(array_map('intval', array_column($channels, 'total'))) ?>, backgroundColor: ['#10B981','#10B981','#06B6D4','#F59E0B','#F43F5E','#3B82F6','#A855F7'], borderWidth: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: tick, font: { size: 11 } } } } }
 });
@@ -174,7 +174,7 @@ new Chart(document.getElementById('chartHours'), {
     type: 'bar',
     data: {
         labels: Array.from({length: 24}, (_, i) => i + 'h'),
-        datasets: [{ label: 'Mensajes', data: <?= json_encode($hours) ?>, backgroundColor: '#7C3AED', borderRadius: 4 }]
+        datasets: [{ label: 'Mensajes', data: <?= json_encode($hours) ?>, backgroundColor: '#10B981', borderRadius: 4 }]
     },
     options: { ...baseChartOptions, plugins: { ...baseChartOptions.plugins, legend: { display: false } } }
 });
@@ -200,7 +200,7 @@ new Chart(document.getElementById('chartHours'), {
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
         <?php
         $kpisR = [
-            ['Ordenes',         number_format((int) ($rs['summary']['total_orders'] ?? 0)),                                       '#7C3AED'],
+            ['Ordenes',         number_format((int) ($rs['summary']['total_orders'] ?? 0)),                                       '#10B981'],
             ['Revenue',         $cur . ' ' . number_format((float) ($rs['summary']['total_revenue'] ?? 0), 2),                    '#10B981'],
             ['Ticket promedio', $cur . ' ' . number_format((float) ($rs['summary']['avg_ticket'] ?? 0), 2),                       '#06B6D4'],
             ['Cerradas IA',     number_format((int) ($rs['summary']['ai_orders'] ?? 0)),                                          '#A855F7'],
@@ -268,7 +268,7 @@ new Chart(document.getElementById('chartHours'), {
                         <span class="font-mono ml-2" style="color: var(--color-primary);"><?= (int) $it['units'] ?>×</span>
                     </div>
                     <div class="h-1 rounded-full overflow-hidden" style="background: var(--color-bg-subtle);">
-                        <div class="h-full" style="width: <?= $w ?>%; background: linear-gradient(90deg,#F59E0B,#7C3AED);"></div>
+                        <div class="h-full" style="width: <?= $w ?>%; background: linear-gradient(90deg,#F59E0B,#10B981);"></div>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -314,7 +314,7 @@ new Chart(document.getElementById('revChart'), {
         labels: <?= json_encode($rs['rev_labels']) ?>,
         datasets: [
             { label: 'Revenue (<?= e($cur) ?>)', data: <?= json_encode($rs['rev_totals']) ?>, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.12)', tension: .35, fill: true, yAxisID: 'y' },
-            { label: 'Ordenes',                  data: <?= json_encode($rs['rev_orders']) ?>, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,.06)', tension: .35, fill: false, yAxisID: 'y1' },
+            { label: 'Ordenes',                  data: <?= json_encode($rs['rev_orders']) ?>, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.06)', tension: .35, fill: false, yAxisID: 'y1' },
             { label: 'Ordenes IA',               data: <?= json_encode($rs['rev_ai']) ?>,     borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,.06)', tension: .35, borderDash: [4,4], fill: false, yAxisID: 'y1' },
         ],
     },

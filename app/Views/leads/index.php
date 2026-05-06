@@ -14,7 +14,7 @@ $totalCards = array_sum(array_column($totals, 'count'));
 <!-- ====== HEADER ====== -->
 <div class="flex items-end justify-between gap-4 flex-wrap mb-6">
     <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-violet-500/20" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/20" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
             📈
         </div>
         <div>
@@ -26,7 +26,7 @@ $totalCards = array_sum(array_column($totals, 'count'));
         <a href="<?= url('/contacts') ?>" class="px-3 py-2 rounded-xl text-sm font-medium" style="background: var(--color-bg-subtle); color: var(--color-text-primary);">
             Contactos
         </a>
-        <a href="<?= url('/leads/create') ?>" class="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg shadow-violet-500/30 flex items-center gap-1.5" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+        <a href="<?= url('/leads/create') ?>" class="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 flex items-center gap-1.5" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Nuevo lead
         </a>
@@ -41,7 +41,7 @@ $totalCards = array_sum(array_column($totals, 'count'));
             'label'  => 'Pipeline abierto',
             'value'  => $currency . ' ' . number_format((float) $kpis['pipeline_value'], 0),
             'sub'    => $kpis['open_leads'] . ' leads activos',
-            'color'  => '#7C3AED',
+            'color'  => '#10B981',
             'emoji'  => '💼',
         ],
         [
@@ -102,7 +102,7 @@ $totalCards = array_sum(array_column($totals, 'count'));
         <input type="text" id="leadSearch" placeholder="Buscar por título, contacto o empresa..." class="input pl-10 text-sm">
     </div>
     <div class="flex items-center gap-1.5 text-xs">
-        <button data-filter="all" class="filter-pill active px-3 py-1.5 rounded-full font-medium" style="background: var(--color-bg-active); color: var(--color-text-primary); border: 1px solid rgba(124,58,237,0.2);">
+        <button data-filter="all" class="filter-pill active px-3 py-1.5 rounded-full font-medium" style="background: var(--color-bg-active); color: var(--color-text-primary); border: 1px solid rgba(16,185,129,0.2);">
             Todos · <?= $totalCards ?>
         </button>
         <button data-filter="ai" class="filter-pill px-3 py-1.5 rounded-full font-medium" style="background: var(--color-bg-subtle); color: var(--color-text-tertiary);">
@@ -124,8 +124,8 @@ $totalCards = array_sum(array_column($totals, 'count'));
 <?php if ($totalCards === 0): ?>
 <div class="surface p-12 text-center">
     <div class="relative w-24 h-24 mx-auto mb-5">
-        <div class="absolute inset-0 rounded-3xl blur-2xl opacity-30" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"></div>
-        <div class="relative w-24 h-24 rounded-3xl flex items-center justify-center text-5xl" style="background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15)); border: 1px solid rgba(124,58,237,.3);">
+        <div class="absolute inset-0 rounded-3xl blur-2xl opacity-30" style="background: linear-gradient(135deg,#10B981,#06B6D4);"></div>
+        <div class="relative w-24 h-24 rounded-3xl flex items-center justify-center text-5xl" style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15)); border: 1px solid rgba(16,185,129,.3);">
             🎯
         </div>
     </div>
@@ -134,7 +134,7 @@ $totalCards = array_sum(array_column($totals, 'count'));
         Los leads aparecerán acá automáticamente cuando: la IA cierre una conversación con interés, llegue una orden por WhatsApp, o un cliente complete un formulario.
     </p>
     <div class="flex justify-center gap-2 flex-wrap">
-        <a href="<?= url('/leads/create') ?>" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg shadow-violet-500/30 flex items-center gap-1.5" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+        <a href="<?= url('/leads/create') ?>" class="px-4 py-2 rounded-xl text-white font-semibold shadow-lg shadow-emerald-500/30 flex items-center gap-1.5" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Crear lead manual
         </a>
@@ -256,12 +256,12 @@ $totalCards = array_sum(array_column($totals, 'count'));
                         <!-- Badges row -->
                         <div class="flex items-center gap-1 flex-wrap mb-2">
                             <?php if ($isAi): ?>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5" style="background: rgba(124,58,237,.15); color:#A78BFA;">🤖 IA</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5" style="background: rgba(16,185,129,.15); color:#34D399;">🤖 IA</span>
                             <?php endif; ?>
                             <?php if ($isHot): ?>
                             <span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background: rgba(239,68,68,.15); color:#F87171;">🔥 Hot <?= $aiScore ?></span>
                             <?php elseif ($aiScore > 0): ?>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background: rgba(124,58,237,.1); color:#A78BFA;">Score <?= $aiScore ?></span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background: rgba(16,185,129,.1); color:#34D399;">Score <?= $aiScore ?></span>
                             <?php endif; ?>
                             <?php if ($isOverdue): ?>
                             <span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background: rgba(239,68,68,.15); color:#F87171;">⏰ Vencido</span>
@@ -313,12 +313,12 @@ $totalCards = array_sum(array_column($totals, 'count'));
 .kanban-card.dragging { opacity: 0.4; transform: scale(0.95) rotate(-2deg); }
 .kanban-card { box-shadow: 0 1px 3px rgba(0,0,0,.05); }
 .kanban-card:hover {
-    box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(124,58,237,.3);
-    border-color: rgba(124,58,237,.4) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(16,185,129,.3);
+    border-color: rgba(16,185,129,.4) !important;
 }
 .filter-pill { transition: all 0.15s; }
 .filter-pill:hover { color: var(--color-text-primary) !important; }
-.filter-pill.active { background: var(--color-bg-active) !important; color: var(--color-text-primary) !important; border: 1px solid rgba(124,58,237,0.2) !important; }
+.filter-pill.active { background: var(--color-bg-active) !important; color: var(--color-text-primary) !important; border: 1px solid rgba(16,185,129,0.2) !important; }
 .kanban-card.hidden { display: none; }
 </style>
 

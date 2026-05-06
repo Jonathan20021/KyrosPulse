@@ -103,7 +103,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <?php
         $rstKpis = [
-            ['Ordenes hoy',     number_format((int) ($restaurantStats['today'] ?? 0)),                      '#7C3AED', '📅', 'Total de ordenes hoy'],
+            ['Ordenes hoy',     number_format((int) ($restaurantStats['today'] ?? 0)),                      '#10B981', '📅', 'Total de ordenes hoy'],
             ['Revenue hoy',     $currency . ' ' . number_format((float) ($restaurantStats['revenue_today'] ?? 0), 2), '#10B981', '💰', 'Ingresos del dia'],
             ['Pendientes',      number_format((int) ($restaurantStats['pending'] ?? 0)),                    '#F59E0B', '⏳', 'En cocina + en camino'],
             ['Ticket promedio', $currency . ' ' . number_format((float) ($restaurantStats['avg_ticket'] ?? 0), 2),    '#06B6D4', '🎯', 'Promedio 30 dias'],
@@ -140,7 +140,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
                     <span class="font-mono ml-2" style="color: var(--color-primary);"><?= (int) $it['units'] ?>×</span>
                 </div>
                 <div class="h-1.5 rounded-full overflow-hidden" style="background: var(--color-bg-subtle);">
-                    <div class="h-full rounded-full transition-all duration-1000" style="width: <?= $width ?>%; background: linear-gradient(90deg,#F59E0B,#7C3AED);"></div>
+                    <div class="h-full rounded-full transition-all duration-1000" style="width: <?= $width ?>%; background: linear-gradient(90deg,#F59E0B,#10B981);"></div>
                 </div>
                 <div class="text-[10px] mt-0.5" style="color: var(--color-text-tertiary);"><?= $currency ?> <?= number_format((float) $it['revenue'], 2) ?></div>
             </div>
@@ -166,7 +166,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
                     $heightPct = $cell['orders'] > 0 ? max(8, (int) round(($cell['orders'] / $maxOrders) * 100)) : 2;
                 ?>
                 <div class="flex-1 flex flex-col justify-end" title="<?= sprintf('%02d:00 — %d orden(es) — %s %s', $h, $cell['orders'], $currency, number_format($cell['revenue'], 2)) ?>">
-                    <div class="rounded-t transition-all duration-700" style="height: <?= $heightPct ?>%; background: <?= $cell['orders'] > 0 ? 'linear-gradient(180deg,#7C3AED,#06B6D4)' : 'rgba(255,255,255,0.05)' ?>;"></div>
+                    <div class="rounded-t transition-all duration-700" style="height: <?= $heightPct ?>%; background: <?= $cell['orders'] > 0 ? 'linear-gradient(180deg,#10B981,#06B6D4)' : 'rgba(255,255,255,0.05)' ?>;"></div>
                 </div>
                 <?php endfor; ?>
             </div>
@@ -190,12 +190,12 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
             <p class="text-xs mb-3" style="color: var(--color-text-tertiary);">de las ordenes las cerro la IA sola</p>
 
             <div class="h-3 rounded-full overflow-hidden flex" style="background: var(--color-bg-subtle);">
-                <div style="width: <?= $aiPct ?>%; background: linear-gradient(90deg,#7C3AED,#06B6D4);" class="transition-all duration-1000"></div>
+                <div style="width: <?= $aiPct ?>%; background: linear-gradient(90deg,#10B981,#06B6D4);" class="transition-all duration-1000"></div>
                 <div style="width: <?= 100 - $aiPct ?>%; background: rgba(255,255,255,0.08);"></div>
             </div>
             <div class="flex justify-between mt-2 text-xs">
                 <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full" style="background: #7C3AED;"></span>
+                    <span class="w-2 h-2 rounded-full" style="background: #10B981;"></span>
                     <span style="color: var(--color-text-secondary);"><strong><?= $aiC ?></strong> IA</span>
                 </div>
                 <div class="flex items-center gap-1.5">
@@ -229,7 +229,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
             'change'    => '+12.4%',
             'positive'  => true,
             'tone'      => 'violet',
-            'color'     => '#7C3AED',
+            'color'     => '#10B981',
             'icon'      => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
             'spark'     => [3, 5, 4, 7, 6, 8, 9, 7, 10, 12],
         ],
@@ -311,7 +311,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
     <?php
     $rings = [
-        ['Tasa de respuesta',       (int) $stats['response_rate'],     '%',  '#7C3AED', 'Mensajes resp. / recibidos'],
+        ['Tasa de respuesta',       (int) $stats['response_rate'],     '%',  '#10B981', 'Mensajes resp. / recibidos'],
         ['Conversion de leads',     $conversionRate,                    '%',  '#10B981', 'Won / Total'],
         ['Meta de pipeline',        $pipelineProgress,                   '%',  '#06B6D4', 'Progreso vs objetivo'],
         ['Satisfaccion',            $satisfactionScore,                  '%',  '#F59E0B', 'Score CSAT'],
@@ -344,7 +344,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
 <div class="grid lg:grid-cols-3 gap-4 mb-4">
     <!-- Big chart -->
     <div class="lg:col-span-2 surface p-6 relative overflow-hidden">
-        <div class="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,0.4), transparent 60%); filter: blur(40px);"></div>
+        <div class="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(16,185,129,0.4), transparent 60%); filter: blur(40px);"></div>
 
         <div class="flex items-center justify-between mb-5 relative">
             <div>
@@ -356,7 +356,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
             </div>
             <div class="flex items-center gap-4 text-xs">
                 <span class="flex items-center gap-1.5 font-medium" style="color: var(--color-text-secondary);">
-                    <span class="w-2.5 h-2.5 rounded-sm" style="background: linear-gradient(135deg, #7C3AED, #A78BFA);"></span>Recibidos
+                    <span class="w-2.5 h-2.5 rounded-sm" style="background: linear-gradient(135deg, #10B981, #34D399);"></span>Recibidos
                 </span>
                 <span class="flex items-center gap-1.5 font-medium" style="color: var(--color-text-secondary);">
                     <span class="w-2.5 h-2.5 rounded-sm" style="background: linear-gradient(135deg, #06B6D4, #67E8F9);"></span>Enviados
@@ -424,10 +424,10 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
             <div class="flex items-center gap-1.5 text-[10px]" style="color: var(--color-text-tertiary);">
                 <span>Menos</span>
                 <span class="w-3 h-3 rounded-sm" style="background: var(--color-bg-subtle);"></span>
-                <span class="w-3 h-3 rounded-sm" style="background: rgba(124,58,237,0.18);"></span>
-                <span class="w-3 h-3 rounded-sm" style="background: rgba(124,58,237,0.40);"></span>
-                <span class="w-3 h-3 rounded-sm" style="background: rgba(124,58,237,0.65);"></span>
-                <span class="w-3 h-3 rounded-sm" style="background: rgba(124,58,237,0.95);"></span>
+                <span class="w-3 h-3 rounded-sm" style="background: rgba(16,185,129,0.18);"></span>
+                <span class="w-3 h-3 rounded-sm" style="background: rgba(16,185,129,0.40);"></span>
+                <span class="w-3 h-3 rounded-sm" style="background: rgba(16,185,129,0.65);"></span>
+                <span class="w-3 h-3 rounded-sm" style="background: rgba(16,185,129,0.95);"></span>
                 <span>Mas</span>
             </div>
         </div>
@@ -465,11 +465,11 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
     </div>
 
     <!-- AI Insights -->
-    <div class="surface p-6 relative overflow-hidden scan-line" style="background: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(6,182,212,0.04));">
-        <div class="absolute -top-10 -right-10 w-48 h-48 rounded-full" style="background: radial-gradient(circle, rgba(124,58,237,0.18), transparent 70%); filter: blur(20px);"></div>
+    <div class="surface p-6 relative overflow-hidden scan-line" style="background: linear-gradient(135deg, rgba(16,185,129,0.04), rgba(6,182,212,0.04));">
+        <div class="absolute -top-10 -right-10 w-48 h-48 rounded-full" style="background: radial-gradient(circle, rgba(16,185,129,0.18), transparent 70%); filter: blur(20px);"></div>
         <div class="relative">
             <div class="flex items-center gap-2 mb-3">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base" style="background: var(--gradient-primary); box-shadow: 0 4px 14px rgba(124,58,237,.3);">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base" style="background: var(--gradient-primary); box-shadow: 0 4px 14px rgba(16,185,129,.3);">
                     <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <div>
@@ -685,7 +685,7 @@ $satisfactionScore = 92; // placeholder, viene de tickets en otra metrica
         <div class="space-y-2">
             <?php
             $actions = [
-                ['/contacts/create',  'Crear contacto',   'M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M19 8v6m3-3h-6M8.5 7a4 4 0 11-8 0 4 4 0 018 0z', '#7C3AED'],
+                ['/contacts/create',  'Crear contacto',   'M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M19 8v6m3-3h-6M8.5 7a4 4 0 11-8 0 4 4 0 018 0z', '#10B981'],
                 ['/leads/create',     'Nuevo lead',       'M12 4v16m8-8H4', '#10B981'],
                 ['/tickets/create',   'Crear ticket',     'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', '#06B6D4'],
                 ['/tasks',            'Nueva tarea',      'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', '#F59E0B'],
@@ -759,17 +759,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 {
                     label: 'Recibidos',
                     data: <?= json_encode($chartData['inbound']) ?>,
-                    borderColor: '#7C3AED',
+                    borderColor: '#10B981',
                     backgroundColor: ctx => {
                         const grad = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
-                        grad.addColorStop(0, 'rgba(124,58,237,0.35)');
-                        grad.addColorStop(1, 'rgba(124,58,237,0)');
+                        grad.addColorStop(0, 'rgba(16,185,129,0.35)');
+                        grad.addColorStop(1, 'rgba(16,185,129,0)');
                         return grad;
                     },
                     fill: true,
                     tension: 0.42,
-                    pointBackgroundColor: '#7C3AED',
-                    pointBorderColor: isDark ? '#0F1530' : '#fff',
+                    pointBackgroundColor: '#10B981',
+                    pointBorderColor: isDark ? '#0B1220' : '#fff',
                     pointBorderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 6,
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     fill: true,
                     tension: 0.42,
                     pointBackgroundColor: '#06B6D4',
-                    pointBorderColor: isDark ? '#0F1530' : '#fff',
+                    pointBorderColor: isDark ? '#0B1220' : '#fff',
                     pointBorderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 6,
@@ -806,7 +806,7 @@ document.addEventListener('DOMContentLoaded', function () {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: isDark ? '#0F1530' : '#fff',
+                    backgroundColor: isDark ? '#0B1220' : '#fff',
                     titleColor: isDark ? '#F8FAFC' : '#0F172A',
                     bodyColor: isDark ? '#CBD5E1' : '#475569',
                     borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',

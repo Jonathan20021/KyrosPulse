@@ -52,7 +52,7 @@ $contactName = trim(($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] 
                 <textarea name="description" rows="6" class="w-full mt-1 px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900 text-sm"><?= e((string) ($ticket['description'] ?? '')) ?></textarea>
             </div>
             <div class="flex justify-end">
-                <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar</button>
+                <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar</button>
             </div>
         </form>
 
@@ -88,7 +88,7 @@ $contactName = trim(($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] 
                         <input type="checkbox" name="is_internal" value="1" class="w-3.5 h-3.5 rounded">
                         Solo para el equipo
                     </label>
-                    <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Comentar</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Comentar</button>
                 </div>
             </form>
         </div>

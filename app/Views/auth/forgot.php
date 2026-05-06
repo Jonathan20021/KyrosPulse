@@ -5,8 +5,8 @@ $errors = $errors ?? [];
 ?>
 <div>
     <div class="mb-7">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15)); border: 1px solid rgba(124,58,237,.3);">
-            <svg class="w-7 h-7 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15)); border: 1px solid rgba(16,185,129,.3);">
+            <svg class="w-7 h-7 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
         </div>
         <h1 class="text-3xl font-black text-white mb-2 tracking-tight">Recupera tu cuenta</h1>
         <p class="text-slate-400 text-sm">Ingresa tu email y te enviaremos un enlace seguro para restablecer tu contrasena.</p>

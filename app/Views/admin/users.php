@@ -26,7 +26,7 @@ $users = $users ?? [];
         </select>
     </div>
     <div class="md:col-span-3 flex justify-end">
-        <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">Buscar</button>
+        <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Buscar</button>
     </div>
 </form>
 
@@ -51,7 +51,7 @@ $users = $users ?? [];
                 <tr class="hover:bg-white/[0.03] transition">
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                                 <?= e(strtoupper(mb_substr($name, 0, 1) . mb_substr((string) ($u['last_name'] ?? ''), 0, 1))) ?>
                             </div>
                             <div class="min-w-0">
@@ -72,7 +72,7 @@ $users = $users ?? [];
                             <?php foreach ($roles as $role):
                                 $clr = match (trim($role)) {
                                     'super_admin' => 'bg-rose-500/15 text-rose-300',
-                                    'owner'       => 'bg-violet-500/15 text-violet-300',
+                                    'owner'       => 'bg-emerald-500/15 text-emerald-300',
                                     'admin'       => 'bg-cyan-500/15 text-cyan-300',
                                     'supervisor'  => 'bg-amber-500/15 text-amber-300',
                                     'agent'       => 'bg-emerald-500/15 text-emerald-300',

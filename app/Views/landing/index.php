@@ -24,7 +24,7 @@ $showChangelog = !empty($branding['show_changelog']);
 <nav id="mainNav" x-data="{ open: false }" class="fixed top-0 inset-x-0 z-50 transition-all duration-300">
     <div class="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between">
         <a href="<?= url('/') ?>" class="flex items-center gap-2 group">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#10B981,#0EA572);">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             <span class="text-lg font-bold text-white tracking-tight"><?= e($brand) ?></span>
@@ -41,7 +41,7 @@ $showChangelog = !empty($branding['show_changelog']);
 
         <div class="hidden md:flex items-center gap-2">
             <a href="<?= url('/login') ?>" class="text-sm text-slate-300 hover:text-white px-4 py-2 transition">Iniciar sesion</a>
-            <a href="<?= url($ctaPUrl) ?>" class="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-lg shadow-violet-500/30" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);">
+            <a href="<?= url($ctaPUrl) ?>" class="text-sm font-semibold text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#0EA572);">
                 <?= e($ctaPLab) ?>
             </a>
         </div>
@@ -61,7 +61,7 @@ $showChangelog = !empty($branding['show_changelog']);
             <?php if ($showChangelog): ?><a href="<?= url('/changelog') ?>" class="block py-2 text-slate-300">Novedades</a><?php endif; ?>
             <div class="pt-3 border-t border-white/5 mt-3 flex gap-2">
                 <a href="<?= url('/login') ?>" class="flex-1 px-3 py-2 rounded-lg text-center text-sm bg-white/5 text-white">Iniciar sesion</a>
-                <a href="<?= url($ctaPUrl) ?>" class="flex-1 px-3 py-2 rounded-lg text-center text-sm font-semibold text-white" style="background:linear-gradient(135deg,#7C3AED,#06B6D4);"><?= e($ctaPLab) ?></a>
+                <a href="<?= url($ctaPUrl) ?>" class="flex-1 px-3 py-2 rounded-lg text-center text-sm font-semibold text-white" style="background:linear-gradient(135deg,#10B981,#0EA572);"><?= e($ctaPLab) ?></a>
             </div>
         </div>
     </div>
@@ -71,8 +71,8 @@ $showChangelog = !empty($branding['show_changelog']);
 <section class="relative pt-32 pb-12 lg:pt-40 lg:pb-16 overflow-hidden">
     <div class="absolute inset-0 bg-mesh"></div>
     <div class="absolute inset-0 bg-grid bg-grid-fade opacity-60"></div>
-    <div class="absolute top-20 -left-20 w-[600px] h-[600px] bg-violet-600 rounded-full blur-[120px] opacity-30 animate-float"></div>
-    <div class="absolute bottom-0 -right-20 w-[600px] h-[600px] bg-cyan-500 rounded-full blur-[120px] opacity-25 animate-float" style="animation-delay: -3s"></div>
+    <div class="absolute top-20 -left-20 w-[600px] h-[600px] bg-emerald-500 rounded-full blur-[120px] opacity-25 animate-float"></div>
+    <div class="absolute bottom-0 -right-20 w-[600px] h-[600px] bg-indigo-500 rounded-full blur-[120px] opacity-22 animate-float" style="animation-delay: -3s"></div>
 
     <div class="relative max-w-7xl mx-auto px-6">
         <div class="grid lg:grid-cols-12 gap-10 items-center">
@@ -91,7 +91,7 @@ $showChangelog = !empty($branding['show_changelog']);
                 </p>
 
                 <div class="reveal reveal-delay-2 flex flex-col sm:flex-row items-start gap-3 mb-7">
-                    <a href="<?= url($ctaPUrl) ?>" class="btn btn-glow btn-lg shadow-xl shadow-violet-500/30">
+                    <a href="<?= url($ctaPUrl) ?>" class="btn btn-glow btn-lg shadow-xl shadow-emerald-500/30">
                         <?= e($ctaPLab) ?>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                     </a>
@@ -112,8 +112,8 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Hero mockup: multi-channel unified inbox -->
             <div class="lg:col-span-6 reveal reveal-delay-3">
                 <div class="relative">
-                    <div class="absolute -inset-6 bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 rounded-[2rem] blur-3xl opacity-25"></div>
-                    <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0A0F25] shadow-2xl">
+                    <div class="absolute -inset-6 bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-500 rounded-[2rem] blur-3xl opacity-25"></div>
+                    <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0B1220] shadow-2xl">
                         <div class="px-4 py-3 border-b border-white/5 flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-rose-500/70"></span>
                             <span class="w-2.5 h-2.5 rounded-full bg-amber-500/70"></span>
@@ -133,17 +133,17 @@ $showChangelog = !empty($branding['show_changelog']);
 
                         <div class="grid grid-cols-12 min-h-[440px]">
                             <!-- Lista conversaciones -->
-                            <div class="col-span-5 bg-[#0F1530] p-3 space-y-1.5 border-r border-white/5">
+                            <div class="col-span-5 bg-[#08101C] p-3 space-y-1.5 border-r border-white/5">
                                 <div class="text-[10px] text-slate-500 uppercase tracking-wider px-2 mb-1">Bandeja unificada</div>
                                 <?php $convs = [
                                     ['M', 'Maria Lopez',   'Quiero el plan Pro',  '#10B981', 'WA · DO',  true,  '🟢'],
-                                    ['🤖','IA Vendedor',   'Cierre $1,500',       '#7C3AED', 'WA · MX',  false, '⚡'],
+                                    ['🤖','IA Vendedor',   'Cierre $1,500',       '#10B981', 'WA · MX',  false, '⚡'],
                                     ['J', 'Juan Perez',    'Necesito factura',    '#06B6D4', 'WA · US',  false, ''],
                                     ['L', 'Laura Tex',     'Gracias por la demo', '#F59E0B', 'EMAIL',    false, ''],
                                     ['I', 'Pedro Gomez',   'Vi su tienda Insta',  '#EC4899', 'INSTAGRAM',false, ''],
-                                    ['🤖','IA Soporte',    'Ticket creado #142',  '#A78BFA', 'WA · DO',  false, ''],
+                                    ['🤖','IA Soporte',    'Ticket creado #142',  '#34D399', 'WA · DO',  false, ''],
                                 ]; foreach ($convs as [$av, $name, $msg, $clr, $chan, $active, $ind]): ?>
-                                <div class="flex items-center gap-2 px-2 py-2 rounded-lg <?= $active ? 'bg-violet-500/15 ring-1 ring-violet-500/30' : '' ?>">
+                                <div class="flex items-center gap-2 px-2 py-2 rounded-lg <?= $active ? 'bg-emerald-500/15 ring-1 ring-emerald-500/30' : '' ?>">
                                     <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style="background: <?= $clr ?>;"><?= $av ?></div>
                                     <div class="flex-1 min-w-0">
                                         <div class="text-[11px] text-white font-medium truncate flex items-center gap-1"><?= e($name) ?> <?php if ($ind): ?><span><?= $ind ?></span><?php endif; ?></div>
@@ -166,14 +166,14 @@ $showChangelog = !empty($branding['show_changelog']);
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="text-[10px] px-2 py-1 rounded bg-violet-500/15 text-violet-300 font-semibold">🤖 Auto-pilot ON</div>
+                                    <div class="text-[10px] px-2 py-1 rounded bg-emerald-500/15 text-emerald-300 font-semibold">🤖 Auto-pilot ON</div>
                                 </div>
                                 <div class="flex-1 space-y-2 overflow-hidden">
                                     <div class="flex justify-start">
                                         <div class="max-w-[75%] px-3 py-1.5 rounded-2xl rounded-bl-sm bg-white/5 text-slate-200 text-xs">Hola, vi su anuncio. Cuanto cuesta el plan Pro?</div>
                                     </div>
                                     <div class="flex justify-end">
-                                        <div class="max-w-[75%] px-3 py-1.5 rounded-2xl rounded-br-sm text-white text-xs" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                                        <div class="max-w-[75%] px-3 py-1.5 rounded-2xl rounded-br-sm text-white text-xs" style="background: linear-gradient(135deg,#10B981,#0EA572);">
                                             <div class="text-[9px] opacity-80 mb-0.5">⚡ IA Vendedor</div>
                                             Hola Maria! El plan Pro esta en <strong>$1,500/mes</strong>. Incluye agentes IA, multi-numero y reportes. Te lo activo hoy?
                                         </div>
@@ -200,7 +200,7 @@ $showChangelog = !empty($branding['show_changelog']);
                         </div>
                     </div>
                     <div class="hidden md:flex absolute -right-6 top-2/3 p-3 rounded-xl items-center gap-2 animate-float shadow-xl backdrop-blur-xl bg-white/5 border border-white/10" style="animation-delay: -2s">
-                        <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">🤖</div>
+                        <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg,#10B981,#0EA572);">🤖</div>
                         <div>
                             <div class="text-xs font-semibold text-white">3 numeros activos</div>
                             <div class="text-[10px] text-slate-400">DO · MX · US</div>
@@ -249,8 +249,8 @@ $showChangelog = !empty($branding['show_changelog']);
 <section id="producto" class="relative py-20 lg:py-28">
     <div class="max-w-7xl mx-auto px-6">
         <div class="text-center max-w-3xl mx-auto mb-14">
-            <div class="reveal inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full bg-violet-500/10 border border-violet-500/20">
-                <span class="text-xs font-semibold text-violet-300">PRODUCTO</span>
+            <div class="reveal inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full bg-emerald-500/10 border border-emerald-500/25">
+                <span class="text-xs font-semibold text-emerald-300">PRODUCTO</span>
             </div>
             <h2 class="reveal heading-lg text-white mb-4 text-balance">Una plataforma. Cinco productos. Cero costuras.</h2>
             <p class="reveal reveal-delay-1 text-lg text-slate-400 text-balance">Reemplaza Zendesk, HubSpot, Manychat y tu PBX por una sola interfaz que tu equipo dominara en horas.</p>
@@ -275,7 +275,7 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Tab inbox -->
             <div x-show="tab === 'inbox'" x-transition class="grid lg:grid-cols-2 gap-8 p-6 lg:p-10">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3">Bandeja unificada</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-3">Bandeja unificada</div>
                     <h3 class="text-3xl font-bold text-white mb-4">Todos los canales. Todos los numeros. Una sola pantalla.</h3>
                     <p class="text-slate-400 leading-relaxed mb-5">
                         Conecta multiples numeros de WhatsApp (Cloud API oficial de Meta, Wasapi, Twilio, 360dialog), Instagram DM, Messenger, Telegram, email y webchat. Todo en una sola bandeja con asignacion inteligente, etiquetas, notas internas y plantillas.
@@ -292,7 +292,7 @@ $showChangelog = !empty($branding['show_changelog']);
                         <?php endforeach; ?>
                     </ul>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0A0F25] p-5 relative">
+                <div class="rounded-2xl border border-white/10 bg-[#0B1220] p-5 relative">
                     <div class="grid grid-cols-3 gap-2 mb-4">
                         <?php foreach ([
                             ['+1809', 'Ventas DO', '#10B981'],
@@ -329,7 +329,7 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Tab AI -->
             <div x-show="tab === 'ai'" x-transition x-cloak class="grid lg:grid-cols-2 gap-8 p-6 lg:p-10">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3">Equipo IA</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-3">Equipo IA</div>
                     <h3 class="text-3xl font-bold text-white mb-4">Vendedores, soporte y agendadores que nunca duermen.</h3>
                     <p class="text-slate-400 leading-relaxed mb-5">
                         Crea agentes IA especializados (ventas, soporte, agenda, cobranzas) con su propio tono, instrucciones y horario. Se enrutan solos por palabras clave, escalan a humano cuando el cliente lo pide y aprenden de tu base de conocimiento.
@@ -346,9 +346,9 @@ $showChangelog = !empty($branding['show_changelog']);
                         <?php endforeach; ?>
                     </ul>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0A0F25] p-5 space-y-3">
+                <div class="rounded-2xl border border-white/10 bg-[#0B1220] p-5 space-y-3">
                     <?php foreach ([
-                        ['🤖 Vendedor Pro', 'Claude Opus 4.7', 'Cierra ventas, ofrece catalogo', '#7C3AED', 'Activo · 24/7'],
+                        ['🤖 Vendedor Pro', 'Claude Opus 4.7', 'Cierra ventas, ofrece catalogo', '#10B981', 'Activo · 24/7'],
                         ['🛟 Soporte L1', 'Claude Sonnet 4.6', 'FAQ, tickets, devoluciones', '#06B6D4', 'Activo · 9-18h'],
                         ['📅 Agendador', 'GPT-4o', 'Citas en Google Calendar',   '#10B981', 'Activo · 24/7'],
                     ] as [$nm, $model, $purpose, $clr, $st]): ?>
@@ -370,7 +370,7 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Tab CRM -->
             <div x-show="tab === 'crm'" x-transition x-cloak class="grid lg:grid-cols-2 gap-8 p-6 lg:p-10">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3">CRM + Pipeline</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-3">CRM + Pipeline</div>
                     <h3 class="text-3xl font-bold text-white mb-4">Cada conversacion alimenta tu pipeline.</h3>
                     <p class="text-slate-400 leading-relaxed mb-5">
                         La IA califica leads, los etiqueta, los mueve por etapas y avisa al vendedor adecuado. Vista Kanban, segmentacion fina y custom fields ilimitados.
@@ -387,12 +387,12 @@ $showChangelog = !empty($branding['show_changelog']);
                         <?php endforeach; ?>
                     </ul>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0A0F25] p-4">
+                <div class="rounded-2xl border border-white/10 bg-[#0B1220] p-4">
                     <div class="grid grid-cols-4 gap-2 text-center">
                         <?php foreach ([
                             ['Nuevos',  '24', '#06B6D4'],
                             ['En contacto', '12', '#3B82F6'],
-                            ['Cotizado', '8', '#7C3AED'],
+                            ['Cotizado', '8', '#10B981'],
                             ['Ganado',   '5', '#10B981'],
                         ] as [$lbl, $val, $clr]): ?>
                         <div class="rounded-xl p-3 border border-white/5">
@@ -412,17 +412,17 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Tab campaigns -->
             <div x-show="tab === 'campaigns'" x-transition x-cloak class="grid lg:grid-cols-2 gap-8 p-6 lg:p-10">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3">Campanas masivas</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-3">Campanas masivas</div>
                     <h3 class="text-3xl font-bold text-white mb-4">Manda 10,000 mensajes con un clic.</h3>
                     <p class="text-slate-400 leading-relaxed mb-5">
                         Plantillas WhatsApp aprobadas, segmentacion por etiquetas y custom fields, programacion, A/B testing y reporte en vivo de entrega/lectura/respuesta.
                     </p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0A0F25] p-5">
+                <div class="rounded-2xl border border-white/10 bg-[#0B1220] p-5">
                     <div class="text-xs text-slate-500 mb-2">Campana "Black Friday 50% OFF"</div>
                     <div class="text-2xl font-bold text-white mb-1">8,420 / 10,000 enviados</div>
                     <div class="h-2 rounded-full bg-white/5 overflow-hidden mb-4">
-                        <div class="h-full rounded-full" style="width: 84%; background: linear-gradient(90deg,#7C3AED,#06B6D4);"></div>
+                        <div class="h-full rounded-full" style="width: 84%; background: linear-gradient(90deg,#10B981,#06B6D4);"></div>
                     </div>
                     <div class="grid grid-cols-3 gap-2 text-center">
                         <div class="rounded-lg bg-white/5 p-2"><div class="text-xs text-slate-400">Entregados</div><div class="text-lg font-bold text-white">8,142</div></div>
@@ -435,22 +435,22 @@ $showChangelog = !empty($branding['show_changelog']);
             <!-- Tab reports -->
             <div x-show="tab === 'reports'" x-transition x-cloak class="grid lg:grid-cols-2 gap-8 p-6 lg:p-10">
                 <div>
-                    <div class="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3">Reportes en vivo</div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-3">Reportes en vivo</div>
                     <h3 class="text-3xl font-bold text-white mb-4">Datos hoy, decisiones manana.</h3>
                     <p class="text-slate-400 leading-relaxed mb-5">
                         SLA, AHT, tasa de resolucion, conversion por canal, ranking de agentes y embudos completos. Todo en tiempo real.
                     </p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0A0F25] p-5">
+                <div class="rounded-2xl border border-white/10 bg-[#0B1220] p-5">
                     <svg viewBox="0 0 280 100" class="w-full h-24">
                         <defs>
                             <linearGradient id="grad-rep" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.7"/>
-                                <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+                                <stop offset="0%" stop-color="#10B981" stop-opacity="0.7"/>
+                                <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
                             </linearGradient>
                         </defs>
                         <path d="M0,80 L20,70 L40,75 L60,55 L80,60 L100,40 L120,48 L140,30 L160,38 L180,22 L200,28 L220,12 L240,18 L260,8 L280,12 L280,100 L0,100 Z" fill="url(#grad-rep)"/>
-                        <path d="M0,80 L20,70 L40,75 L60,55 L80,60 L100,40 L120,48 L140,30 L160,38 L180,22 L200,28 L220,12 L240,18 L260,8 L280,12" fill="none" stroke="#7C3AED" stroke-width="2"/>
+                        <path d="M0,80 L20,70 L40,75 L60,55 L80,60 L100,40 L120,48 L140,30 L160,38 L180,22 L200,28 L220,12 L240,18 L260,8 L280,12" fill="none" stroke="#10B981" stroke-width="2"/>
                     </svg>
                     <div class="grid grid-cols-3 gap-2 text-center mt-3">
                         <div><div class="text-[10px] text-slate-500">AHT</div><div class="text-lg font-bold text-white">2:14</div></div>
@@ -498,7 +498,7 @@ $showChangelog = !empty($branding['show_changelog']);
                 ['WooCommerce',    '#96588A', 'WC'],
                 ['Google Calendar','#4285F4', 'GC'],
                 ['Google Sheets',  '#0F9D58', 'GS'],
-                ['Resend',         '#0F1530', 'RS'],
+                ['Resend',         '#0B1220', 'RS'],
                 ['SendGrid',       '#1A82E2', 'SG'],
                 ['Mailgun',        '#FE3F4D', 'MG'],
                 ['Zapier',         '#FF4A00', 'ZP'],
@@ -540,10 +540,10 @@ $showChangelog = !empty($branding['show_changelog']);
         <div class="grid md:grid-cols-3 gap-4">
             <?php
             $benefits = [
-                ['🚀', 'Multi-numero ilimitado', 'Conecta cuantos numeros necesites: Cloud API oficial, Wasapi, Twilio. Todos en una sola bandeja.', '#7C3AED'],
+                ['🚀', 'Multi-numero ilimitado', 'Conecta cuantos numeros necesites: Cloud API oficial, Wasapi, Twilio. Todos en una sola bandeja.', '#10B981'],
                 ['💰', 'Reduce 60% tu nomina',   'Un equipo de IA equivale a 3-5 representantes humanos. Sin renuncias, sin vacaciones.', '#10B981'],
                 ['⚡', 'Setup en 5 minutos',     'Conecta tu WhatsApp, define tus agentes IA y empieza a vender. Sin instalacion, sin servidor.', '#06B6D4'],
-                ['🎯', 'Asignacion inteligente', 'Por idioma, horario, area, score. La IA enruta cada conversacion al agente correcto.', '#A78BFA'],
+                ['🎯', 'Asignacion inteligente', 'Por idioma, horario, area, score. La IA enruta cada conversacion al agente correcto.', '#34D399'],
                 ['📊', 'Reportes ejecutivos',    'AHT, CSAT, FCR, SLA. Conversion por canal, agente y campana. Datos que ejecutan.', '#F59E0B'],
                 ['🛡', 'Tu data es tuya',        'Multi-tenant aislado, audit logs, GDPR-ready, encriptacion en reposo. Cumple ISO 27001.', '#F43F5E'],
                 ['🌍', 'LATAM-first',            'Soporte en espanol, integraciones con MercadoPago, Wasapi y proveedores locales.', '#0EA5E9'],
@@ -583,7 +583,7 @@ $showChangelog = !empty($branding['show_changelog']);
             foreach ($steps as $i => [$n, $title, $desc]):
             ?>
             <div class="reveal flex items-start gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/10" style="animation-delay: <?= $i * 0.07 ?>s">
-                <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-lg shadow-violet-500/30" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"><?= $n ?></div>
+                <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-lg shadow-emerald-500/30" style="background: linear-gradient(135deg,#10B981,#0EA572);"><?= $n ?></div>
                 <div>
                     <h3 class="font-bold text-white mb-1"><?= e($title) ?></h3>
                     <p class="text-sm text-slate-400"><?= e($desc) ?></p>
@@ -602,7 +602,7 @@ $showChangelog = !empty($branding['show_changelog']);
         </div>
         <div class="grid md:grid-cols-3 gap-4">
             <?php foreach ([
-                ['Sofia Vargas', 'CEO · BPO Latam',     '“Pasamos de 4 herramientas a una. Recortamos 30% el tiempo de respuesta y 22% el costo de operacion.”', 'SV', '#7C3AED'],
+                ['Sofia Vargas', 'CEO · BPO Latam',     '“Pasamos de 4 herramientas a una. Recortamos 30% el tiempo de respuesta y 22% el costo de operacion.”', 'SV', '#10B981'],
                 ['Diego Pena',   'Operations · Agent360', '“La IA cierra el 40% de las ventas sola. El equipo humano solo entra cuando es urgente.”', 'DP', '#06B6D4'],
                 ['Carla Rivera', 'CX Manager · NextGen', '“Operamos 8 numeros desde una sola pantalla. Game changer.”', 'CR', '#10B981'],
             ] as $i => [$name, $role, $quote, $av, $clr]): ?>
@@ -640,7 +640,7 @@ $showChangelog = !empty($branding['show_changelog']);
         <div class="grid md:grid-cols-3 gap-3">
             <?php foreach (array_slice($changelog, 0, 3) as $entry):
                 $cat = (string) ($entry['category'] ?? 'feature');
-                [$catLabel, $catColor] = (\App\Models\Changelog::CATEGORIES)[$cat] ?? ['Otro', '#A78BFA'];
+                [$catLabel, $catColor] = (\App\Models\Changelog::CATEGORIES)[$cat] ?? ['Otro', '#34D399'];
             ?>
             <a href="<?= url('/changelog') ?>" class="reveal block rounded-2xl p-5 bg-white/[0.03] border border-white/10 hover:bg-white/[0.06] transition">
                 <div class="flex items-center gap-2 mb-2">
@@ -685,9 +685,9 @@ $showChangelog = !empty($branding['show_changelog']);
                 $isPopular = $plan['slug'] === 'business' || ($plan['slug'] === 'professional' && count($plans) <= 3);
                 $isEnterprise = $plan['slug'] === 'enterprise';
             ?>
-            <div class="reveal relative rounded-2xl p-6 <?= $isPopular ? 'bg-gradient-to-br from-violet-500/12 to-cyan-500/12 border-violet-500/40' : ($isEnterprise ? 'bg-gradient-to-br from-amber-500/8 to-rose-500/8 border-amber-500/30' : 'bg-white/[0.03] border-white/10') ?> border" style="animation-delay: <?= $i * 0.05 ?>s">
+            <div class="reveal relative rounded-2xl p-6 <?= $isPopular ? 'bg-gradient-to-br from-emerald-500/12 to-indigo-500/10 border-emerald-500/40' : ($isEnterprise ? 'bg-gradient-to-br from-amber-500/8 to-rose-500/8 border-amber-500/30' : 'bg-white/[0.03] border-white/10') ?> border" style="animation-delay: <?= $i * 0.05 ?>s">
                 <?php if ($isPopular): ?>
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Mas popular</div>
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg" style="background: linear-gradient(135deg,#10B981,#0EA572);">Mas popular</div>
                 <?php elseif ($isEnterprise): ?>
                 <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg" style="background: linear-gradient(135deg,#F59E0B,#EF4444);">Enterprise</div>
                 <?php endif; ?>
@@ -701,8 +701,8 @@ $showChangelog = !empty($branding['show_changelog']);
                     <div x-show="yearly" class="text-[11px] text-emerald-400 mt-1">Facturado $<?= number_format((int) $plan['price_yearly']) ?>/ano</div>
                 </div>
 
-                <a href="<?= url('/register') ?>" class="block w-full py-2.5 rounded-xl text-center text-sm font-semibold transition <?= $isPopular ? 'text-white shadow-lg shadow-violet-500/30' : ($isEnterprise ? 'text-white shadow-lg' : 'bg-white/5 text-white hover:bg-white/10') ?>"
-                   <?= $isPopular ? 'style="background: linear-gradient(135deg,#7C3AED,#06B6D4);"' : ($isEnterprise ? 'style="background: linear-gradient(135deg,#F59E0B,#EF4444);"' : '') ?>>
+                <a href="<?= url('/register') ?>" class="block w-full py-2.5 rounded-xl text-center text-sm font-semibold transition <?= $isPopular ? 'text-white shadow-lg shadow-emerald-500/30' : ($isEnterprise ? 'text-white shadow-lg' : 'bg-white/5 text-white hover:bg-white/10') ?>"
+                   <?= $isPopular ? 'style="background: linear-gradient(135deg,#10B981,#0EA572);"' : ($isEnterprise ? 'style="background: linear-gradient(135deg,#F59E0B,#EF4444);"' : '') ?>>
                     <?= $isEnterprise ? 'Hablar con ventas' : 'Empezar gratis' ?>
                 </a>
 
@@ -760,7 +760,7 @@ $showChangelog = !empty($branding['show_changelog']);
 
 <!-- ========================== CTA FINAL ========================== -->
 <section class="relative py-20 border-t border-white/5">
-    <div class="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-emerald-500/8 to-transparent"></div>
     <div class="relative max-w-4xl mx-auto px-6 text-center">
         <h2 class="reveal heading-lg text-white mb-4 text-balance">
             Empieza hoy. <span class="gradient-text-aurora">Vende mas manana.</span>
@@ -769,7 +769,7 @@ $showChangelog = !empty($branding['show_changelog']);
             14 dias gratis. Sin tarjeta. Sin compromisos. Multi-numero. Multi-canal. Multi-IA.
         </p>
         <div class="reveal reveal-delay-2 flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="<?= url($ctaPUrl) ?>" class="btn btn-glow btn-lg shadow-xl shadow-violet-500/40">
+            <a href="<?= url($ctaPUrl) ?>" class="btn btn-glow btn-lg shadow-xl shadow-emerald-500/40">
                 <?= e($ctaPLab) ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
             </a>
@@ -784,7 +784,7 @@ $showChangelog = !empty($branding['show_changelog']);
         <div class="grid md:grid-cols-5 gap-8 pb-10 border-b border-white/5">
             <div class="md:col-span-2">
                 <div class="flex items-center gap-2 mb-3">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#10B981,#0EA572);">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     </div>
                     <span class="font-bold text-white"><?= e($brand) ?></span>

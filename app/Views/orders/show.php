@@ -31,7 +31,7 @@ $customerName = trim((($order['first_name'] ?? '') . ' ' . ($order['last_name'] 
                     <?= $stEmoji ?> <?= e($stLbl) ?>
                 </span>
                 <?php if (!empty($order['is_ai_generated'])): ?>
-                <span class="px-2 py-1 rounded-full text-xs font-bold" style="background: rgba(124,58,237,.15); color:#A78BFA;">🤖 Generada por IA</span>
+                <span class="px-2 py-1 rounded-full text-xs font-bold" style="background: rgba(16,185,129,.15); color:#34D399;">🤖 Generada por IA</span>
                 <?php endif; ?>
             </div>
             <div class="flex items-center gap-3 text-sm flex-wrap" style="color: var(--color-text-secondary);">
@@ -94,7 +94,7 @@ $customerName = trim((($order['first_name'] ?? '') . ' ' . ($order['last_name'] 
                 $mods = !empty($it['modifiers']) ? (json_decode((string) $it['modifiers'], true) ?: []) : [];
             ?>
             <div class="flex items-start gap-3 p-3 rounded-xl" style="background: var(--color-bg-subtle);">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0" style="background: linear-gradient(135deg,#10B981,#06B6D4);">
                     <?= (int) $it['qty'] ?>×
                 </div>
                 <div class="flex-1 min-w-0">

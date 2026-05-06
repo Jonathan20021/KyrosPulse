@@ -150,7 +150,7 @@
                     <td>
                         <div class="flex flex-wrap gap-1 max-w-[200px]">
                             <?php foreach (array_slice(($c['tags'] ?? []), 0, 3) as $t): ?>
-                            <span class="chip" style="background: <?= e((string) ($t['color'] ?? '#7C3AED')) ?>15; color: <?= e((string) ($t['color'] ?? '#7C3AED')) ?>; border-color: <?= e((string) ($t['color'] ?? '#7C3AED')) ?>30;"><?= e($t['name']) ?></span>
+                            <span class="chip" style="background: <?= e((string) ($t['color'] ?? '#10B981')) ?>15; color: <?= e((string) ($t['color'] ?? '#10B981')) ?>; border-color: <?= e((string) ($t['color'] ?? '#10B981')) ?>30;"><?= e($t['name']) ?></span>
                             <?php endforeach; ?>
                             <?php if (count($c['tags'] ?? []) > 3): ?>
                             <span class="chip">+<?= count($c['tags']) - 3 ?></span>

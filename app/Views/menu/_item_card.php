@@ -27,7 +27,7 @@ $available = !empty($item['is_available']);
     <div class="flex items-center gap-1 text-[10px] mb-2 flex-wrap">
         <?php if (!empty($item['sku'])): ?><span class="font-mono px-1.5 py-0.5 rounded" style="background: var(--color-bg-subtle); color: var(--color-text-secondary);"><?= e($item['sku']) ?></span><?php endif; ?>
         <?php if (!empty($item['prep_time_min'])): ?><span style="color: var(--color-text-tertiary);">⏱ <?= (int) $item['prep_time_min'] ?> min</span><?php endif; ?>
-        <?php if (!empty($item['is_combo'])): ?><span class="px-1.5 py-0.5 rounded" style="background: rgba(124,58,237,.15); color:#A78BFA;">Combo</span><?php endif; ?>
+        <?php if (!empty($item['is_combo'])): ?><span class="px-1.5 py-0.5 rounded" style="background: rgba(16,185,129,.15); color:#34D399;">Combo</span><?php endif; ?>
         <?php if (!empty($item['is_featured'])): ?><span class="px-1.5 py-0.5 rounded" style="background: rgba(245,158,11,.15); color:#F59E0B;">⭐ Destacado</span><?php endif; ?>
     </div>
 

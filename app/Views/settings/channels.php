@@ -30,7 +30,7 @@
     $totalCloud    = count(array_filter($channels, fn ($c) => $c['provider'] === 'cloud'));
     $totalConvs    = array_sum(array_column($stats, 'open_convs'));
     $kpis = [
-        ['🛰', 'Numeros conectados',  $totalChannels, '#7C3AED'],
+        ['🛰', 'Numeros conectados',  $totalChannels, '#10B981'],
         ['✅', 'Numeros activos',     $totalActive,   '#10B981'],
         ['☁',  'Cloud API (Meta)',    $totalCloud,    '#06B6D4'],
         ['💬', 'Conversaciones abiertas', $totalConvs, '#F59E0B'],
@@ -49,7 +49,7 @@
 <!-- CTA: nuevo canal -->
 <div x-data="{ open: false, provider: 'wasapi' }" class="mb-5">
     <button @click="open = !open" type="button" class="w-full sm:w-auto px-4 py-2.5 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2"
-            style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">
+            style="background: linear-gradient(135deg,#10B981,#06B6D4);">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Conectar nuevo numero
     </button>
@@ -158,7 +158,7 @@
             <div class="grid md:grid-cols-2 gap-3">
                 <div>
                     <label class="label">Color (UI)</label>
-                    <input type="color" name="color" value="#7C3AED" class="input h-[42px] p-1">
+                    <input type="color" name="color" value="#10B981" class="input h-[42px] p-1">
                 </div>
                 <label class="flex items-end gap-2 cursor-pointer">
                     <input type="checkbox" name="is_default" value="1" class="w-4 h-4 mb-3">
@@ -168,7 +168,7 @@
 
             <div class="flex items-center justify-end gap-2 pt-2">
                 <button type="button" @click="open = false" class="px-4 py-2 rounded-xl text-sm" style="color: var(--color-text-secondary);">Cancelar</button>
-                <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#7C3AED,#06B6D4);">Conectar canal</button>
+                <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Conectar canal</button>
             </div>
         </form>
     </div>
@@ -184,7 +184,7 @@
 <?php else: ?>
 <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
     <?php foreach ($channels as $ch):
-        [$providerName, $providerColor] = $providers[$ch['provider']] ?? [$ch['provider'], '#7C3AED'];
+        [$providerName, $providerColor] = $providers[$ch['provider']] ?? [$ch['provider'], '#10B981'];
         $health = strtolower((string) ($ch['quality_rating'] ?? 'unknown'));
         $healthColor = match ($health) { 'green' => '#10B981', 'yellow' => '#F59E0B', 'red' => '#F43F5E', default => '#94A3B8' };
         $isActive = $ch['status'] === 'active';
@@ -195,7 +195,7 @@
     ?>
     <div class="surface p-5 relative overflow-hidden" x-data="{ editing: false }">
         <?php if (!empty($ch['is_default'])): ?>
-        <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider" style="background: linear-gradient(135deg,#7C3AED,#06B6D4); color: white;">Default</div>
+        <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider" style="background: linear-gradient(135deg,#10B981,#06B6D4); color: white;">Default</div>
         <?php endif; ?>
 
         <div class="flex items-start gap-3 mb-3">

@@ -112,7 +112,7 @@ $days = ['monday'=>'Lunes','tuesday'=>'Martes','wednesday'=>'Miercoles','thursda
     </div>
 
     <div class="lg:col-span-2 flex justify-end">
-        <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar configuracion</button>
+        <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar configuracion</button>
     </div>
 </form>
 <?php \App\Core\View::stop(); ?>

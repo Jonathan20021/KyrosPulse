@@ -40,13 +40,13 @@ $autopilotOn = !empty($tenant['ai_force_all']);
 <div class="rounded-2xl p-5 mb-4 relative overflow-hidden border <?= $autopilotOn ? 'border-emerald-500/40' : 'border-white/10' ?>"
      style="background: <?= $autopilotOn
         ? 'linear-gradient(135deg, rgba(16,185,129,.12), rgba(6,182,212,.08))'
-        : 'linear-gradient(135deg, rgba(124,58,237,.06), rgba(15,23,42,.6))' ?>;">
-    <div class="absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-30" style="background: radial-gradient(circle, <?= $autopilotOn ? 'rgba(16,185,129,.5)' : 'rgba(124,58,237,.4)' ?>, transparent 70%); filter: blur(50px);"></div>
+        : 'linear-gradient(135deg, rgba(16,185,129,.06), rgba(15,23,42,.6))' ?>;">
+    <div class="absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-30" style="background: radial-gradient(circle, <?= $autopilotOn ? 'rgba(16,185,129,.5)' : 'rgba(16,185,129,.4)' ?>, transparent 70%); filter: blur(50px);"></div>
 
     <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-start gap-4 min-w-0">
             <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                 style="background: <?= $autopilotOn ? 'linear-gradient(135deg,#10B981,#06B6D4)' : 'linear-gradient(135deg,#7C3AED,#06B6D4)' ?>;">
+                 style="background: <?= $autopilotOn ? 'linear-gradient(135deg,#10B981,#06B6D4)' : 'linear-gradient(135deg,#10B981,#06B6D4)' ?>;">
                 <?= $autopilotOn ? '🤖' : '⚡' ?>
             </div>
             <div class="min-w-0">
@@ -116,8 +116,8 @@ $autopilotOn = !empty($tenant['ai_force_all']);
     $pct = (int) ($aiSummary['pct'] ?? 0);
     $barColor = $pct >= 90 ? '#F43F5E' : ($pct >= 70 ? '#F59E0B' : null);
 ?>
-<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.06)); border-color: rgba(124,58,237,.25);">
-    <div class="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,.4), transparent 70%); filter: blur(40px);"></div>
+<div class="rounded-2xl p-5 mb-4 relative overflow-hidden border" style="background: linear-gradient(135deg, rgba(16,185,129,.08), rgba(6,182,212,.06)); border-color: rgba(16,185,129,.25);">
+    <div class="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(16,185,129,.4), transparent 70%); filter: blur(40px);"></div>
     <div class="relative grid md:grid-cols-3 gap-4">
         <!-- Provider en uso -->
         <div>
@@ -157,7 +157,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                     <span class="text-sm font-bold <?= $pct >= 90 ? 'text-rose-400' : ($pct >= 70 ? 'text-amber-400' : 'text-emerald-400') ?>"><?= $pct ?>%</span>
                 </div>
                 <div class="h-2 rounded-full overflow-hidden dark:bg-white/5 bg-slate-200">
-                    <div class="h-full rounded-full transition-all" style="width: <?= $pct ?>%; <?= $barColor ? "background: $barColor;" : 'background: linear-gradient(90deg,#7C3AED,#06B6D4);' ?>"></div>
+                    <div class="h-full rounded-full transition-all" style="width: <?= $pct ?>%; <?= $barColor ? "background: $barColor;" : 'background: linear-gradient(90deg,#10B981,#06B6D4);' ?>"></div>
                 </div>
                 <?php if ($pct >= 90): ?>
                 <p class="text-xs text-rose-400 mt-2">⚠ Estas cerca de tu cuota mensual. Si quieres tokens adicionales, contacta a tu administrador o agrega tu propia API key abajo.</p>
@@ -236,7 +236,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                 <label class="text-xs uppercase tracking-wider dark:text-slate-400 text-slate-500">Mensaje fuera de horario</label>
                 <textarea name="out_of_hours_msg" rows="2" class="w-full mt-1 px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900"><?= e((string) ($tenant['out_of_hours_msg'] ?? '')) ?></textarea>
             </div>
-            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar global</button>
+            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar global</button>
         </div>
     </form>
 
@@ -251,7 +251,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                    class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900">
             <textarea name="content" rows="5" required placeholder="Contenido del articulo, FAQ, politica..."
                       class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900"></textarea>
-            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Agregar</button>
+            <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Agregar</button>
         </div>
     </form>
 </div>
@@ -259,7 +259,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
 <!-- ============================ AGENTES IA ============================ -->
 <div class="flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold dark:text-white text-slate-900">Equipo de agentes IA</h2>
-    <button onclick="document.getElementById('newAgentForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">+ Nuevo agente</button>
+    <button onclick="document.getElementById('newAgentForm').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">+ Nuevo agente</button>
 </div>
 
 <?php if (empty($agents)): ?>
@@ -283,13 +283,13 @@ $autopilotOn = !empty($tenant['ai_force_all']);
         <summary class="cursor-pointer list-none">
             <div class="flex items-start justify-between gap-3">
                 <div class="flex items-start gap-3 min-w-0">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background: linear-gradient(135deg,rgba(124,58,237,.2),rgba(6,182,212,.2));">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background: linear-gradient(135deg,rgba(16,185,129,.2),rgba(6,182,212,.2));">
                         <?= e($emoji) ?>
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-bold dark:text-white text-slate-900"><?= e($a['name']) ?></span>
-                            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/15 text-violet-300 uppercase tracking-wider"><?= e($catLabel) ?></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 uppercase tracking-wider"><?= e($catLabel) ?></span>
                             <?php if (!empty($a['is_default'])): ?><span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300">Principal</span><?php endif; ?>
                             <?php if (!empty($a['auto_reply_enabled'])): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">● Auto</span>
@@ -435,7 +435,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                     <input type="hidden" name="_method" value="DELETE">
                     <button class="px-3 py-1.5 rounded-lg text-xs text-red-500 hover:bg-red-500/10">Eliminar</button>
                 </form>
-                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar cambios</button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar cambios</button>
             </div>
         </form>
     </details>
@@ -499,7 +499,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
             Agente principal (recibe todo lo no enrutado)
         </label>
     </div>
-    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Crear agente</button>
+    <button type="submit" class="mt-4 px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Crear agente</button>
 </form>
 
 <!-- Base de conocimiento listado -->

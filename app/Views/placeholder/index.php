@@ -10,14 +10,14 @@
 </div>
 
 <div class="glass rounded-2xl p-12 text-center">
-    <div class="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center mb-6 text-5xl" style="background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(6,182,212,.2))">
+    <div class="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center mb-6 text-5xl" style="background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(6,182,212,.2))">
         🚧
     </div>
     <h2 class="text-2xl font-bold dark:text-white text-slate-900 mb-2">Modulo en construccion</h2>
     <p class="dark:text-slate-400 text-slate-600 max-w-md mx-auto mb-6">
         Esta seccion ya tiene su esquema de base de datos, controladores y servicios listos. La interfaz se habilita en la siguiente iteracion.
     </p>
-    <a href="<?= url('/dashboard') ?>" class="inline-block px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">
+    <a href="<?= url('/dashboard') ?>" class="inline-block px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">
         Volver al Dashboard
     </a>
 </div>

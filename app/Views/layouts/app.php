@@ -94,33 +94,139 @@ $navSections = [
 
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
+
+        /* Sidebar oscuro permanente tipo respond.io */
         .sidebar-shell {
-            background: var(--color-bg-surface);
-            border-right: 1px solid var(--color-border-subtle);
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            color: var(--sidebar-text);
+            position: relative;
         }
-        .dark .sidebar-shell { background: #0A0F25; }
+        .sidebar-shell::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 35%),
+                radial-gradient(at 100% 100%, rgba(79, 70, 229, 0.07) 0px, transparent 30%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sidebar-shell > * { position: relative; z-index: 1; }
+
         .topbar-shell {
             background: var(--color-bg-surface);
             border-bottom: 1px solid var(--color-border-subtle);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
         }
-        .dark .topbar-shell { background: rgba(10, 15, 37, 0.85); backdrop-filter: blur(16px); }
+        .dark .topbar-shell { background: rgba(11, 18, 32, 0.85); }
 
-        /* Trigger pill at sidebar/topbar */
+        /* Search trigger en sidebar oscuro */
         .search-trigger {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
+            padding: 0.55rem 0.75rem;
             font-size: 0.8125rem;
-            background: var(--color-bg-subtle);
-            border: 1px solid var(--color-border-subtle);
-            border-radius: 0.5rem;
-            color: var(--color-text-tertiary);
-            transition: all .15s;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0.55rem;
+            color: var(--sidebar-text-muted);
+            transition: all .16s;
             width: 100%;
             cursor: pointer;
         }
-        .search-trigger:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+        .search-trigger:hover {
+            background: rgba(255,255,255,0.07);
+            color: var(--sidebar-text-active);
+            border-color: rgba(255,255,255,0.14);
+        }
+        .search-trigger .kbd {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.12);
+            color: var(--sidebar-text-muted);
+            box-shadow: none;
+        }
+
+        /* Search trigger en topbar (light/dark variantes) */
+        .search-trigger-top {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.8125rem;
+            background: var(--color-bg-subtle);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 0.55rem;
+            color: var(--color-text-tertiary);
+            transition: all .16s;
+            width: 100%;
+            cursor: pointer;
+        }
+        .search-trigger-top:hover {
+            background: var(--color-bg-hover);
+            color: var(--color-text-primary);
+            border-color: var(--color-border-default);
+        }
+
+        /* Brand container */
+        .brand-mark {
+            width: 36px; height: 36px;
+            border-radius: 11px;
+            background: var(--gradient-primary);
+            box-shadow: 0 8px 22px rgba(16, 185, 129, 0.40), inset 0 1px 0 rgba(255,255,255,0.18);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .topbar-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: 0.55rem;
+            color: var(--color-text-secondary);
+            transition: all .15s;
+        }
+        .topbar-icon-btn:hover {
+            background: var(--color-bg-subtle);
+            color: var(--color-text-primary);
+        }
+
+        /* User pill */
+        .user-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.3rem 0.55rem 0.3rem 0.3rem;
+            border-radius: 999px;
+            background: var(--color-bg-subtle);
+            border: 1px solid var(--color-border-subtle);
+            transition: all .15s;
+        }
+        .user-pill:hover {
+            background: var(--color-bg-hover);
+            border-color: var(--color-border-default);
+        }
+
+        /* Trial banner glow */
+        .trial-card {
+            position: relative;
+            border-radius: 14px;
+            padding: 0.85rem 0.95rem;
+            background: linear-gradient(135deg, rgba(16,185,129,0.16), rgba(79,70,229,0.10));
+            border: 1px solid rgba(16,185,129,0.30);
+            overflow: hidden;
+        }
+        .trial-card::after {
+            content: '';
+            position: absolute;
+            inset: -40%;
+            background: radial-gradient(circle at top right, rgba(16,185,129,0.30), transparent 60%);
+            pointer-events: none;
+        }
+        .trial-card > * { position: relative; }
     </style>
 </head>
 <body class="min-h-screen" style="background: var(--color-bg-base); color: var(--color-text-primary);">
@@ -134,18 +240,18 @@ $navSections = [
     ]" class="sidebar-shell fixed lg:sticky top-0 left-0 h-screen w-[260px] z-40 transition-all duration-300 flex flex-col">
 
         <!-- Brand -->
-        <div class="h-16 flex items-center justify-between gap-2 px-4 border-b" style="border-color: var(--color-border-subtle);">
+        <div class="h-16 flex items-center justify-between gap-2 px-4 border-b" style="border-color: var(--sidebar-border);">
             <a href="<?= url('/dashboard') ?>" class="flex items-center gap-2.5 min-w-0">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md" style="background: var(--gradient-primary); box-shadow: 0 4px 14px rgba(124,58,237,.3);">
+                <div class="brand-mark">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <div x-show="!sidebarCollapsed" class="min-w-0" x-cloak>
-                    <div class="font-bold text-[14px] leading-tight" style="color: var(--color-text-primary);">Kyros<span class="gradient-text">Pulse</span></div>
-                    <div class="text-[10px] leading-tight truncate mt-0.5" style="color: var(--color-text-tertiary);"><?= e($tenant['name'] ?? 'Tu empresa') ?></div>
+                    <div class="font-bold text-[14px] leading-tight" style="color:#FFFFFF; letter-spacing:-0.01em;">Kyros<span class="gradient-text">Pulse</span></div>
+                    <div class="text-[10px] leading-tight truncate mt-0.5" style="color: var(--sidebar-text-muted);"><?= e($tenant['name'] ?? 'Tu empresa') ?></div>
                 </div>
             </a>
             <button @click="sidebarCollapsed = !sidebarCollapsed" x-show="!sidebarCollapsed" x-cloak
-                    class="hidden lg:inline-flex w-7 h-7 rounded-md items-center justify-center flex-shrink-0 transition hover:bg-[color:var(--color-bg-hover)]" style="color: var(--color-text-tertiary);" title="Colapsar">
+                    class="hidden lg:inline-flex w-7 h-7 rounded-md items-center justify-center flex-shrink-0 transition" style="color: var(--sidebar-text-muted); background: transparent;" onmouseover="this.style.background='rgba(255,255,255,.07)';this.style.color='#FFF'" onmouseout="this.style.background='transparent';this.style.color='var(--sidebar-text-muted)'" title="Colapsar">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
             </button>
         </div>
@@ -160,7 +266,7 @@ $navSections = [
         </div>
         <!-- Collapsed state: just expand button -->
         <div class="px-3 pt-3" x-show="sidebarCollapsed" x-cloak>
-            <button @click="sidebarCollapsed = false" class="w-full h-10 flex items-center justify-center rounded-md transition hover:bg-[color:var(--color-bg-hover)]" style="color: var(--color-text-tertiary);" title="Expandir">
+            <button @click="sidebarCollapsed = false" class="w-full h-10 flex items-center justify-center rounded-md transition" style="color: var(--sidebar-text-muted); background: rgba(255,255,255,0.04);" onmouseover="this.style.background='rgba(255,255,255,.08)';this.style.color='#FFF'" onmouseout="this.style.background='rgba(255,255,255,0.04)';this.style.color='var(--sidebar-text-muted)'" title="Expandir">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
             </button>
         </div>
@@ -185,22 +291,36 @@ $navSections = [
             $daysLeft = max(0, (int) floor((strtotime($tenant['trial_ends_at']) - time()) / 86400));
         ?>
         <div class="p-3" x-show="!sidebarCollapsed" x-cloak>
-            <div class="rounded-xl p-3 relative overflow-hidden" style="background: linear-gradient(135deg, rgba(124,58,237,.1), rgba(6,182,212,.1)); border: 1px solid rgba(124,58,237,.2);">
+            <div class="trial-card">
                 <div class="flex items-center gap-2 mb-1.5">
-                    <span class="text-sm">🎁</span>
-                    <span class="text-xs font-semibold" style="color: var(--color-text-primary);">Periodo de prueba</span>
+                    <span class="w-6 h-6 rounded-md flex items-center justify-center" style="background: rgba(16,185,129,0.20);">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="#34D399" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </span>
+                    <span class="text-xs font-semibold" style="color: #FFFFFF;">Periodo de prueba</span>
                 </div>
                 <div class="flex items-baseline justify-between mb-2">
-                    <span class="text-[10px]" style="color: var(--color-text-tertiary);">Te quedan</span>
-                    <span class="text-base font-bold gradient-text"><?= $daysLeft ?> dias</span>
+                    <span class="text-[10px]" style="color: var(--sidebar-text-muted);">Te quedan</span>
+                    <span class="text-base font-bold" style="color: #34D399;"><?= $daysLeft ?> dias</span>
                 </div>
-                <div class="h-1 rounded-full overflow-hidden mb-2" style="background: var(--color-bg-hover);">
-                    <div class="h-full rounded-full" style="width: <?= max(5, min(100, $daysLeft * 100 / 14)) ?>%; background: var(--gradient-primary);"></div>
+                <div class="h-1 rounded-full overflow-hidden mb-2" style="background: rgba(255,255,255,0.08);">
+                    <div class="h-full rounded-full" style="width: <?= max(5, min(100, $daysLeft * 100 / 14)) ?>%; background: linear-gradient(90deg, #34D399, #10B981);"></div>
                 </div>
-                <a href="<?= url('/settings') ?>" class="block text-[11px] font-semibold hover:underline" style="color: var(--color-primary);">Actualizar plan →</a>
+                <a href="<?= url('/settings') ?>" class="block text-[11px] font-semibold hover:underline" style="color: #6EE7B7;">Actualizar plan →</a>
             </div>
         </div>
         <?php endif; ?>
+
+        <!-- Footer del sidebar: usuario rapido -->
+        <div class="mt-auto px-3 pb-3 pt-2" x-show="!sidebarCollapsed" x-cloak>
+            <div class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);">
+                <div class="avatar avatar-sm"><?= e(\App\Models\User::initials($user)) ?></div>
+                <div class="min-w-0 flex-1">
+                    <div class="text-[11.5px] font-semibold truncate" style="color: #FFFFFF;"><?= e(\App\Models\User::fullName($user)) ?></div>
+                    <div class="text-[10px] truncate" style="color: var(--sidebar-text-muted);"><?= e(mb_substr((string) ($user['email'] ?? ''), 0, 26)) ?></div>
+                </div>
+                <span class="status-dot status-online flex-shrink-0"></span>
+            </div>
+        </div>
     </aside>
 
     <!-- Backdrop mobile -->
@@ -212,30 +332,30 @@ $navSections = [
         <!-- TOPBAR -->
         <header class="topbar-shell sticky top-0 z-30">
             <div class="flex items-center justify-between gap-3 px-4 lg:px-6 h-16">
-                <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 -ml-2 rounded-lg" style="color: var(--color-text-secondary);">
+                <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden topbar-icon-btn -ml-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
 
-                <button type="button" @click="cmdOpen = true" class="search-trigger flex-1 max-w-md hidden md:flex">
+                <button type="button" @click="cmdOpen = true" class="search-trigger-top flex-1 max-w-md hidden md:flex">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     <span class="flex-1 text-left">Buscar contactos, conversaciones...</span>
                     <span class="kbd">⌘K</span>
                 </button>
 
-                <div class="flex items-center gap-1.5 ml-auto">
-                    <button @click="darkMode = !darkMode" class="btn btn-ghost btn-icon" :title="darkMode ? 'Modo claro' : 'Modo oscuro'">
+                <div class="flex items-center gap-1 ml-auto">
+                    <button @click="darkMode = !darkMode" class="topbar-icon-btn" :title="darkMode ? 'Modo claro' : 'Modo oscuro'">
                         <svg x-show="darkMode" class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <svg x-show="!darkMode" class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
 
-                    <button class="btn btn-ghost btn-icon hidden sm:flex" title="Ayuda">
+                    <button class="topbar-icon-btn hidden sm:inline-flex" title="Ayuda">
                         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </button>
 
                     <div class="relative" @click.outside="notifMenu = false">
-                        <button @click="notifMenu = !notifMenu" class="btn btn-ghost btn-icon relative">
+                        <button @click="notifMenu = !notifMenu" class="topbar-icon-btn relative">
                             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+                            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background:#F43F5E; box-shadow: 0 0 0 2px var(--color-bg-surface);"></span>
                         </button>
                         <div x-show="notifMenu" x-transition x-cloak class="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border overflow-hidden z-50" style="background: var(--color-bg-elevated); border-color: var(--color-border-default);">
                             <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border-subtle);">
@@ -249,11 +369,11 @@ $navSections = [
                         </div>
                     </div>
 
-                    <div class="w-px h-6 mx-1" style="background: var(--color-border-subtle);"></div>
+                    <div class="w-px h-6 mx-2" style="background: var(--color-border-subtle);"></div>
 
                     <div class="relative" @click.outside="userMenu = false">
-                        <button @click="userMenu = !userMenu" class="flex items-center gap-2 p-1 pr-2 rounded-lg transition" style="background: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle);">
-                            <div class="avatar avatar-md"><?= e(\App\Models\User::initials($user)) ?></div>
+                        <button @click="userMenu = !userMenu" class="user-pill">
+                            <div class="avatar avatar-sm"><?= e(\App\Models\User::initials($user)) ?></div>
                             <div class="hidden md:block text-left">
                                 <div class="text-[12px] font-semibold leading-tight" style="color: var(--color-text-primary);"><?= e(\App\Models\User::fullName($user)) ?></div>
                                 <div class="text-[10px] leading-tight" style="color: var(--color-text-tertiary);"><?= e(mb_substr((string) ($user['email'] ?? ''), 0, 22)) ?></div>

@@ -7,7 +7,7 @@ $contactName = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '
 <div class="mb-6 flex items-center justify-between gap-3 flex-wrap">
     <div>
         <div class="flex items-center gap-2 mb-1 text-xs">
-            <span class="px-2 py-0.5 rounded-full text-white" style="background:<?= e((string) ($lead['stage_color'] ?? '#7C3AED')) ?>"><?= e((string) ($lead['stage_name'] ?? '')) ?></span>
+            <span class="px-2 py-0.5 rounded-full text-white" style="background:<?= e((string) ($lead['stage_color'] ?? '#10B981')) ?>"><?= e((string) ($lead['stage_name'] ?? '')) ?></span>
             <span class="dark:text-slate-400 text-slate-500">· Probabilidad <?= (int) $lead['probability'] ?>%</span>
         </div>
         <h1 class="text-2xl font-extrabold dark:text-white text-slate-900"><?= e($lead['title']) ?></h1>
@@ -74,7 +74,7 @@ $contactName = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '
                 </div>
             </div>
             <div class="flex justify-end mt-4">
-                <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7C3AED,#06B6D4)">Guardar</button>
+                <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Guardar</button>
             </div>
         </form>
 
@@ -88,7 +88,7 @@ $contactName = trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '
             <div class="mt-3 flex items-center gap-2">
                 <span class="text-xs uppercase tracking-wider dark:text-slate-400 text-slate-500">Score IA</span>
                 <div class="flex-1 h-2 dark:bg-white/5 bg-slate-200 rounded-full overflow-hidden">
-                    <div class="h-full" style="width: <?= (int) $lead['ai_score'] ?>%; background: linear-gradient(90deg,#7C3AED,#06B6D4)"></div>
+                    <div class="h-full" style="width: <?= (int) $lead['ai_score'] ?>%; background: linear-gradient(90deg,#10B981,#06B6D4)"></div>
                 </div>
                 <span class="font-bold dark:text-white text-slate-900"><?= (int) $lead['ai_score'] ?>/100</span>
             </div>

@@ -90,7 +90,7 @@ window.toggleInfo = function() {
 window.toggleFullChat = function() {
     document.body.classList.toggle('full-chat');
     const btn = document.getElementById('fullChatBtn');
-    if (btn) btn.classList.toggle('text-violet-400');
+    if (btn) btn.classList.toggle('text-emerald-400');
 };
 // Restaurar estado al cargar
 if (localStorage.getItem('kp_collapse_inbox') === '1') document.body.classList.add('collapse-inbox');
@@ -144,7 +144,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                     $url = url('/inbox') . ($key !== '' ? '?status=' . urlencode($key) : '');
                 ?>
                 <a href="<?= e($url) ?>" class="px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition <?= $current ? 'font-semibold' : '' ?>"
-                   style="<?= $current ? 'background: var(--color-bg-active); color: var(--color-text-primary); border: 1px solid rgba(124,58,237,0.2);' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">
+                   style="<?= $current ? 'background: var(--color-bg-active); color: var(--color-text-primary); border: 1px solid rgba(16,185,129,0.2);' : 'background: var(--color-bg-subtle); color: var(--color-text-tertiary);' ?>">
                     <?= $label ?>
                 </a>
                 <?php endforeach; ?>
@@ -204,12 +204,12 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                             <?= match($c['channel']) { 'whatsapp' => 'WA', 'email' => 'EMAIL', 'instagram' => 'IG', 'facebook' => 'FB', default => strtoupper((string) $c['channel']) } ?>
                         </span>
                         <?php if (!empty($c['channel_label'])): ?>
-                        <span class="text-[8px] font-semibold uppercase tracking-wider px-1.5 rounded" style="background: <?= e((string) ($c['channel_color'] ?? '#7C3AED')) ?>22; color: <?= e((string) ($c['channel_color'] ?? '#7C3AED')) ?>;" title="<?= e((string) ($c['channel_phone'] ?? '')) ?>">
+                        <span class="text-[8px] font-semibold uppercase tracking-wider px-1.5 rounded" style="background: <?= e((string) ($c['channel_color'] ?? '#10B981')) ?>22; color: <?= e((string) ($c['channel_color'] ?? '#10B981')) ?>;" title="<?= e((string) ($c['channel_phone'] ?? '')) ?>">
                             <?= e(mb_strimwidth((string) $c['channel_label'], 0, 12, '..')) ?>
                         </span>
                         <?php endif; ?>
                         <?php if ($hasAi): ?>
-                        <span class="text-[8px] font-semibold uppercase tracking-wider px-1.5 rounded inline-flex items-center gap-0.5" style="background: rgba(124,58,237,.15); color:#A78BFA;" title="IA asignada">🤖 IA</span>
+                        <span class="text-[8px] font-semibold uppercase tracking-wider px-1.5 rounded inline-flex items-center gap-0.5" style="background: rgba(16,185,129,.15); color:#818CF8;" title="IA asignada">🤖 IA</span>
                         <?php endif; ?>
                         <?php if (!empty($c['is_starred'])): ?><span class="text-amber-400 text-[10px]">★</span><?php endif; ?>
                         <?php if (!empty($c['ai_sentiment'])):
@@ -237,7 +237,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
             <div class="text-center max-w-md">
                 <div class="w-28 h-28 mx-auto rounded-3xl flex items-center justify-center mb-5 text-5xl relative" style="background: var(--gradient-mesh); border: 1px solid var(--color-border-subtle);">
                     <span class="relative z-10">💬</span>
-                    <div class="absolute inset-0 rounded-3xl opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,0.4), transparent 70%); filter: blur(20px);"></div>
+                    <div class="absolute inset-0 rounded-3xl opacity-30" style="background: radial-gradient(circle, rgba(16,185,129,0.4), transparent 70%); filter: blur(20px);"></div>
                 </div>
                 <h3 class="text-lg font-bold mb-2" style="color: var(--color-text-primary);">Selecciona una conversación</h3>
                 <p class="text-sm" style="color: var(--color-text-tertiary);">Elige una conversación de la lista para ver los mensajes.</p>
@@ -275,8 +275,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                         <span class="subhead-item font-mono"><?= e((string) ($active['phone'] ?? $active['email'] ?? '')) ?></span>
                         <span class="subhead-item capitalize"><?= e($active['status']) ?></span>
                         <?php if (!empty($active['channel_label'])): ?>
-                        <span class="subhead-item font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;">
-                            <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;"></span>
+                        <span class="subhead-item font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#10B981')) ?>;">
+                            <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#10B981')) ?>;"></span>
                             <?= e((string) $active['channel_label']) ?>
                         </span>
                         <?php endif; ?>
@@ -295,7 +295,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                 ?>
                 <!-- AI Agent assignment -->
                 <details class="relative">
-                    <summary class="btn btn-ghost btn-sm cursor-pointer list-none flex items-center gap-1.5" style="<?= $aiActive ? 'background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.15)); color: #A78BFA;' : '' ?>" title="Agente IA">
+                    <summary class="btn btn-ghost btn-sm cursor-pointer list-none flex items-center gap-1.5" style="<?= $aiActive ? 'background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15)); color: #818CF8;' : '' ?>" title="Agente IA">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                         <span class="hidden lg:inline text-xs"><?= $currentAi ? 'IA: ' . e(mb_strimwidth($currentAi['name'], 0, 14, '...')) : 'Asignar IA' ?></span>
                     </summary>
@@ -326,7 +326,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                             </button>
                             <?php foreach ($aiAgents as $aa): ?>
                             <button type="button" onclick="assignAi(<?= (int) $aa['id'] ?>)" class="dropdown-item w-full <?= (int) ($active['ai_agent_id'] ?? 0) === (int) $aa['id'] ? 'font-semibold' : '' ?>">
-                                <span class="w-6 h-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style="background: linear-gradient(135deg,#7C3AED,#06B6D4); color:white;">🤖</span>
+                                <span class="w-6 h-6 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style="background: linear-gradient(135deg,#10B981,#06B6D4); color:white;">🤖</span>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm truncate"><?= e($aa['name']) ?></div>
                                     <div class="text-[10px] truncate" style="color: var(--color-text-tertiary);"><?= e((string) ($aa['role'] ?? 'Sin rol definido')) ?></div>
@@ -414,7 +414,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
             $convLabels[] = ['⭐ Hot lead', '#FBBF24', 'rgba(251,191,36,.12)'];
         }
         if (!empty($active['lifecycle_stage']) && in_array($active['lifecycle_stage'], ['customer', 'vip'], true)) {
-            $convLabels[] = ['💎 ' . ucfirst($active['lifecycle_stage']), '#A78BFA', 'rgba(124,58,237,.12)'];
+            $convLabels[] = ['💎 ' . ucfirst($active['lifecycle_stage']), '#818CF8', 'rgba(16,185,129,.12)'];
         }
         if ($msgCountIn > 20) {
             $convLabels[] = ['💬 Conversación larga', '#06B6D4', 'rgba(6,182,212,.12)'];
@@ -437,11 +437,11 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
 
         <!-- ===== Barra de IA avanzada ===== -->
         <?php if (!empty($active['ai_agent_id']) || !empty($active['ai_takeover'])): ?>
-        <div id="aiBanner" class="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 text-xs" style="background: linear-gradient(135deg, rgba(124,58,237,.10), rgba(6,182,212,.10)); border-color: rgba(124,58,237,.35); color: #C4B5FD;">
+        <div id="aiBanner" class="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl border flex items-center justify-between flex-wrap gap-2 text-xs" style="background: linear-gradient(135deg, rgba(16,185,129,.10), rgba(6,182,212,.10)); border-color: rgba(16,185,129,.35); color: #A5B4FC;">
             <div class="flex items-center gap-2">
                 <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background:#A78BFA;"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2" style="background:#A78BFA;"></span>
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style="background:#818CF8;"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2" style="background:#818CF8;"></span>
                 </span>
                 <span><strong><?= !empty($active['ai_takeover']) ? 'Auto-pilot activo' : 'Agente IA asignado' ?>:</strong> <?= e($currentAi['name'] ?? 'agente principal') ?></span>
             </div>
@@ -457,7 +457,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
         <?php endif; ?>
 
         <!-- ===== Drag-and-drop overlay ===== -->
-        <div id="dropOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none" style="background: rgba(124,58,237,.08); backdrop-filter: blur(8px); border: 3px dashed rgba(124,58,237,.6); margin: 60px;">
+        <div id="dropOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none" style="background: rgba(16,185,129,.08); backdrop-filter: blur(8px); border: 3px dashed rgba(16,185,129,.6); margin: 60px;">
             <div class="text-center pointer-events-none">
                 <div class="text-5xl mb-3">📎</div>
                 <div class="text-lg font-bold" style="color: var(--color-primary);">Suelta aquí para adjuntar</div>
@@ -499,7 +499,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                     </div>
                     <?php else: ?>
                     <div class="msg-bubble px-4 py-2.5 <?= $isOut ? 'rounded-2xl rounded-br-sm text-white' : 'rounded-2xl rounded-bl-sm' ?>"
-                         style="<?= $isOut ? 'background: var(--gradient-primary); box-shadow: 0 2px 8px rgba(124,58,237,.25);' : 'background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); color: var(--color-text-primary); box-shadow: var(--shadow-xs);' ?>">
+                         style="<?= $isOut ? 'background: var(--gradient-primary); box-shadow: 0 2px 8px rgba(16,185,129,.25);' : 'background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); color: var(--color-text-primary); box-shadow: var(--shadow-xs);' ?>">
                         <?php if ($aiGen): ?>
                         <div class="text-[10px] opacity-80 mb-1 flex items-center gap-1">
                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
@@ -596,8 +596,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
         </button>
 
         <!-- AI Panel -->
-        <div id="aiPanel" class="hidden mx-4 mb-2 p-3 rounded-xl border relative overflow-hidden" style="background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.08)); border-color: rgba(124,58,237,.3);">
-            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(124,58,237,0.5), transparent 70%); filter: blur(20px);"></div>
+        <div id="aiPanel" class="hidden mx-4 mb-2 p-3 rounded-xl border relative overflow-hidden" style="background: linear-gradient(135deg, rgba(16,185,129,.08), rgba(6,182,212,.08)); border-color: rgba(16,185,129,.3);">
+            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-30" style="background: radial-gradient(circle, rgba(16,185,129,0.5), transparent 70%); filter: blur(20px);"></div>
             <div class="flex items-start gap-3 relative">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--gradient-primary);">
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -675,8 +675,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                     <?php elseif ($active['channel_id'] && !empty($active['channel_label'])): ?>
                     <div class="text-[11px] mb-2 flex items-center gap-1.5" style="color: var(--color-text-tertiary);">
                         <span style="color: var(--color-text-tertiary);">Enviando desde:</span>
-                        <span class="font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;">
-                            <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#7C3AED')) ?>;"></span>
+                        <span class="font-semibold flex items-center gap-1" style="color: <?= e((string) ($active['channel_color'] ?? '#10B981')) ?>;">
+                            <span class="w-1.5 h-1.5 rounded-full" style="background: <?= e((string) ($active['channel_color'] ?? '#10B981')) ?>;"></span>
                             <?= e((string) $active['channel_label']) ?>
                             <span class="font-mono opacity-70">(<?= e((string) ($active['channel_phone'] ?? '')) ?>)</span>
                         </span>
@@ -943,7 +943,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                     if (preg_match('/\b(comprar|precio|cuesta|orden|pedido|delivery|cuenta|factura|pagar)\b/u', $lastClientMsg)) { $intent = 'Compra'; $intentColor = '#10B981'; $intentEmoji = '💰'; }
                     elseif (preg_match('/\b(ayuda|problema|error|reclamo|queja|no funciona|no me llega)\b/u', $lastClientMsg)) { $intent = 'Soporte'; $intentColor = '#F59E0B'; $intentEmoji = '🛟'; }
                     elseif (preg_match('/\b(info|información|saber|consulta|duda|cómo|que es|que son)\b/u', $lastClientMsg)) { $intent = 'Información'; $intentColor = '#06B6D4'; $intentEmoji = 'ℹ'; }
-                    elseif (preg_match('/\b(hola|buenas|saludos|buen día|buenos días)\b/u', $lastClientMsg)) { $intent = 'Saludo'; $intentColor = '#A78BFA'; $intentEmoji = '👋'; }
+                    elseif (preg_match('/\b(hola|buenas|saludos|buen día|buenos días)\b/u', $lastClientMsg)) { $intent = 'Saludo'; $intentColor = '#818CF8'; $intentEmoji = '👋'; }
                 }
                 $urgency = 'Normal'; $urgColor = '#94A3B8';
                 if (preg_match('/\b(urgente|ya|inmediato|rápido|ahora|emergencia)\b/u', $lastClientMsg)) { $urgency = 'Alta'; $urgColor = '#F87171'; }
@@ -951,7 +951,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                 if (preg_match('/\b(hello|please|thanks|how|what|when)\b/i', $lastClientMsg)) { $lang = 'EN'; }
                 ?>
                 <!-- AI Insights -->
-                <div class="rounded-xl border p-3 mb-4" style="background: linear-gradient(135deg, rgba(124,58,237,.06), rgba(6,182,212,.06)); border-color: rgba(124,58,237,.25);">
+                <div class="rounded-xl border p-3 mb-4" style="background: linear-gradient(135deg, rgba(16,185,129,.06), rgba(6,182,212,.06)); border-color: rgba(16,185,129,.25);">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-1.5">
                             <span class="text-base">🧠</span>
@@ -1001,7 +1001,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                 </dl>
 
                 <?php if (!empty($active['ai_summary'])): ?>
-                <div class="rounded-xl border p-3 mb-3" style="background: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(6,182,212,0.04)); border-color: rgba(124,58,237,0.2);">
+                <div class="rounded-xl border p-3 mb-3" style="background: linear-gradient(135deg, rgba(16,185,129,0.04), rgba(6,182,212,0.04)); border-color: rgba(16,185,129,0.2);">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style="color: var(--color-primary);"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2 1 1 0 100 2H5v11h10V5h-1a1 1 0 100-2 2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"/></svg>
                         <span class="text-[10px] uppercase font-semibold tracking-wider" style="color: var(--color-primary);">Resumen IA</span>
@@ -1086,7 +1086,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                         $isIn = $ev['direction'] === 'inbound';
                         $isInt = !empty($ev['is_internal']);
                         $isAI = !empty($ev['is_ai_generated']);
-                        $color = $isInt ? '#FBBF24' : ($isAI ? '#A78BFA' : ($isIn ? '#06B6D4' : '#10B981'));
+                        $color = $isInt ? '#FBBF24' : ($isAI ? '#818CF8' : ($isIn ? '#06B6D4' : '#10B981'));
                         $icon  = $isInt ? '📝' : ($isAI ? '🤖' : ($isIn ? '⬇' : '⬆'));
                         $title = $isInt ? 'Nota interna' : ($isAI ? 'Respuesta IA' : ($isIn ? 'Recibido' : 'Enviado'));
                     ?>
@@ -1139,7 +1139,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     border-radius: 8px; transition: background .15s ease, color .15s ease;
     color: var(--color-text-tertiary); background: transparent; border: none; cursor: pointer;
 }
-.composer-icon-btn:hover { background: rgba(124,58,237,.10); color: var(--color-primary); }
+.composer-icon-btn:hover { background: rgba(16,185,129,.10); color: var(--color-primary); }
 .composer-icon-btn.recording { background: rgba(239,68,68,.15); color: #FB7185; animation: pulseRec 1.4s ease-in-out infinite; }
 @keyframes pulseRec { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
 
@@ -1148,16 +1148,16 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     display: flex; align-items: center; justify-content: center;
     border-radius: 12px; color: white;
     background: var(--gradient-primary);
-    box-shadow: 0 4px 14px rgba(124,58,237,.3);
+    box-shadow: 0 4px 14px rgba(16,185,129,.3);
     transition: transform .15s ease, box-shadow .15s ease;
     border: none; cursor: pointer;
 }
-.composer-send:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(124,58,237,.4); }
+.composer-send:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,185,129,.4); }
 .composer-send:active { transform: translateY(0); }
 
 .composer-shell:focus-within {
-    border-color: rgba(124,58,237,.5);
-    box-shadow: 0 0 0 3px rgba(124,58,237,.1);
+    border-color: rgba(16,185,129,.5);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.1);
 }
 
 /* ============================================================== */
@@ -1169,13 +1169,13 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     position: relative;
     border-radius: 14px;
     padding: 1px;
-    background: linear-gradient(135deg, rgba(124,58,237,.4), rgba(6,182,212,.35), rgba(16,185,129,.25));
+    background: linear-gradient(135deg, rgba(16,185,129,.4), rgba(6,182,212,.35), rgba(16,185,129,.25));
     background-size: 200% 200%;
     animation: aiGradient 8s ease infinite;
 }
 .ai-bar-glow {
     position: absolute; inset: 0;
-    background: linear-gradient(135deg, rgba(124,58,237,.5), rgba(6,182,212,.4));
+    background: linear-gradient(135deg, rgba(16,185,129,.5), rgba(6,182,212,.4));
     border-radius: 14px;
     filter: blur(16px);
     opacity: .25;
@@ -1195,11 +1195,11 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     padding: 2px 8px;
     font-size: 9px; font-weight: 800; letter-spacing: .12em;
     text-transform: uppercase;
-    background: linear-gradient(135deg, #A78BFA, #06B6D4);
+    background: linear-gradient(135deg, #818CF8, #06B6D4);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     flex-shrink: 0;
 }
-.ai-bar-label svg { color: #A78BFA; -webkit-text-fill-color: currentColor; }
+.ai-bar-label svg { color: #818CF8; -webkit-text-fill-color: currentColor; }
 
 .ai-pill {
     display: inline-flex; align-items: center; gap: 4px;
@@ -1214,15 +1214,15 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     white-space: nowrap;
 }
 .ai-pill:hover {
-    background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(6,182,212,.12));
-    border-color: rgba(124,58,237,.3);
+    background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.12));
+    border-color: rgba(16,185,129,.3);
     color: var(--color-text-primary);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(124,58,237,.18);
+    box-shadow: 0 4px 12px rgba(16,185,129,.18);
 }
 .ai-pill:active { transform: translateY(0); }
 .ai-pill.processing {
-    background: linear-gradient(135deg, rgba(124,58,237,.25), rgba(6,182,212,.20));
+    background: linear-gradient(135deg, rgba(16,185,129,.25), rgba(6,182,212,.20));
     color: var(--color-text-primary);
     pointer-events: none;
 }
@@ -1250,8 +1250,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     padding: 2px 8px;
     font-size: 10px; font-weight: 700;
     border-radius: 999px;
-    background: rgba(124,58,237,.10);
-    color: #A78BFA;
+    background: rgba(16,185,129,.10);
+    color: #818CF8;
 }
 
 /* Composer Shell PREMIUM (glass) */
@@ -1273,7 +1273,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     position: absolute; inset: -1px;
     border-radius: 18px;
     padding: 1px;
-    background: linear-gradient(135deg, rgba(124,58,237,.5), rgba(6,182,212,.5), rgba(16,185,129,.4));
+    background: linear-gradient(135deg, rgba(16,185,129,.5), rgba(6,182,212,.5), rgba(16,185,129,.4));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
     opacity: 0;
@@ -1283,12 +1283,12 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
 .composer-shell-premium:focus-within::before { opacity: 1; }
 .composer-shell-premium:focus-within {
     box-shadow:
-        0 0 0 4px rgba(124,58,237,.08),
-        0 8px 24px rgba(124,58,237,.12);
+        0 0 0 4px rgba(16,185,129,.08),
+        0 8px 24px rgba(16,185,129,.12);
 }
 .composer-glow {
     position: absolute; inset: -8px;
-    background: radial-gradient(circle at 50% 100%, rgba(124,58,237,.18), transparent 70%);
+    background: radial-gradient(circle at 50% 100%, rgba(16,185,129,.18), transparent 70%);
     border-radius: 24px;
     z-index: -1;
     pointer-events: none;
@@ -1312,7 +1312,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     transition: all .15s ease;
 }
 .composer-icon-btn-pro:hover {
-    background: rgba(124,58,237,.10);
+    background: rgba(16,185,129,.10);
     color: var(--color-primary);
     transform: scale(1.05);
 }
@@ -1350,14 +1350,14 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     border-radius: 12px;
-    background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(6,182,212,.06));
+    background: linear-gradient(135deg, rgba(16,185,129,.08), rgba(6,182,212,.06));
     backdrop-filter: blur(2px);
     z-index: 5;
     pointer-events: none;
 }
 .ai-overlay-shimmer {
     position: absolute; inset: 0;
-    background: linear-gradient(110deg, transparent 30%, rgba(124,58,237,.18) 50%, transparent 70%);
+    background: linear-gradient(110deg, transparent 30%, rgba(16,185,129,.18) 50%, transparent 70%);
     background-size: 250% 100%;
     animation: shimmer 1.5s linear infinite;
     border-radius: 12px;
@@ -1378,12 +1378,12 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
 }
 .dot-pulse {
     width: 8px; height: 8px; border-radius: 50%;
-    background: linear-gradient(135deg, #A78BFA, #06B6D4);
+    background: linear-gradient(135deg, #818CF8, #06B6D4);
     animation: dotPulse 1.4s ease-in-out infinite;
 }
 @keyframes dotPulse {
     0%, 100% { opacity: .4; transform: scale(.85); }
-    50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px rgba(124,58,237,.6); }
+    50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px rgba(16,185,129,.6); }
 }
 
 /* Send button premium */
@@ -1392,12 +1392,12 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     width: 44px; height: 44px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 14px; color: white;
-    background: linear-gradient(135deg, #7C3AED 0%, #6366F1 50%, #06B6D4 100%);
+    background: linear-gradient(135deg, #10B981 0%, #6366F1 50%, #06B6D4 100%);
     background-size: 200% 200%;
     border: none; cursor: pointer;
     transition: all .2s ease;
     box-shadow:
-        0 4px 14px rgba(124,58,237,.35),
+        0 4px 14px rgba(16,185,129,.35),
         0 1px 3px rgba(0,0,0,.2),
         inset 0 1px 0 rgba(255,255,255,.2);
     overflow: hidden;
@@ -1406,7 +1406,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     transform: translateY(-2px) scale(1.03);
     background-position: 100% 100%;
     box-shadow:
-        0 8px 22px rgba(124,58,237,.5),
+        0 8px 22px rgba(16,185,129,.5),
         0 2px 4px rgba(0,0,0,.2),
         inset 0 1px 0 rgba(255,255,255,.25);
 }
@@ -1487,7 +1487,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     color: var(--color-text-secondary); font-size: 12px; font-weight: 500;
     transition: all .15s ease;
 }
-.quick-action-btn:hover { background: var(--color-bg-active); color: var(--color-text-primary); border-color: rgba(124,58,237,.3); }
+.quick-action-btn:hover { background: var(--color-bg-active); color: var(--color-text-primary); border-color: rgba(16,185,129,.3); }
 
 .msg-row.search-hit .msg-bubble {
     box-shadow: 0 0 0 2px rgba(245,158,11,.6) !important;
@@ -1513,8 +1513,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     cursor: pointer; transition: all .15s ease;
 }
 .smart-chip:hover {
-    background: linear-gradient(135deg, rgba(124,58,237,.10), rgba(6,182,212,.10));
-    border-color: rgba(124,58,237,.4);
+    background: linear-gradient(135deg, rgba(16,185,129,.10), rgba(6,182,212,.10));
+    border-color: rgba(16,185,129,.4);
     color: var(--color-text-primary);
     transform: translateY(-1px);
 }
@@ -1528,7 +1528,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     color: var(--color-text-tertiary);
     transition: background .15s ease, color .15s ease;
 }
-.format-btn:hover { background: rgba(124,58,237,.10); color: var(--color-primary); }
+.format-btn:hover { background: rgba(16,185,129,.10); color: var(--color-primary); }
 
 /* ========== Layout responsivo de los 3 paneles ========== */
 @media (min-width: 1024px) {
@@ -1707,7 +1707,7 @@ function detectTone() {
     if (!tag || !msgInput) return;
     const t = msgInput.value.toLowerCase().trim();
     if (!t || t.length < 8) { tag.classList.add('hidden'); return; }
-    let label = '', emoji = '', color = '#A78BFA', bg = 'rgba(124,58,237,.10)';
+    let label = '', emoji = '', color = '#818CF8', bg = 'rgba(16,185,129,.10)';
     if (/[!?]{2,}|urgente|ya|ahora mismo|ahora!|inmediato|emergencia/.test(t)) {
         label = 'Urgente'; emoji = '🚨'; color = '#FB7185'; bg = 'rgba(244,63,94,.12)';
     } else if (/gracias|por favor|estimad|atentamente|cordialmente|saludos cordiales/.test(t)) {
@@ -1877,7 +1877,7 @@ async function loadOrdersTab(container) {
             const tipo = o.delivery_type === 'pickup' ? '🛍 Pickup' : (o.delivery_type === 'dine_in' ? '🍴 Mesa' : '🛵 Delivery');
             const stColor = ({
                 'new':'#94A3B8','confirmed':'#06B6D4','preparing':'#F59E0B',
-                'ready':'#22C55E','out_for_delivery':'#7C3AED','delivered':'#10B981','cancelled':'#EF4444'
+                'ready':'#22C55E','out_for_delivery':'#10B981','delivered':'#10B981','cancelled':'#EF4444'
             })[o.status] || '#94A3B8';
             return `
                 <a href="<?= url('/orders/') ?>${o.id}" class="block rounded-xl p-3 transition" style="background: var(--color-bg-subtle); border:1px solid var(--color-border-subtle);">
@@ -1887,8 +1887,8 @@ async function loadOrdersTab(container) {
                     </div>
                     <div class="text-[10px] mb-2" style="color: var(--color-text-tertiary);">${tipo} · ${(o.created_at || '').slice(0,16).replace('T',' ')}</div>
                     <div class="flex items-center justify-between gap-2">
-                        <span class="font-bold" style="background: linear-gradient(135deg,#7C3AED,#06B6D4); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">${cur} ${t}</span>
-                        ${o.is_ai_generated == 1 ? '<span class="text-[9px] font-bold uppercase tracking-wider px-1.5 rounded" style="background:rgba(124,58,237,.15); color:#A78BFA;">🤖 IA</span>' : ''}
+                        <span class="font-bold" style="background: linear-gradient(135deg,#10B981,#06B6D4); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">${cur} ${t}</span>
+                        ${o.is_ai_generated == 1 ? '<span class="text-[9px] font-bold uppercase tracking-wider px-1.5 rounded" style="background:rgba(16,185,129,.15); color:#818CF8;">🤖 IA</span>' : ''}
                     </div>
                 </a>
             `;
@@ -2048,7 +2048,7 @@ async function aiTransform(mode) {
             detectTone();
             // micro-feedback visual
             msgInput.style.transition = 'background .3s ease';
-            msgInput.style.background = 'rgba(124,58,237,.06)';
+            msgInput.style.background = 'rgba(16,185,129,.06)';
             setTimeout(() => { msgInput.style.background = ''; }, 600);
         } else {
             const aiPanel = document.getElementById('aiPanel');
@@ -2161,7 +2161,7 @@ if (onlyUnreadBtn) {
     onlyUnreadBtn.addEventListener('click', () => {
         onlyUnread = !onlyUnread;
         onlyUnreadBtn.style.color = onlyUnread ? 'var(--color-primary)' : '';
-        onlyUnreadBtn.style.background = onlyUnread ? 'rgba(124,58,237,.10)' : '';
+        onlyUnreadBtn.style.background = onlyUnread ? 'rgba(16,185,129,.10)' : '';
         document.querySelectorAll('.convo-item').forEach(it => {
             it.style.display = (onlyUnread && it.dataset.unread !== '1') ? 'none' : '';
         });
@@ -2269,7 +2269,7 @@ function renderCustomTags() {
     list.forEach((t, i) => {
         const sp = document.createElement('span');
         sp.className = 'custom-tag text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1';
-        sp.style.cssText = 'background: rgba(124,58,237,.12); color:#A78BFA;';
+        sp.style.cssText = 'background: rgba(16,185,129,.12); color:#818CF8;';
         sp.innerHTML = '🏷 ' + t.replace(/</g, '&lt;') + ' <button onclick="removeCustomTag(' + i + ')" style="opacity:.6;cursor:pointer;background:none;border:none;color:inherit;padding:0;line-height:1;">×</button>';
         if (addBtn) container.insertBefore(sp, addBtn);
     });
@@ -2400,7 +2400,7 @@ function showOrderToast(o) {
     const total = parseFloat(o.total).toFixed(2);
     const cur = o.currency || 'DOP';
     const tipo = o.delivery_type === 'pickup' ? '🛍 Pickup' : (o.delivery_type === 'dine_in' ? '🍴 Mesa' : '🛵 Delivery');
-    const aiBadge = o.is_ai_generated == 1 ? '<span style="padding:1px 6px;border-radius:4px;background:rgba(124,58,237,.2);color:#A78BFA;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🤖 IA</span>' : '';
+    const aiBadge = o.is_ai_generated == 1 ? '<span style="padding:1px 6px;border-radius:4px;background:rgba(16,185,129,.2);color:#818CF8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🤖 IA</span>' : '';
 
     const toast = document.createElement('a');
     toast.href = '<?= url('/orders/') ?>' + o.id;
@@ -2410,7 +2410,7 @@ function showOrderToast(o) {
         display: block;
         min-width: 320px;
         max-width: 380px;
-        background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(124,58,237,.12));
+        background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(16,185,129,.12));
         border: 1px solid rgba(16,185,129,.4);
         backdrop-filter: blur(20px);
         border-radius: 16px;
