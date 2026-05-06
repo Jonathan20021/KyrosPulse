@@ -796,7 +796,7 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
 
                         <!-- Textarea + ghost -->
                         <div class="composer-textarea-wrap">
-                            <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje, o pulsa ✨ Mejorar para que la IA lo redacte..." oninput="autoGrow(this); updateCharCount(); detectTone();"></textarea>
+                            <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje..." oninput="autoGrow(this); updateCharCount(); detectTone();"></textarea>
                             <div id="aiOverlay" class="ai-overlay hidden">
                                 <div class="ai-overlay-shimmer"></div>
                                 <div class="ai-overlay-text">
@@ -1133,6 +1133,155 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
 
 <!-- ====== Estilos especificos del chat ====== -->
 <style>
+/* ===========================================================
+   FIXES — chat layout profesional (sobrescriben reglas previas)
+   =========================================================== */
+
+/* La barra `hidden` de Tailwind tiene que ganar */
+.ai-overlay.hidden { display: none !important; }
+
+/* Fondo del area de mensajes: textura sutil, no ruidosa */
+#msgs {
+    background-image: none !important;
+    background:
+        linear-gradient(to bottom, var(--color-bg-base), var(--color-bg-base)),
+        radial-gradient(at 20% 0%, rgba(16,185,129,.04), transparent 40%),
+        radial-gradient(at 80% 100%, rgba(79,70,229,.04), transparent 40%) !important;
+}
+.dark #msgs {
+    background:
+        linear-gradient(to bottom, #060B16, #0A1322) !important;
+}
+
+/* Header del chat: nunca debe wrappear; oculta lo que no quepa */
+.chat-header {
+    flex-wrap: nowrap !important;
+    min-height: 72px;
+    max-height: 72px;
+    background: var(--color-bg-surface) !important;
+}
+.dark .chat-header { background: rgba(255,255,255,0.02) !important; }
+.chat-header > div:first-child { min-width: 0; }
+.chat-header .subhead {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    gap: 0;
+    column-gap: 0;
+}
+.chat-header .subhead-item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 240px;
+    display: inline-flex;
+    align-items: center;
+}
+.chat-header .subhead-item:not(:first-child) {
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid var(--color-border-default);
+}
+.chat-header .subhead .subhead-item:not(:first-child)::before { content: none; }
+
+/* Acciones del header: nunca crecer, separar visualmente */
+.chat-header > div:last-child {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+}
+
+/* Por defecto: ocultar labels secundarios y botones decorativos en el header
+   (se ve igual de profesional con menos cosas) */
+.chat-header > div:last-child .hidden.lg\:inline { display: none !important; }
+.chat-header > div:last-child > button[onclick="aiAction('summarize')"],
+.chat-header > div:last-child > button[title*="Pantalla"] { display: none !important; }
+.chat-header > div:last-child > div[style*="background: var(--color-border-subtle)"] { display: none !important; }
+
+@media (max-width: 1280px) {
+    .chat-header .subhead .subhead-item:nth-child(n+3) { display: none; }
+}
+@media (max-width: 1100px) {
+    .chat-header .subhead .subhead-item:nth-child(n+2) { display: none; }
+    .chat-header > div:last-child > button[title="Importante"] { display: none !important; }
+}
+
+/* Subhead colors ligeros: lastSeen verde, resto neutro elegante */
+.chat-header .subhead {
+    font-size: 11.5px;
+    line-height: 1.3;
+    color: var(--color-text-tertiary);
+}
+.chat-header .subhead .subhead-item.font-mono {
+    font-size: 11px;
+    letter-spacing: 0.01em;
+}
+
+/* Banner auto-pilot: compacto, sin wrap raro */
+#aiBanner {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+#aiBanner > div:first-child {
+    flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#aiBanner > div:last-child {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    gap: 4px;
+}
+#aiBanner button {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    transition: all .15s ease;
+}
+#aiBanner button:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
+}
+#aiBanner button[onclick="aiTakeoverOff()"] {
+    background: rgba(244,63,94,.10) !important;
+    color: #DC2A47 !important;
+    border-color: rgba(244,63,94,.25) !important;
+}
+.dark #aiBanner button[onclick="aiTakeoverOff()"] { color: #FB7185 !important; }
+
+/* Etiqueta verde del header IA - mejor contraste */
+.chat-header details > summary[style*="rgba(16,185,129"] {
+    color: #059669 !important;
+}
+.dark .chat-header details > summary[style*="rgba(16,185,129"] {
+    color: #34D399 !important;
+}
+
+/* Composer: layout limpio en oscuro */
+.composer-shell-premium {
+    background: var(--color-bg-surface) !important;
+    border: 1px solid var(--color-border-default) !important;
+}
+.dark .composer-shell-premium {
+    background: rgba(255,255,255,0.03) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* Burbuja saliente: que no use el gradiente fucsia heredado, solo verde */
+.msg-bubble[style*="gradient-primary"] {
+    background: linear-gradient(135deg, #10B981, #0EA572) !important;
+    box-shadow: 0 4px 14px rgba(16,185,129,.22) !important;
+}
+
 .composer-icon-btn {
     width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center;
