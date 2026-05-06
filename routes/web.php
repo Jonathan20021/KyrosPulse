@@ -91,6 +91,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     // Inbox
     $r->get   ('/inbox',                    [InboxController::class, 'index']);
     $r->get   ('/inbox/live',               [InboxController::class, 'live']);
+    $r->get   ('/inbox/notifications',      [InboxController::class, 'notifications']);
     $r->get   ('/inbox/{id}/messages',      [InboxController::class, 'messages']);
     $r->get   ('/inbox/{id}',               [InboxController::class, 'index']);
     $r->post  ('/inbox/{id}/send',          [InboxController::class, 'send']);

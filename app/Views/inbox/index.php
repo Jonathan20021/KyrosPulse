@@ -1282,6 +1282,214 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
     box-shadow: 0 4px 14px rgba(16,185,129,.22) !important;
 }
 
+/* ===========================================================
+   COMPACTACION — reducir escalas para que respire
+   =========================================================== */
+
+/* --- Header del chat: mas bajo y limpio --- */
+.chat-header {
+    min-height: 60px !important;
+    max-height: 60px !important;
+    padding: 8px 14px !important;
+}
+.chat-header .avatar.avatar-lg {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    font-size: 0.78rem !important;
+}
+.chat-header .status-dot {
+    width: 9px !important;
+    height: 9px !important;
+}
+.chat-header h2 { font-size: 13.5px !important; line-height: 1.2 !important; }
+.chat-header .subhead { font-size: 11px !important; line-height: 1.25 !important; margin-top: 2px; }
+.chat-header .badge { padding: 1px 6px !important; font-size: 9px !important; }
+.chat-header .btn,
+.chat-header summary.btn,
+.chat-header > div:last-child > button {
+    padding: 6px !important;
+    min-width: 30px;
+    height: 30px;
+}
+.chat-header .btn svg { width: 16px !important; height: 16px !important; }
+.chat-header > div:last-child { gap: 2px !important; }
+
+/* --- Labels bar (debajo del header): mas compacto --- */
+#labelsBar, [class*="labels"] {
+    padding: 6px 14px !important;
+}
+
+/* --- AI banner: ultra compacto --- */
+#aiBanner {
+    padding: 6px 12px !important;
+    margin: 6px 14px 0 !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+}
+#aiBanner span.relative.flex {
+    width: 7px !important;
+    height: 7px !important;
+}
+#aiBanner button {
+    font-size: 10.5px !important;
+    padding: 3px 8px !important;
+}
+
+/* --- Mensajes: padding y burbujas mas humanas --- */
+#msgs {
+    padding: 14px !important;
+    gap: 4px !important;
+}
+.msg-row { margin-bottom: 2px; }
+.msg-row > div.relative { max-width: 68% !important; }
+@media (min-width: 1400px) {
+    .msg-row > div.relative { max-width: 60% !important; }
+}
+@media (min-width: 1700px) {
+    .msg-row > div.relative { max-width: 52% !important; }
+}
+.msg-bubble {
+    padding: 7px 12px !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    border-radius: 14px !important;
+}
+.msg-bubble.rounded-br-sm,
+.msg-bubble[class*="rounded-br-sm"] { border-bottom-right-radius: 4px !important; }
+.msg-bubble.rounded-bl-sm,
+.msg-bubble[class*="rounded-bl-sm"] { border-bottom-left-radius: 4px !important; }
+
+/* Date separators mas sutiles */
+#msgs > div.flex.justify-center > span {
+    padding: 3px 10px !important;
+    font-size: 9.5px !important;
+}
+
+/* --- Lista de conversaciones: items mas compactos --- */
+.convo-item {
+    padding: 9px 12px !important;
+    gap: 9px !important;
+}
+.convo-item .avatar { width: 2rem !important; height: 2rem !important; font-size: 0.72rem !important; }
+.convo-item .text-sm { font-size: 12.5px !important; line-height: 1.25 !important; }
+.convo-item .text-\[10px\] { font-size: 10.5px !important; }
+
+/* --- Inbox header (lado izquierdo del chat) --- */
+.inbox-pane > div:first-child { padding: 12px 14px !important; }
+.inbox-pane h2 { font-size: 14px !important; }
+
+/* --- Panel info (lado derecho): hero compacto --- */
+.info-pane > div:first-child {
+    padding: 16px 14px !important;
+}
+.info-pane .avatar.avatar-xl {
+    width: 3rem !important;
+    height: 3rem !important;
+    font-size: 0.95rem !important;
+    margin-bottom: 8px !important;
+}
+.info-pane h3.font-bold.text-base { font-size: 14px !important; }
+.info-pane > div:first-child .btn-sm {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+    min-height: 28px;
+}
+.info-pane .grid.grid-cols-3 {
+    margin-top: 12px !important;
+    gap: 6px !important;
+}
+.info-pane .grid.grid-cols-3 > div {
+    padding: 7px 4px !important;
+    border-radius: 8px !important;
+}
+.info-pane .grid.grid-cols-3 .text-base { font-size: 16px !important; line-height: 1.1 !important; }
+.info-pane .grid.grid-cols-3 .text-\[9px\] { font-size: 9px !important; margin-top: 1px; }
+
+/* Tabs del panel info */
+.info-tabs button {
+    padding: 8px 10px !important;
+    font-size: 10.5px !important;
+}
+.info-tabs button svg { width: 12px !important; height: 12px !important; }
+
+/* Contenido del tab info: secciones mas compactas */
+[data-tab-content="info"] { padding: 14px !important; }
+[data-tab-content="info"] .rounded-xl.border.p-3 { padding: 10px !important; border-radius: 10px !important; }
+[data-tab-content="info"] .grid.grid-cols-2 { gap: 6px !important; }
+[data-tab-content="info"] .grid.grid-cols-2 > div { padding: 7px 8px !important; }
+[data-tab-content="info"] dl.space-y-2\.5 > div { gap: 8px !important; }
+[data-tab-content="info"] dl .w-7.h-7 { width: 26px !important; height: 26px !important; }
+[data-tab-content="info"] dl .text-sm { font-size: 12.5px !important; }
+
+/* --- Composer: ligeramente mas bajo --- */
+.composer-shell-premium {
+    padding: 5px !important;
+    border-radius: 14px !important;
+}
+.composer-icon-btn-pro {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+}
+.composer-icon-btn-pro svg { width: 16px !important; height: 16px !important; }
+.composer-textarea-wrap textarea {
+    font-size: 13.5px !important;
+    padding: 6px 4px !important;
+    line-height: 1.5 !important;
+}
+.composer-send-pro {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 11px !important;
+}
+.composer-send-pro svg { width: 15px !important; height: 15px !important; }
+
+/* AI Action bar (Sugerir / Mejorar / Formal / Amigable) */
+form#composer > div[class*="action"] button,
+form#composer > div.flex.items-center.gap-1\.5 button {
+    padding: 5px 9px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+}
+
+/* Format toolbar (B I S {} {{}}) */
+.format-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 11.5px !important;
+}
+
+/* Footer del composer: kbd mas pequenios */
+.composer-footer .kbd { font-size: 9.5px !important; padding: 1px 4px !important; }
+.composer-footer { font-size: 10.5px !important; }
+
+/* Inbox pane: barra superior y filtros compactos */
+.inbox-pane > div:first-child > div:first-child { margin-bottom: 8px !important; }
+.inbox-pane form.relative.mb-3 { margin-bottom: 8px !important; }
+.inbox-pane form.relative .input { padding: 7px 10px 7px 32px !important; font-size: 12.5px !important; }
+.inbox-pane form.relative svg { left: 10px !important; width: 14px !important; height: 14px !important; }
+.inbox-pane .flex.items-center.gap-1\.5.overflow-x-auto a {
+    padding: 4px 9px !important;
+    font-size: 11px !important;
+}
+
+/* Asegurar que el chat-panel central deja respirar a sus hijos */
+.chat-pane,
+section.surface.flex.flex-col {
+    border-radius: 14px !important;
+}
+
+/* Quitar el scan-line shimmer que oscurece */
+.scan-line::before { display: none !important; }
+
+/* Reducir altura del area "Respuestas rapidas" + selector de canal */
+form#composer > div:has(> span.text-emerald-400) {
+    padding: 4px 0 !important;
+    font-size: 11px !important;
+}
+
+/* Trial banner del sidebar: compactarlo si fuera necesario (no aplica al inbox pero por si acaso) */
+
 .composer-icon-btn {
     width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center;

@@ -352,19 +352,46 @@ $navSections = [
                         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </button>
 
-                    <div class="relative" @click.outside="notifMenu = false">
-                        <button @click="notifMenu = !notifMenu" class="topbar-icon-btn relative">
-                            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style="background:#F43F5E; box-shadow: 0 0 0 2px var(--color-bg-surface);"></span>
+                    <div class="relative" x-data="inboxNotifications()" x-init="start()" @click.outside="open = false">
+                        <button @click="open = !open; if (open) markSeen()" class="topbar-icon-btn relative" :title="unread > 0 ? unread + ' mensajes nuevos' : 'Notificaciones'">
+                            <svg class="w-[18px] h-[18px]" :class="ringing ? 'bell-ring' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            <span x-show="unread > 0" x-cloak class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                                  style="background:#F43F5E; box-shadow: 0 0 0 2px var(--color-bg-surface);">
+                                <span x-text="unread > 99 ? '99+' : unread"></span>
+                            </span>
                         </button>
-                        <div x-show="notifMenu" x-transition x-cloak class="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border overflow-hidden z-50" style="background: var(--color-bg-elevated); border-color: var(--color-border-default);">
+                        <div x-show="open" x-transition x-cloak class="absolute right-0 mt-2 w-[360px] rounded-xl shadow-xl border overflow-hidden z-50" style="background: var(--color-bg-elevated); border-color: var(--color-border-default);">
                             <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border-subtle);">
-                                <h3 class="font-semibold text-sm" style="color: var(--color-text-primary);">Notificaciones</h3>
-                                <button class="text-xs hover:underline" style="color: var(--color-text-tertiary);">Marcar leidas</button>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-semibold text-sm" style="color: var(--color-text-primary);">Bandeja</h3>
+                                    <span x-show="unread > 0" x-cloak class="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style="background: rgba(244,63,94,.12); color:#E11D48;">
+                                        <span x-text="unread"></span> nuevos
+                                    </span>
+                                </div>
+                                <a href="<?= url('/inbox') ?>" class="text-xs font-medium" style="color: var(--color-primary);">Ver todo →</a>
                             </div>
-                            <div class="text-center py-12">
-                                <div class="text-4xl mb-2 opacity-50">🔔</div>
-                                <p class="text-xs" style="color: var(--color-text-tertiary);">Sin notificaciones</p>
+                            <div class="max-h-[420px] overflow-y-auto scrollbar-thin">
+                                <template x-if="items.length === 0">
+                                    <div class="text-center py-10">
+                                        <div class="text-3xl mb-2 opacity-50">✅</div>
+                                        <p class="text-xs" style="color: var(--color-text-tertiary);">Estas al dia. Sin mensajes nuevos.</p>
+                                    </div>
+                                </template>
+                                <template x-for="it in items" :key="it.id">
+                                    <a :href="'<?= url('/inbox/') ?>' + it.id" class="flex items-start gap-3 px-4 py-3 border-b transition" style="border-color: var(--color-border-subtle);"
+                                       onmouseover="this.style.background='var(--color-bg-hover)'"
+                                       onmouseout="this.style.background='transparent'">
+                                        <div class="avatar avatar-sm flex-shrink-0" :style="'background: linear-gradient(135deg,' + it.channel_color + ',' + it.channel_color + 'aa);'" x-text="it.initial"></div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-2 mb-0.5">
+                                                <span class="font-semibold text-[13px] truncate" style="color: var(--color-text-primary);" x-text="it.name"></span>
+                                                <span class="text-[10px] flex-shrink-0 font-mono" style="color: var(--color-text-muted);" x-text="formatTime(it.last_message_at)"></span>
+                                            </div>
+                                            <div class="text-[12px] line-clamp-2" style="color: var(--color-text-secondary);" x-text="it.last_message"></div>
+                                        </div>
+                                        <span x-show="it.unread_count > 0" class="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white flex-shrink-0" style="background: var(--color-primary);" x-text="it.unread_count > 9 ? '9+' : it.unread_count"></span>
+                                    </a>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -457,6 +484,137 @@ $navSections = [
         </div>
     </div>
 </div>
+
+<!-- Audio ping para mensajes nuevos (no bloquea autoplay porque viene tras user gesture / despues de polling) -->
+<audio id="kp-ping" preload="auto" style="display:none">
+    <!-- Sonido corto codificado en base64 (chime suave ~200ms) -->
+    <source src="data:audio/wav;base64,UklGRpQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXAGAACAg4eKjY+RkpKSkZCOjImGgn58eHRwbWlmZGFfXl1cXFxcXV5gYWNlZ2pscG90eHt+goWIi42PkJGSkpGQjoyJh4N/e3dzcGxpZmRhYF5dXFxcXF1eYGFjZmhqbXBzdnp9gYSHio2OkJGSkpGQj42KiIWBfnp2cm9ramVjYWBeXVxcXFxdXl9hY2VnamxvcnV4fH+ChomMjo+RkpKSkY+OjImGgn99eXVxbWpnZGJgX11dXFxcXV5fYWNkZ2lscG90d3p+gYWHio2Oj5GRkpGQjo2LiIWCfnp2c29sZ2RiYF5dXVxcXFxdX2BiZGZoamxvcnV4e36ChIeKjI6PkZGRkZCPjYuJhoN/e3h0cGxoZWNgX11cXFxcXF5fYGJkZWhqbG9ydXh7foGEhomLjY6Pj4+Pjo2LiIWCgHt4dXFta2hkYV9eXFxcXFxdXl9hY2RmaWtucHN1eHx/goWIi42Oj4+PkI+OjYuIhYKAfHl2cm9raWZjYV9eXVxcXFxeX2BiY2VnaWxucXN2eXt+gYSGiYqMjo+Pj4+OjYuJhoR/fHl2cm9samdkYV9eXVxcXFxeXmBhY2VnaGttb3FzdnZ5e36AgoSHiYuNjo6Pj46OjYuJh4SCfXp3dHFua2hlY2FeXV1cXFxcXl9gYmRmaGptb3J0d3l8foGDhYeKjI2OjY6OjY2LiomGhIB9end0cm9samhmZGJgXl1dXFxcXF1fYGJjZWdpa21wc3R3en1/g4SGiYuMjY6OjY2NjIqIh4SBfn1, 6dXJwbWtpZ2RiYF9eXl1dXV1eXmBhY2RmaGptb3F0dnl7foGDhYeJio6OjY2NjI2NjImIhYR/fnp4dXJwbmxqaGZkYV9eXl1dXV1eXmBgYWNkZ2hqbW9xc3V4ent+gIODhYiKi42OjY2NjI2NjIuJiIaCgX59enh2c3FvbWtpZ2VkYV9eXV1dXV1eXl5fYGFjZGZna2xucHJ0d3l8f4GDhIaJi4yMjY2NjYyMjIuKiYaFgYB+e3l3dHJxbmxraWdlZGNgXl9eXV1dXl5eXmBgYmRkZmlrbW5wcnV3eHt9gIKEhYeKioyNjY2NjYyMjIuJiIeFhYJ+fHt4dnRycG5tamhnZWRiYV9eXl1dXV5eXl9gYWFjZGZna2xucHJ0d3l7fYCBg4WHiYqLjI2NjYyNjIyLiomIhoWCgX9+e3l3dHJxbmxsamhnZmRjYV9eXl1dXV5eXl9gYWJkZGZna2tucHJ0dXh6fYCBg4WHiImLjI2NjY2MjIyMioqJh4WFg4F+fXt5d3VzcW9tbGtoZ2VkYmFfXl5dXV1eXl5fYGFiZGRmZ2lrbG5wcnR1eHp8f4CCg4WHiYqLjI2NjY2NjIuLiomJh4WEgoB/fXp4dnVycXBubGtpaGZkY2JhX19eXV1dXV5eXmBhYWNkZmdpamxucHJzdHd5e35/gYOFh4iKi4yMjI2MjIuLiomKiYiGhYKBf317eXd1c3JwbmxraWdmZGNiYWBfXl1dXl1eXl5gYGFiZGZnZ2lqbG5wcnR1d3l7fX+AgoSGh4iKi4uMjI2NjIuLiomJiIeGhIKBf316eXd2c3JwbmxsaWlmZGNiYWBfXl5dXl5eXl9gYWNkZmZpaWttcHFzdXZ4ent9foCCg4WHiImKi4yMjIuMi4uKiYmIh4eFhIKBf316eHZ1c3JwbW1raWdmZWNiYWBeXl5dXV5eXl9gYWNkZWdpamxucXJzdXd4ent9f4CChIWHiImLi4yMjIuLi4uKioiHhoWEgoF+fXt5d3Z0cnBubmxraGdlZWNiYWBfXl1dXl1eXl9gYWJjZWZoaWtsbW9wcnR2eHp8f4CChIWHiYqKi4uLi4uLioqIh4aFhIKBf316eXd2dHJxb25tamhmZWRkYmFgX19eXV1eXl5fX2FiYmRlZ2hqamxucHFydXd5e3x/gIKEhoeIiYqKioqKiYmJiIeGhYSCgYB+fHp4dnVzcW9tbGtpaGZkY2JhYF9eXl1dXV5eXmBhYWJkZWZoamttbnBxc3V3eHt9f4CChIaHiImJiYmJiYmIiIeHhoWEg4GAf317eXh2c3FwbmxraWhmZGNiYWBfX15dXV1dXl5fYGFhY2RlZ2lrbW5vcXJ0dnh6fH6AgoSFh4iJiYmJiYmJiIeHhoWEg4KBgH59e3l3dnRycG5tbGppaGZkY2JgX19eXV1dXV1eXmBgYWNkZWZoam1ub3BydXZ4eXt+gIKDhYeIiYmJiYmJiIeHhoWEg4OCgYB+fHp4d3VzcW9tbGppZ2ZkYmFgX19eXV1dXV1eXmBgYWNkZWZoaGptbnBydHV4eXt9f4GDhIeIiYmJiYmIiIeHhoWEg4OCgYB+fXt5d3VzcXBubWppZ2ZkY2JhX19eXV1dXV1eXl9gYWJkZmZoamxtb3FydHV3eXt9f4GDhYaIiImJiYmIiIaGhYWEg4KCgX9+fHp4d3Vzc3FvbWxraGZlY2JhYF9eXl1dXV1dXl5fYGFiYmRlZ2hqa21vcXN1dnl7fX+ChIWGiImJiYmIiIeGhoWEg4KCgYB/fXx5d3VzcW9tbGtpaGZkY2JhYF9eXl5dXV1eXl5fX2BhY2RlZ2hpa21wcnN1d3p7fH9/g4OFhoeIiIiIh4eGhoWEhIODgoF/fnx7eXd1c3FvbWtramdmZGNhYWBeXV1dXV1dXl5fYGBhYmRmZ2hqbG5vcXN1dnl6fX5/goSFhoeIiIiIh4eHhoWEhIODgoB/fnx6eXh1c3FwbmxqaWlnZWRiYWBfXl5dXV1dXV5fX2BhY2NlZ2hqbG5vcXN1d3l7fX5/gYKEhYaHh4iIh4eGhoWFhIODgoB/fnx7eHh2c3FwbmxraWloZmRjYWBfXl5dXV1dXV5eX2BhYmNlZmdpa21vcHJ0dnh6fH5/gIKEhYaHh4eHh4eGhoWFhIODgoF/fXx7eHd2c3JwbmxsamhnZmRjYWBfXl5dXV1dXV5eX2BhYmNlZmhqamttb3FydHZ3en1+gIGDhIWHh4eHh4eGhoWFhISDgoKBgH59fHt4d3VzcW9ubWxqaGdmZGNhYF9eXl5dXV1dXl5fYGFiZGVmaGlrbG9wcnR2eHp7fX+Ag4SFhoeHh4eGhoaGhYSDg4KCgX9+fXt5eHZ0cnBubW1raGdlY2NhYF9eXl1dXV1eXl9gYWJiZGZnaWttbnBxc3V3eXt9foCCg4WGhoeHh4eGhoaGhYSDg4OCgYB+fXt6eHZ1c3FvbW1raGdmZWJhYF9eXl1dXV1dXl5fYGFiY2VmaGlrbW5wcXN1d3l7fX+AgoOFhoaHh4eGhoaFhYSEg4ODgYB/fXt6eHd1c3FvbWxqaWhmZGNhYF9eXl1dXV1eXl9gYWJjZGVnaGptbW9xcnR2eHp8fn+Bg4SFhoeHh4aGhoaFhIOCgYF/f316eXh2dXNxb21sa2loZ2VjYmFgX15eXV1dXV1eX2BhYmNlZmZoaWttb3BydHZ4ent9f4CCg4WGhoaHh4aGhoWFhISDg4OBgH9+fHp4dnVzcW9ubGppZ2VkY2JhX19eXV1dXV1eXmBgYWJjZWZnaWttb29ycnV3eXp8fn+Bg4OFhoaGhoaGhoWFhISDg4KBgH99fHt4dnZ0cnBubGppaWdmZWNiYWBfXl1dXV1dXV5eX2BhYmNlZmZoaWttb3FydXZ4ent9f4GCg4SGhoaGhoaGhYWEhIODgoGAf358e3p3dnVzcG9tbGppaGZlY2JhYF9eXl1dXV1eXl5fYGFhY2RmZmhpa2xtb3FydXZ4ent9f4GBg4SFhoaGhoaFhYSEg4OCgoGAf317enh3dnRycG5tbGloZ2VkY2FgYF9eXV1dXV1dXl9gYWJiZGVnaGlrbG9wcnN2eHl7fX9/gYKEhIWGhoaGhoWFhISDg4KCgYB+fXt5eHd1c3JwbmxraWloZmRjYWBfX15dXV1dXV5eXl9gYWJjY2VmaGlrbm5xcnR2eHl7fX5/gYOEhYWGhoaGhoaFhIODgoKCgYB/fnt6eXd1c3FwbmxsamlnZmRjYWBfX15dXV1dXl5fX2BhYmNlZmZoamttbnByc3V3eXt9f4CBgoOEhYaGhoaGhYWEhIODgoKBgH9+fHt5d3Z1c3FwbWxraWhnZWNjYWBfX15dXV1dXl5eXmBhYmJjZWZoaWttbnByc3V3eXt9foCBg4OFhYaGhoaGhYSEg4OCgoGAf358end2dXNxb21saWloZmVjYmFgX19eXV1dXV1eXl9gYGJjZGVmaGhqa21vcHJzdnh5e31/gIKDhISFhoaGhYWFhISDg4KCgYB/fnx6eXh2dHFwbm1samhnZWNiYWBfX15dXV1dXV5eX2BhYmNkZWZoaWtub3BycnV2eHp8fn+Ag4OEhYWGhoaFhYSEg4OCgYGAf358enl4dnRzcW9tbGppaGdlZGNhYF9fXl1dXV1dXV5fYGFhYmNlZmdpamxtb3BydXZ4ent9f4CCg4SFhoaGhoaFhYSEg4ODgoGBgH59e3p4dnRzcW9tbGppZ2ZlY2JhYF9eXV1dXV1dXV5fYGBhYmRlZmhpa2xtbnByc3V3eXt9f4CCg4SFhYaGhoaGhYSEg4OCgoKBgH9+fHt5dnVzcXBubWxqaGdlZGJhYF9fXl1dXV1dXV5eX2BhYWNkZWZoaWttbnByc3R3eHp8fX+AgoOEhYaGhoaGhYWEhIODgoKBgYB/fnt6eHd1c3FwbmxraGdmZGNiYV9fXl1dXV1dXV5eX2BhYmNkZWdpaWttbnFyc3V3eXt9f4CChISFhoaGhoaGhYSDg4OCgoGAgH99e3p4dnRzcW5tbGloZ2VkY2FgX19eXV1dXV1eXl5fYGFiY2RlZ2hpa21vcHJ0dXh5e31+gIKDhIWGhoaGhoWFhISDg4KCgYGAfnx7enh2dXNxb21samhnZWRjYmBgX15eXV1dXV5eXl9gYWJjZGVmZ2lqbG1vcHJ0dnh6e31/gYKDhISFhoaGhoWFhISDg4OCgYGAf358enl3dnRycG5sa2lnZmVjYmBgX15eXV1dXV1eXl9gYWFiY2VmZ2hqa21ucHFzdXd4en1+gIGCg4SFhoaGhoWFhYSEg4OCgoGAfn58e3l3dXRyb21taWhmZWRjYWFgXl5eXV1dXV1eXl9fYGFhY2RlZ2hqa21ucHFzdXd5e31+f4GCg4SFhYaGhoaFhYSEg4OCgoGBgH9+fHp5d3VzcXBubGppaWdlZGJhYV5eXl1dXV1dXl5fX2BhYmNkZWZoaWttb3BydHZ3enx9f4CChIWFhoaGhoaFhYSEg4OCgoGAf358e3l4dnRzcW9tbGppZ2ZlY2FhYF5eXl1dXV1dXl5fYGBhYmNkZWZoaWttb3BydHZ4ent9f4CChIQ=" type="audio/wav">
+</audio>
+
+<script>
+// ============================================================================
+//  Inbox Notifications — global polling para topbar
+//  Funciona en CUALQUIER pagina del app (dashboard, contactos, leads, etc.)
+//  Polling cada 12s. En la pagina /inbox se reduce la frecuencia (lo maneja la
+//  pagina misma con su propio polling de 3s y aqui es solo decorativo).
+// ============================================================================
+window.inboxNotifications = function () {
+    return {
+        unread: 0,
+        items: [],
+        open: false,
+        ringing: false,
+        _lastSeen: parseInt(localStorage.getItem('kp_lastSeenUnread') || '0', 10),
+        _baseTitle: document.title,
+        _intervalId: null,
+        _seenIds: new Set(),
+
+        async fetchOnce() {
+            try {
+                const res = await fetch('<?= url('/inbox/notifications') ?>', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.success) return;
+
+                const previousUnread = this.unread;
+                this.unread = data.unread_total | 0;
+                this.items = Array.isArray(data.items) ? data.items : [];
+
+                // Detectar nuevos: si el total subio, ringear y sonar
+                if (this.unread > previousUnread && previousUnread !== 0) {
+                    this.notifyNew();
+                }
+
+                // Mantener title con contador
+                document.title = this.unread > 0 ? '(' + this.unread + ') ' + this._baseTitle : this._baseTitle;
+
+                // Favicon dot (verde si hay unread)
+                this.updateFavicon();
+            } catch (e) {
+                // silencio: pueden ser errores transitorios de red o sesion expirada
+            }
+        },
+
+        notifyNew() {
+            this.ringing = true;
+            setTimeout(() => { this.ringing = false; }, 1400);
+            try {
+                const a = document.getElementById('kp-ping');
+                if (a) { a.currentTime = 0; a.volume = 0.45; a.play().catch(() => {}); }
+            } catch (e) {}
+            // Notificacion del navegador si tiene permiso
+            if (window.Notification && Notification.permission === 'granted' && this.items.length > 0) {
+                const top = this.items[0];
+                try {
+                    const n = new Notification('Nuevo mensaje · ' + top.name, {
+                        body: top.last_message || 'Tienes mensajes nuevos',
+                        icon: '/favicon.ico',
+                        tag: 'kp-inbox-' + top.id,
+                    });
+                    n.onclick = () => { window.location.href = '<?= url('/inbox/') ?>' + top.id; n.close(); };
+                } catch (e) {}
+            }
+        },
+
+        markSeen() {
+            this._lastSeen = Date.now();
+            localStorage.setItem('kp_lastSeenUnread', String(this._lastSeen));
+        },
+
+        updateFavicon() {
+            // Crea dinamicamente un favicon con dot verde si hay unread
+            const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+            link.type = 'image/svg+xml';
+            link.rel = 'icon';
+            const dot = this.unread > 0 ? '<circle cx="48" cy="16" r="14" fill="#F43F5E"/>' : '';
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0EA572"/><path d="M28 22 L20 36 H30 V46 L42 30 H32 V22 Z" fill="#fff"/>' + dot + '</svg>';
+            link.href = 'data:image/svg+xml;base64,' + btoa(svg);
+            document.head.appendChild(link);
+        },
+
+        start() {
+            this.fetchOnce();
+            this._intervalId = setInterval(() => {
+                if (!document.hidden) this.fetchOnce();
+            }, 12000);
+            // Pedir permiso de notificaciones la primera vez que el usuario abre el menu
+            const askOnce = () => {
+                if (window.Notification && Notification.permission === 'default') {
+                    Notification.requestPermission().catch(() => {});
+                }
+                document.removeEventListener('click', askOnce);
+            };
+            document.addEventListener('click', askOnce, { once: true });
+        },
+
+        formatTime(ts) {
+            if (!ts) return '';
+            const d = new Date(ts.replace(' ', 'T'));
+            if (isNaN(d.getTime())) return '';
+            const diff = (Date.now() - d.getTime()) / 1000;
+            if (diff < 60) return 'ahora';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+            return Math.floor(diff / 86400) + 'd';
+        },
+    };
+};
+</script>
+
+<style>
+@keyframes bell-ring {
+    0%, 100% { transform: rotate(0); }
+    10%, 30%, 50%, 70%, 90% { transform: rotate(-18deg); }
+    20%, 40%, 60%, 80% { transform: rotate(18deg); }
+}
+.bell-ring { animation: bell-ring 1.2s ease-in-out; transform-origin: 50% 4px; }
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
 
 </body>
 </html>

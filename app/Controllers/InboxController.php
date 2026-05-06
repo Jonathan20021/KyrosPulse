@@ -204,6 +204,50 @@ final class InboxController extends Controller
         ]);
     }
 
+    /**
+     * Endpoint global de notificaciones para la campana del topbar.
+     * Devuelve total de mensajes no leidos + las 8 conversaciones mas recientes con unread.
+     * Diseñado para polling cada ~10s desde cualquier pagina del app.
+     */
+    public function notifications(Request $request): void
+    {
+        $tenantId = Tenant::id();
+
+        // Tomar 50 conversaciones recientes y filtrar las que tengan unread > 0
+        $all  = Conversation::listFiltered($tenantId, ['status' => ''], 50);
+        $rows = array_values(array_filter($all, static fn ($c) => (int) ($c['unread_count'] ?? 0) > 0));
+        $rows = array_slice($rows, 0, 8);
+
+        // Total unread sumando todas las conversaciones (excluidas cerradas)
+        $totalUnread = (int) Database::fetchColumn(
+            'SELECT COALESCE(SUM(unread_count),0) FROM conversations WHERE tenant_id = ? AND status != ?',
+            [$tenantId, 'closed']
+        );
+        $totalConversations = (int) Database::fetchColumn(
+            'SELECT COUNT(*) FROM conversations WHERE tenant_id = ? AND unread_count > 0 AND status != ?',
+            [$tenantId, 'closed']
+        );
+
+        $this->json([
+            'success'             => true,
+            'unread_total'        => $totalUnread,
+            'unread_conversations' => $totalConversations,
+            'latest_at'           => $rows[0]['last_message_at'] ?? null,
+            'items'               => array_map(static function ($c) {
+                $name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')) ?: ($c['phone'] ?? 'Sin nombre');
+                return [
+                    'id'              => (int) $c['id'],
+                    'name'            => $name,
+                    'initial'         => mb_strtoupper(mb_substr($name, 0, 1)),
+                    'last_message'    => mb_strimwidth((string) ($c['last_message'] ?? ''), 0, 70, '...'),
+                    'last_message_at' => (string) ($c['last_message_at'] ?? $c['updated_at']),
+                    'unread_count'    => (int) ($c['unread_count'] ?? 0),
+                    'channel_color'   => (string) ($c['channel_color'] ?? '#10B981'),
+                ];
+            }, $rows),
+        ]);
+    }
+
     public function assign(Request $request, array $params): void
     {
         $tenantId = Tenant::id();
