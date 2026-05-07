@@ -161,6 +161,16 @@ final class NotificationDispatcher
         }
         $itemsText = empty($itemsTextLines) ? '  (sin items)' : implode("\n", $itemsTextLines);
 
+        $taxRateForLabel = \App\Models\Order::tenantTaxRate($this->tenantId);
+        $taxLabelText    = $taxRateForLabel > 0
+            ? 'ITBIS (' . rtrim(rtrim(number_format($taxRateForLabel, 2, '.', ''), '0'), '.') . '%)'
+            : 'ITBIS';
+        $totalsTextLines = [];
+        if ($subtotal > 0) $totalsTextLines[] = sprintf('Subtotal: %s %s', $currency, number_format($subtotal, 2));
+        if ($delivery > 0) $totalsTextLines[] = sprintf('Delivery: %s %s', $currency, number_format($delivery, 2));
+        if ($tax > 0)      $totalsTextLines[] = sprintf('%s: %s %s', $taxLabelText, $currency, number_format($tax, 2));
+        $totalsText = empty($totalsTextLines) ? '' : implode("\n", $totalsTextLines) . "\n";
+
         $title = sprintf('%s %s · %s', $emoji, $statusLb, $code);
         $text  = "{$title}\n\n"
                . "Cliente: {$customer}\n"
@@ -168,6 +178,7 @@ final class NotificationDispatcher
                . ($address ? "Direccion: {$address}\n" : '')
                . ($notes ? "Notas: {$notes}\n" : '')
                . "\nItems:\n{$itemsText}\n\n"
+               . $totalsText
                . "TOTAL: {$currency} {$total}\n\n"
                . "Ver orden: {$orderUrl}";
 
@@ -202,7 +213,11 @@ final class NotificationDispatcher
             $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">Delivery</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($delivery, 2) . '</td></tr>';
         }
         if ($tax > 0) {
-            $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">Impuestos</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($tax, 2) . '</td></tr>';
+            $taxRate  = \App\Models\Order::tenantTaxRate($this->tenantId);
+            $taxLabel = $taxRate > 0
+                ? 'ITBIS (' . rtrim(rtrim(number_format($taxRate, 2, '.', ''), '0'), '.') . '%)'
+                : 'ITBIS';
+            $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">' . $taxLabel . '</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($tax, 2) . '</td></tr>';
         }
 
         $deliveryTypeLabels = ['delivery' => '🛵 Delivery', 'pickup' => '🏪 Pickup', 'dine_in' => '🍽️ Dine-in'];

@@ -192,15 +192,34 @@ final class Order extends Model
         foreach ($items as $it) $subtotal += (float) $it['subtotal'];
 
         $deliveryFee = (float) $order['delivery_fee'];
-        $tax         = (float) $order['tax'];
         $discount    = (float) $order['discount'];
         $tip         = (float) $order['tip'];
-        $total       = max(0, $subtotal + $deliveryFee + $tax + $tip - $discount);
+
+        // ITBIS: calcular como subtotal * tax_rate / 100 desde restaurant_settings
+        // del tenant. Asi todas las ordenes (manual, menu publico, IA) llevan
+        // impuesto consistente sin depender de quien las creo.
+        $taxRate = self::tenantTaxRate($tenantId);
+        $tax     = $taxRate > 0 ? round($subtotal * ($taxRate / 100), 2) : 0.0;
+
+        $total   = max(0, $subtotal + $deliveryFee + $tax + $tip - $discount);
 
         self::update($tenantId, $orderId, [
             'subtotal' => $subtotal,
+            'tax'      => $tax,
             'total'    => $total,
         ]);
+    }
+
+    public static function tenantTaxRate(int $tenantId): float
+    {
+        $settings = Database::fetchColumn(
+            "SELECT restaurant_settings FROM tenants WHERE id = :t",
+            ['t' => $tenantId]
+        );
+        if (!$settings) return 0.0;
+        $decoded = json_decode((string) $settings, true);
+        if (!is_array($decoded)) return 0.0;
+        return (float) ($decoded['tax_rate'] ?? 0);
     }
 
     public static function items(int $tenantId, int $orderId): array

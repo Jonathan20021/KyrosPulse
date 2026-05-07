@@ -17,6 +17,8 @@ $cuisine   = (string) ($settings['cuisine_type'] ?? '');
 $address   = (string) ($settings['address'] ?? '');
 $prepMin   = (int) ($settings['order_prep_min'] ?? 25);
 $minOrder  = (float) ($settings['min_order'] ?? 0);
+$taxRate   = (float) ($settings['tax_rate'] ?? 0);
+$taxLabel  = $taxRate > 0 ? 'ITBIS (' . rtrim(rtrim(number_format($taxRate, 2, '.', ''), '0'), '.') . '%)' : 'ITBIS';
 $payments  = is_array($settings['payment_methods'] ?? null) ? $settings['payment_methods'] : ['cash','card'];
 $initial   = mb_strtoupper(mb_substr($brand, 0, 1));
 
@@ -795,6 +797,12 @@ foreach ($items as $i) {
                             <span class="text-ink price-tag" x-text="formatCurrency(deliveryFee())"></span>
                         </div>
                     </template>
+                    <template x-if="taxAmount() > 0">
+                        <div class="flex justify-between text-muted">
+                            <span x-text="window.MENU_TAX_LABEL"></span>
+                            <span class="text-ink price-tag" x-text="formatCurrency(taxAmount())"></span>
+                        </div>
+                    </template>
                     <div class="ink-divider !my-2"></div>
                     <div class="flex justify-between items-baseline">
                         <span class="font-display font-bold text-lg">Total</span>
@@ -874,6 +882,8 @@ window.MENU_ZONES_FULL = <?= json_encode(array_map(fn($z) => [
 window.MENU_CHECKOUT_URL = <?= json_encode(url('/m/' . $tenant['uuid'] . '/checkout')) ?>;
 window.MENU_CURRENCY = <?= json_encode($currency) ?>;
 window.MENU_MIN_ORDER = <?= json_encode((float) $minOrder) ?>;
+window.MENU_TAX_RATE  = <?= json_encode((float) $taxRate) ?>;
+window.MENU_TAX_LABEL = <?= json_encode($taxLabel) ?>;
 window.WA_PHONE = <?= json_encode($waPhone) ?>;
 
 // Plugin x-intersect minimal (Alpine no lo trae built-in en CDN sin plugin extra)
@@ -949,7 +959,12 @@ function menuApp() {
             const z = window.MENU_ZONES.find(x => String(x.id) === String(this.customer.delivery_zone_id));
             return z ? z.fee : 0;
         },
-        grandTotal() { return this.subtotal() + this.deliveryFee(); },
+        taxAmount() {
+            const rate = Number(window.MENU_TAX_RATE || 0);
+            if (rate <= 0) return 0;
+            return Math.round(this.subtotal() * rate) / 100;
+        },
+        grandTotal() { return this.subtotal() + this.deliveryFee() + this.taxAmount(); },
         formatCurrency(n) { return window.MENU_CURRENCY + ' ' + Number(n).toFixed(2); },
         // Detecta movil para escoger el deep link nativo de WhatsApp y evitar el
         // interstitial de wa.me (que falla en navegadores in-app y se siente lento).

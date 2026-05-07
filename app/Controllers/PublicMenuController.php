@@ -265,8 +265,18 @@ final class PublicMenuController extends Controller
             );
         }
         $lines[] = '';
+        if ((float) $order['subtotal'] > 0 && (((float) $order['tax']) > 0 || ((float) $order['delivery_fee']) > 0)) {
+            $lines[] = sprintf('Subtotal: %s %.2f', $cur, (float) $order['subtotal']);
+        }
         if ((float) $order['delivery_fee'] > 0) {
             $lines[] = sprintf('Delivery: %s %.2f', $cur, (float) $order['delivery_fee']);
+        }
+        if ((float) $order['tax'] > 0) {
+            $taxRateMsg  = \App\Models\Order::tenantTaxRate((int) $order['tenant_id']);
+            $taxLabelMsg = $taxRateMsg > 0
+                ? 'ITBIS (' . rtrim(rtrim(number_format($taxRateMsg, 2, '.', ''), '0'), '.') . '%)'
+                : 'ITBIS';
+            $lines[] = sprintf('%s: %s %.2f', $taxLabelMsg, $cur, (float) $order['tax']);
         }
         $lines[] = sprintf('TOTAL: %s %.2f', $cur, (float) $order['total']);
         if (!empty($order['delivery_address'])) {

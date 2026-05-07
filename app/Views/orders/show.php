@@ -122,7 +122,13 @@ $customerName = trim((($order['first_name'] ?? '') . ' ' . ($order['last_name'] 
             <div class="flex justify-between"><span style="color: var(--color-text-tertiary);">Envio</span><span class="font-mono" style="color: var(--color-text-primary);"><?= e((string) $order['currency']) ?> <?= number_format((float) $order['delivery_fee'], 2) ?></span></div>
             <?php endif; ?>
             <?php if ((float) $order['tax'] > 0): ?>
-            <div class="flex justify-between"><span style="color: var(--color-text-tertiary);">Impuesto</span><span class="font-mono" style="color: var(--color-text-primary);"><?= e((string) $order['currency']) ?> <?= number_format((float) $order['tax'], 2) ?></span></div>
+            <?php
+                $taxRateShow  = \App\Models\Order::tenantTaxRate((int) $order['tenant_id']);
+                $taxLabelShow = $taxRateShow > 0
+                    ? 'ITBIS (' . rtrim(rtrim(number_format($taxRateShow, 2, '.', ''), '0'), '.') . '%)'
+                    : 'ITBIS';
+            ?>
+            <div class="flex justify-between"><span style="color: var(--color-text-tertiary);"><?= e($taxLabelShow) ?></span><span class="font-mono" style="color: var(--color-text-primary);"><?= e((string) $order['currency']) ?> <?= number_format((float) $order['tax'], 2) ?></span></div>
             <?php endif; ?>
             <?php if ((float) $order['discount'] > 0): ?>
             <div class="flex justify-between"><span style="color: var(--color-text-tertiary);">Descuento</span><span class="font-mono" style="color: #34D399;">- <?= e((string) $order['currency']) ?> <?= number_format((float) $order['discount'], 2) ?></span></div>
