@@ -114,7 +114,8 @@ $prefillLabels = [
                 </div>
 
                 <!-- Email (multi-destinatario) -->
-                <div x-show="type === 'email'" x-data="emailChips()" x-init="init(editing)">
+                <template x-if="type === 'email'">
+                <div x-data="emailChips()" x-init="init(editing)">
                     <label class="label">Emails destinatarios</label>
                     <div class="email-chips-wrap" :class="{ 'has-focus': focused }" @click="$refs.input.focus()">
                         <template x-for="(em, idx) in emails" :key="idx">
@@ -144,16 +145,20 @@ $prefillLabels = [
                         <span x-show="emails.length > 0" class="ml-1" style="color: var(--color-primary);" x-text="'(' + emails.length + ' agregado' + (emails.length === 1 ? '' : 's') + ')'"></span>
                     </div>
                 </div>
+                </template>
 
                 <!-- Slack -->
-                <div x-show="type === 'slack'">
+                <template x-if="type === 'slack'">
+                <div>
                     <label class="label">Webhook URL de Slack</label>
                     <input type="url" name="webhook_url" :value="editing?.config?.webhook_url" placeholder="https://hooks.slack.com/services/T.../B.../..." class="input">
                     <div class="field-help">En Slack: Apps → Incoming Webhooks → Crear → Copiar URL.</div>
                 </div>
+                </template>
 
                 <!-- Discord -->
-                <div x-show="type === 'discord'" class="grid md:grid-cols-2 gap-3">
+                <template x-if="type === 'discord'">
+                <div class="grid md:grid-cols-2 gap-3">
                     <div>
                         <label class="label">Webhook URL de Discord</label>
                         <input type="url" name="webhook_url" :value="editing?.config?.webhook_url" placeholder="https://discord.com/api/webhooks/..." class="input">
@@ -163,16 +168,20 @@ $prefillLabels = [
                         <input type="text" name="username" :value="editing?.config?.username || 'Kyros Pulse'" placeholder="Kyros Pulse" class="input">
                     </div>
                 </div>
+                </template>
 
                 <!-- Teams -->
-                <div x-show="type === 'teams'">
+                <template x-if="type === 'teams'">
+                <div>
                     <label class="label">Incoming Webhook URL de Teams</label>
                     <input type="url" name="webhook_url" :value="editing?.config?.webhook_url" placeholder="https://xxx.webhook.office.com/webhookb2/..." class="input">
                     <div class="field-help">En Teams: tres puntos del canal → Conectores → Incoming Webhook → Crear → Copiar URL.</div>
                 </div>
+                </template>
 
                 <!-- Telegram -->
-                <div x-show="type === 'telegram'" class="grid md:grid-cols-2 gap-3">
+                <template x-if="type === 'telegram'">
+                <div class="grid md:grid-cols-2 gap-3">
                     <div>
                         <label class="label">Bot token</label>
                         <input type="text" name="bot_token" :value="editing?.config?.bot_token" placeholder="123456789:ABC..." class="input">
@@ -184,9 +193,11 @@ $prefillLabels = [
                         <div class="field-help">Habla con tu bot y luego visita https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates para ver tu chat_id.</div>
                     </div>
                 </div>
+                </template>
 
                 <!-- Webhook -->
-                <div x-show="type === 'webhook'" class="grid md:grid-cols-2 gap-3">
+                <template x-if="type === 'webhook'">
+                <div class="grid md:grid-cols-2 gap-3">
                     <div>
                         <label class="label">URL destino</label>
                         <input type="url" name="url" :value="editing?.config?.url" placeholder="https://mi-servidor.com/hook" class="input">
@@ -197,13 +208,16 @@ $prefillLabels = [
                         <div class="field-help">Si se rellena, el header <code>X-Kyros-Signature</code> traera SHA256 HMAC del body.</div>
                     </div>
                 </div>
+                </template>
 
                 <!-- WhatsApp -->
-                <div x-show="type === 'whatsapp'">
+                <template x-if="type === 'whatsapp'">
+                <div>
                     <label class="label">Numero destino (E.164)</label>
                     <input type="text" name="phone" :value="editing?.config?.phone" placeholder="+18095551234" class="input">
                     <div class="field-help">Usara automaticamente uno de los canales WhatsApp activos del tenant para enviar.</div>
                 </div>
+                </template>
             </div>
 
             <!-- Eventos -->
