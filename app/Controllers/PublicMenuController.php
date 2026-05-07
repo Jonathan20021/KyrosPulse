@@ -199,25 +199,31 @@ final class PublicMenuController extends Controller
         if ($waPhone === '') {
             // Orden creada pero no podemos abrir WhatsApp - avisar al frontend
             $this->json([
-                'success'    => true,
-                'order_code' => $order['code'],
-                'total'      => (float) $order['total'],
-                'currency'   => $currency,
-                'wa_url'     => '',
-                'warning'    => 'Orden registrada, pero el negocio no tiene un numero de WhatsApp configurado.',
+                'success'      => true,
+                'order_code'   => $order['code'],
+                'total'        => (float) $order['total'],
+                'currency'     => $currency,
+                'wa_url'       => '',
+                'wa_deep_url'  => '',
+                'warning'      => 'Orden registrada, pero el negocio no tiene un numero de WhatsApp configurado.',
             ]);
             return;
         }
 
-        $msg   = $this->renderWhatsAppMessage($order, $clean, $tenant);
-        $waUrl = 'https://wa.me/' . $waPhone . '?text=' . rawurlencode($msg);
+        $msg     = $this->renderWhatsAppMessage($order, $clean, $tenant);
+        $waText  = rawurlencode($msg);
+        // Web: pasa por la pagina interstitial de WhatsApp (necesario en desktop sin app nativa).
+        $waUrl   = 'https://wa.me/' . $waPhone . '?text=' . $waText;
+        // Deep link nativo: abre la app directamente sin el redirect de wa.me. Usado en movil.
+        $waDeep  = 'whatsapp://send?phone=' . $waPhone . '&text=' . $waText;
 
         $this->json([
-            'success'    => true,
-            'order_code' => $order['code'],
-            'total'      => (float) $order['total'],
-            'currency'   => $currency,
-            'wa_url'     => $waUrl,
+            'success'      => true,
+            'order_code'   => $order['code'],
+            'total'        => (float) $order['total'],
+            'currency'     => $currency,
+            'wa_url'       => $waUrl,
+            'wa_deep_url'  => $waDeep,
         ]);
     }
 

@@ -949,6 +949,19 @@ function menuApp() {
         },
         grandTotal() { return this.subtotal() + this.deliveryFee(); },
         formatCurrency(n) { return window.MENU_CURRENCY + ' ' + Number(n).toFixed(2); },
+        // Detecta movil para escoger el deep link nativo de WhatsApp y evitar el
+        // interstitial de wa.me (que falla en navegadores in-app y se siente lento).
+        isMobileDevice() {
+            const ua = navigator.userAgent || '';
+            if (/Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
+            // iPad moderno reporta UA de Mac; detectar por touch + plataforma.
+            if (navigator.maxTouchPoints > 1 && /Mac|iPad/.test(navigator.platform || '')) return true;
+            return false;
+        },
+        pickWaUrl(data) {
+            if (this.isMobileDevice() && data.wa_deep_url) return data.wa_deep_url;
+            return data.wa_url;
+        },
         async checkout() {
             this.error = '';
             if (!this.customer.name.trim()) { this.error = 'Falta tu nombre.'; return; }
@@ -1000,21 +1013,26 @@ function menuApp() {
                 localStorage.removeItem('kp_cart_<?= e($tenant['uuid']) ?>');
                 this.cart = {};
 
-                // Redirigir popup al wa.me para evitar bloqueos
+                // Movil -> deep link nativo (whatsapp://); desktop -> wa.me (WhatsApp Web).
+                const targetUrl = this.pickWaUrl(data);
+
+                // Redirigir popup. Si el navegador bloqueo window.open, redirigir esta pagina.
                 if (popup) {
-                    popup.location.href = data.wa_url;
+                    popup.location.href = targetUrl;
                 } else {
-                    // Fallback: si el navegador bloqueo window.open, redirigir esta pagina
-                    window.location.href = data.wa_url;
+                    window.location.href = targetUrl;
                     return;
                 }
 
-                // Mostrar pantalla de exito con boton explicito (UX profesional)
+                // Mostrar pantalla de exito con boton explicito (UX profesional).
+                // Guardamos ambas URLs para que el boton del modal tambien escoja la mejor.
                 this.successOrder = {
                     code: data.order_code,
                     total: data.total,
                     currency: data.currency,
-                    waUrl: data.wa_url,
+                    waUrl: targetUrl,
+                    waDeepUrl: data.wa_deep_url,
+                    waWebUrl: data.wa_url,
                 };
                 this.loading = false;
             } catch (e) {
