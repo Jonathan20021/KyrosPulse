@@ -201,15 +201,40 @@ foreach ($items as $i) {
         .input-field {
             width: 100%;
             padding: 12px 14px;
-            background: rgba(248,243,232,.03);
-            border: 1px solid rgba(212,165,116,.20);
+            background: rgba(248,243,232,.04);
+            border: 1px solid rgba(212,165,116,.22);
             border-radius: 12px;
             color: #f8f3e8;
             transition: border-color .2s, background .2s;
             font-size: 15px;
+            color-scheme: dark; /* dropdown nativo del select y date pickers en dark */
+            font-family: inherit;
         }
-        .input-field::placeholder { color: rgba(168,161,147,.6); }
-        .input-field:focus { outline: none; border-color: #d4a574; background: rgba(248,243,232,.05); box-shadow: 0 0 0 3px rgba(212,165,116,.15); }
+        .input-field::placeholder { color: rgba(245,240,232,.42); }
+        .input-field:focus { outline: none; border-color: #d4a574; background: rgba(248,243,232,.06); box-shadow: 0 0 0 3px rgba(212,165,116,.18); }
+        /* Select: chevron custom + opciones legibles en dropdown nativo */
+        select.input-field {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23d4a574' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+            cursor: pointer;
+        }
+        select.input-field option {
+            background: #13100D;
+            color: #F5F0E8;
+            padding: 8px 12px;
+        }
+        select.input-field option:checked,
+        select.input-field option:hover {
+            background: linear-gradient(0deg, rgba(212,165,116,.20), rgba(212,165,116,.20)), #1A1410;
+            color: #FFF;
+        }
+        /* Textarea hereda input-field pero con line-height pareja */
+        textarea.input-field { line-height: 1.5; min-height: 70px; }
         .label-mini { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #a8a193; font-weight: 600; }
         .price-tag { font-family: 'Fraunces', Georgia, serif; font-feature-settings: 'tnum' 1; font-weight: 700; }
         .delivery-tab {
@@ -670,19 +695,56 @@ foreach ($items as $i) {
                 <template x-if="customer.delivery_type === 'delivery'">
                     <div class="space-y-3">
                         <?php if (!empty($zones)): ?>
-                        <div>
+                        <div x-data="{ zoneOpen: false }" @click.outside="zoneOpen = false" class="relative">
                             <label class="text-xs font-semibold text-muted block mb-1.5">Zona de entrega</label>
-                            <select x-model="customer.delivery_zone_id" class="input-field">
-                                <option value="">Selecciona zona</option>
-                                <?php foreach ($zones as $z): ?>
-                                    <option value="<?= (int) $z['id'] ?>" data-fee="<?= (float) $z['fee'] ?>">
-                                        <?= e((string) $z['name']) ?>
-                                        <?php if ((float) $z['fee'] > 0): ?>
-                                            — <?= e($currency) ?> <?= number_format((float) $z['fee'], 2) ?>
-                                        <?php endif; ?>
-                                    </option>
+
+                            <!-- Trigger -->
+                            <button type="button" @click="zoneOpen = !zoneOpen"
+                                    class="input-field text-left flex items-center justify-between w-full"
+                                    :class="zoneOpen ? 'ring-2' : ''"
+                                    style="background: rgba(248,243,232,.04);">
+                                <span x-text="(() => {
+                                    const z = window.MENU_ZONES_FULL.find(zz => String(zz.id) === String(customer.delivery_zone_id));
+                                    if (!z) return 'Selecciona tu zona';
+                                    return z.label;
+                                })()"
+                                :style="customer.delivery_zone_id ? '' : 'color: rgba(245,240,232,.42)'"></span>
+                                <svg class="w-4 h-4 flex-shrink-0 ml-2 transition-transform" :class="zoneOpen ? 'rotate-180' : ''" style="color:#d4a574" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                    <polyline points="6 9 12 15 18 9" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                                </svg>
+                            </button>
+
+                            <!-- Dropdown panel (absoluto, dentro del flow del drawer) -->
+                            <div x-show="zoneOpen" x-transition.opacity x-cloak
+                                 class="absolute left-0 right-0 mt-2 rounded-xl overflow-hidden z-20"
+                                 style="bottom: calc(100% + 8px); background: linear-gradient(180deg, #1a1410, #13100D); border: 1px solid rgba(212,165,116,0.35); box-shadow: 0 -20px 60px rgba(0,0,0,0.7); max-height: 320px; overflow-y: auto;">
+                                <button type="button"
+                                        @click="customer.delivery_zone_id = ''; zoneOpen = false"
+                                        class="w-full text-left px-4 py-3 text-sm transition border-b"
+                                        style="color: rgba(245,240,232,.6); border-color: rgba(212,165,116,.10);"
+                                        onmouseover="this.style.background='rgba(212,165,116,.10)'"
+                                        onmouseout="this.style.background='transparent'">
+                                    <em>Selecciona tu zona</em>
+                                </button>
+                                <?php foreach ($zones as $z):
+                                    $zFee = (float) $z['fee'];
+                                    $zLabel = (string) $z['name'] . ($zFee > 0 ? ' — ' . $currency . ' ' . number_format($zFee, 2) : ' — Gratis');
+                                ?>
+                                <button type="button"
+                                        @click="customer.delivery_zone_id = '<?= (int) $z['id'] ?>'; zoneOpen = false"
+                                        class="w-full text-left px-4 py-3 text-sm flex items-center justify-between transition border-b last:border-b-0"
+                                        style="color: #F5F0E8; border-color: rgba(212,165,116,.08);"
+                                        :style="String(customer.delivery_zone_id) === '<?= (int) $z['id'] ?>' ? 'background: linear-gradient(90deg, rgba(212,165,116,.18), rgba(245,165,36,.10)); color: #FFF; font-weight: 600;' : ''"
+                                        onmouseover="if(this.dataset.selected !== '1') this.style.background='rgba(212,165,116,.10)'"
+                                        onmouseout="if(this.dataset.selected !== '1') this.style.background=''"
+                                        :data-selected="String(customer.delivery_zone_id) === '<?= (int) $z['id'] ?>' ? '1' : '0'">
+                                    <span><?= e((string) $z['name']) ?></span>
+                                    <span class="text-xs font-mono flex-shrink-0 ml-3" style="color: <?= $zFee > 0 ? '#d4a574' : '#7AC678' ?>;">
+                                        <?php if ($zFee > 0): ?><?= e($currency) ?> <?= number_format($zFee, 2) ?><?php else: ?>Gratis<?php endif; ?>
+                                    </span>
+                                </button>
                                 <?php endforeach; ?>
-                            </select>
+                            </div>
                         </div>
                         <?php endif; ?>
                         <div>
@@ -779,6 +841,12 @@ foreach ($items as $i) {
 <script>
 window.MENU_ITEMS = <?= json_encode($itemsForJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 window.MENU_ZONES = <?= json_encode(array_map(fn($z) => ['id' => (int) $z['id'], 'fee' => (float) $z['fee']], $zones), JSON_UNESCAPED_UNICODE) ?>;
+window.MENU_ZONES_FULL = <?= json_encode(array_map(fn($z) => [
+    'id'    => (int) $z['id'],
+    'fee'   => (float) $z['fee'],
+    'name'  => (string) $z['name'],
+    'label' => (string) $z['name'] . ((float) $z['fee'] > 0 ? ' — ' . $currency . ' ' . number_format((float) $z['fee'], 2) : ' — Gratis'),
+], $zones), JSON_UNESCAPED_UNICODE) ?>;
 window.MENU_CHECKOUT_URL = <?= json_encode(url('/m/' . $tenant['uuid'] . '/checkout')) ?>;
 window.MENU_CURRENCY = <?= json_encode($currency) ?>;
 window.MENU_MIN_ORDER = <?= json_encode((float) $minOrder) ?>;
