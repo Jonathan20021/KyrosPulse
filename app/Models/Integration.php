@@ -56,8 +56,9 @@ final class Integration extends Model
             ],
             [
                 'slug' => 'telegram', 'name' => 'Telegram Bot', 'category' => 'messaging',
-                'description' => 'Atiende a tus clientes desde Telegram con la misma bandeja.',
-                'icon' => 'telegram', 'is_premium' => 0, 'min_plan' => 'professional',
+                'description' => 'Recibe ordenes y eventos en tu chat de Telegram via Bot API. Para conversaciones bidireccionales tambien.',
+                'icon' => 'telegram', 'is_premium' => 0, 'min_plan' => 'starter',
+                'redirect_to_notifications' => 'telegram',
                 'fields' => [
                     ['key' => 'bot_token',    'label' => 'Bot Token',     'type' => 'password', 'required' => true],
                     ['key' => 'bot_username', 'label' => 'Bot username',  'type' => 'text', 'required' => false],
@@ -245,8 +246,9 @@ final class Integration extends Model
             // ---------- PRODUCTIVIDAD ----------
             [
                 'slug' => 'slack', 'name' => 'Slack', 'category' => 'productivity',
-                'description' => 'Notifica leads, conversaciones criticas y alertas en Slack.',
-                'icon' => 'slack', 'is_premium' => 0, 'min_plan' => 'professional',
+                'description' => 'Recibe ordenes, leads, tickets y alertas en cualquier canal de Slack via Incoming Webhooks.',
+                'icon' => 'slack', 'is_premium' => 0, 'min_plan' => 'starter',
+                'redirect_to_notifications' => 'slack',
                 'fields' => [
                     ['key' => 'webhook_url',   'label' => 'Incoming Webhook URL', 'type' => 'text', 'required' => true],
                     ['key' => 'channel',       'label' => 'Canal por defecto',    'type' => 'text', 'required' => false],
@@ -255,8 +257,9 @@ final class Integration extends Model
             ],
             [
                 'slug' => 'msteams', 'name' => 'Microsoft Teams', 'category' => 'productivity',
-                'description' => 'Notificaciones de KyrosPulse en canales de Teams.',
-                'icon' => 'teams', 'is_premium' => 0, 'min_plan' => 'business',
+                'description' => 'Notificaciones de ordenes, leads y tickets en canales de Microsoft Teams.',
+                'icon' => 'teams', 'is_premium' => 0, 'min_plan' => 'starter',
+                'redirect_to_notifications' => 'teams',
                 'fields' => [
                     ['key' => 'webhook_url', 'label' => 'Incoming Webhook URL', 'type' => 'text', 'required' => true],
                 ],
@@ -264,8 +267,9 @@ final class Integration extends Model
             ],
             [
                 'slug' => 'discord', 'name' => 'Discord', 'category' => 'productivity',
-                'description' => 'Notificaciones a un canal de Discord.',
-                'icon' => 'discord', 'is_premium' => 0, 'min_plan' => 'professional',
+                'description' => 'Recibe notificaciones del sistema en cualquier canal de Discord via webhook.',
+                'icon' => 'discord', 'is_premium' => 0, 'min_plan' => 'starter',
+                'redirect_to_notifications' => 'discord',
                 'fields' => [
                     ['key' => 'webhook_url', 'label' => 'Webhook URL', 'type' => 'text', 'required' => true],
                 ],

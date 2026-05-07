@@ -52,8 +52,25 @@ $failuresAll = array_sum(array_map(fn ($d) => (int) $d['failure_count'], $destin
     <?php endforeach; ?>
 </div>
 
+<?php
+$prefillType = (string) ($_GET['prefill'] ?? '');
+$prefillType = in_array($prefillType, ['email','slack','discord','teams','telegram','webhook','whatsapp'], true) ? $prefillType : '';
+$prefillLabels = [
+    'slack'    => 'Te trajimos aqui desde Integraciones. Configura tu webhook de Slack abajo.',
+    'discord'  => 'Te trajimos aqui desde Integraciones. Configura tu webhook de Discord abajo.',
+    'teams'    => 'Te trajimos aqui desde Integraciones. Configura tu webhook de Microsoft Teams abajo.',
+    'telegram' => 'Te trajimos aqui desde Integraciones. Configura tu bot de Telegram abajo.',
+];
+?>
+<?php if ($prefillType && isset($prefillLabels[$prefillType])): ?>
+<div class="mb-4 p-3 rounded-xl border flex items-center gap-3" style="background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3);">
+    <span class="text-xl">💡</span>
+    <div class="flex-1 text-sm" style="color: var(--color-text-primary);"><?= e($prefillLabels[$prefillType]) ?></div>
+</div>
+<?php endif; ?>
+
 <!-- Form crear / editar -->
-<div x-data="{ open: false, editing: null, type: 'email', selectedEvents: [] }" class="mb-6">
+<div x-data="{ open: <?= $prefillType ? 'true' : 'false' ?>, editing: null, type: '<?= $prefillType ?: 'email' ?>', selectedEvents: [] }" class="mb-6">
     <button @click="open = !open; editing = null; type='email'; selectedEvents=[]" type="button" class="px-4 py-2.5 rounded-xl text-white font-semibold shadow-lg flex items-center gap-2"
             style="background: linear-gradient(135deg,#10B981,#0EA572);">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>

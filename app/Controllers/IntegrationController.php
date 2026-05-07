@@ -80,6 +80,14 @@ final class IntegrationController extends Controller
         $entry = Integration::findCatalog($slug);
         if (!$entry) $this->abort(404);
 
+        // Si la integracion declara un canal de notificacion, redirigir al panel
+        // de Notificaciones donde realmente se configuran los destinos.
+        if (!empty($entry['redirect_to_notifications'])) {
+            $type = (string) $entry['redirect_to_notifications'];
+            $this->redirect('/settings/notifications?prefill=' . urlencode($type));
+            return;
+        }
+
         $existing = Integration::findForTenant($tenantId, $slug);
         $existingCreds = [];
         if ($existing && !empty($existing['credentials'])) {

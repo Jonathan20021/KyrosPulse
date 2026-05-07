@@ -23,6 +23,19 @@
 <div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(244,63,94,.08); border-color: rgba(244,63,94,.3); color:#FB7185;"><?= e((string) $flashErr) ?></div>
 <?php endif; ?>
 
+<!-- Banner: notificaciones tienen su propio panel -->
+<div class="mb-5 p-4 rounded-xl border flex items-start gap-3" style="background: linear-gradient(135deg, rgba(16,185,129,.08), rgba(79,70,229,.05)); border-color: rgba(16,185,129,.25);">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg" style="background: rgba(16,185,129,.18); color: #0EA572;">🔔</div>
+    <div class="flex-1">
+        <div class="font-semibold text-sm mb-1" style="color: var(--color-text-primary);">¿Quieres recibir ordenes, leads o tickets en Slack, Discord, Teams, Telegram o por correo?</div>
+        <div class="text-xs leading-relaxed" style="color: var(--color-text-secondary);">
+            Esos canales viven en el panel de <strong>Notificaciones</strong>, donde defines a que eventos suscribirte
+            (orden lista, orden entregada, lead nuevo, etc.) y configuras multiples destinatarios.
+        </div>
+    </div>
+    <a href="<?= url('/settings/notifications') ?>" class="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0" style="background: linear-gradient(135deg,#10B981,#0EA572); color: white;">Ir a Notificaciones →</a>
+</div>
+
 <!-- KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
     <?php foreach ([
