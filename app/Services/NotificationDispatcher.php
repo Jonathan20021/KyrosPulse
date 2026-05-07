@@ -185,15 +185,37 @@ final class NotificationDispatcher
 
     private function sendEmail(array $config, array $p): array
     {
-        $to = trim((string) ($config['email'] ?? ($config['to'] ?? '')));
-        if ($to === '') return ['success' => false, 'error' => 'Email destinatario vacio'];
+        // Soporta nuevo formato (emails: array) y legacy (email: string)
+        $recipients = [];
+        if (!empty($config['emails']) && is_array($config['emails'])) {
+            $recipients = array_values(array_filter(array_map('trim', $config['emails'])));
+        } elseif (!empty($config['email'])) {
+            $recipients = [trim((string) $config['email'])];
+        } elseif (!empty($config['to'])) {
+            $recipients = [trim((string) $config['to'])];
+        }
+
+        $recipients = array_values(array_unique(array_filter($recipients, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))));
+        if (empty($recipients)) return ['success' => false, 'error' => 'Sin destinatarios validos'];
 
         $resend = new ResendService($this->tenantId);
-        $res = $resend->sendEmail($to, (string) $p['subject'], (string) $p['html'], (string) $p['text']);
+        $okCount = 0;
+        $errors = [];
+        $ids = [];
+        foreach ($recipients as $to) {
+            $res = $resend->sendEmail($to, (string) $p['subject'], (string) $p['html'], (string) $p['text']);
+            if (!empty($res['success'])) {
+                $okCount++;
+                if (!empty($res['id'])) $ids[] = $res['id'];
+            } else {
+                $errors[] = $to . ': ' . ($res['error'] ?? 'fallo');
+            }
+        }
+        $allOk = $okCount === count($recipients);
         return [
-            'success'  => !empty($res['success']),
-            'error'    => $res['error'] ?? null,
-            'response' => isset($res['id']) ? 'resend_id=' . $res['id'] : null,
+            'success'  => $allOk,
+            'error'    => empty($errors) ? null : implode(' | ', $errors),
+            'response' => sprintf('%d/%d enviados%s', $okCount, count($recipients), $ids ? ' · ids=' . implode(',', $ids) : ''),
         ];
     }
 

@@ -96,11 +96,36 @@ $failuresAll = array_sum(array_map(fn ($d) => (int) $d['failure_count'], $destin
                     </div>
                 </div>
 
-                <!-- Email -->
-                <div x-show="type === 'email'">
-                    <label class="label">Email destinatario</label>
-                    <input type="email" name="email" :value="editing?.config?.email" placeholder="ordenes@miempresa.com" class="input">
-                    <div class="field-help">Asegurate de tener una API key Resend valida en Configuracion → Wasapi & IA.</div>
+                <!-- Email (multi-destinatario) -->
+                <div x-show="type === 'email'" x-data="emailChips()" x-init="init(editing)">
+                    <label class="label">Emails destinatarios</label>
+                    <div class="email-chips-wrap" :class="{ 'has-focus': focused }" @click="$refs.input.focus()">
+                        <template x-for="(em, idx) in emails" :key="idx">
+                            <span class="email-chip">
+                                <span x-text="em"></span>
+                                <button type="button" @click.stop="remove(idx)" title="Quitar">×</button>
+                            </span>
+                        </template>
+                        <input
+                            x-ref="input"
+                            type="text"
+                            x-model="draft"
+                            @keydown.enter.prevent="commit()"
+                            @keydown.tab="commit()"
+                            @keydown.comma.prevent="commit()"
+                            @keydown.semicolon.prevent="commit()"
+                            @keydown.backspace="if (!draft.length && emails.length) emails.pop()"
+                            @blur="focused = false; commit()"
+                            @focus="focused = true"
+                            @paste="onPaste($event)"
+                            placeholder="ordenes@miempresa.com, gerente@miempresa.com"
+                            class="email-chips-input">
+                    </div>
+                    <input type="hidden" name="emails" :value="emails.join(',')">
+                    <div class="field-help">
+                        Pulsa <span class="kbd">Enter</span>, <span class="kbd">Tab</span> o coma para agregar. Maximo 20 emails. Cada envio se loguea por separado.
+                        <span x-show="emails.length > 0" class="ml-1" style="color: var(--color-primary);" x-text="'(' + emails.length + ' agregado' + (emails.length === 1 ? '' : 's') + ')'"></span>
+                    </div>
                 </div>
 
                 <!-- Slack -->
@@ -227,7 +252,16 @@ $failuresAll = array_sum(array_map(fn ($d) => (int) $d['failure_count'], $destin
             $eventsList = is_array($d['events']) ? $d['events'] : (json_decode((string) $d['events'], true) ?: []);
             $configFmt = '';
             switch ($d['type']) {
-                case 'email':    $configFmt = (string) ($d['config']['email'] ?? '—'); break;
+                case 'email':
+                    $emails = $d['config']['emails'] ?? null;
+                    if (is_array($emails) && !empty($emails)) {
+                        $configFmt = count($emails) === 1
+                            ? (string) $emails[0]
+                            : count($emails) . ' destinatarios: ' . implode(', ', array_slice($emails, 0, 3)) . (count($emails) > 3 ? ' +' . (count($emails) - 3) . ' mas' : '');
+                    } else {
+                        $configFmt = (string) ($d['config']['email'] ?? '—');
+                    }
+                    break;
                 case 'slack':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
                 case 'discord':  $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
                 case 'teams':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
@@ -340,5 +374,114 @@ $failuresAll = array_sum(array_map(fn ($d) => (int) $d['failure_count'], $destin
     </div>
 </div>
 <?php endif; ?>
+
+<!-- Componente Alpine para chips de email -->
+<script>
+window.emailChips = function () {
+    return {
+        emails: [],
+        draft: '',
+        focused: false,
+        init(editing) {
+            // Soporta legacy: config.email (string) y nuevo: config.emails (array o string CSV)
+            let initial = [];
+            if (editing && editing.config) {
+                if (Array.isArray(editing.config.emails)) {
+                    initial = editing.config.emails;
+                } else if (typeof editing.config.emails === 'string' && editing.config.emails.length) {
+                    initial = editing.config.emails.split(/[,;\s]+/);
+                } else if (editing.config.email) {
+                    initial = [editing.config.email];
+                }
+            }
+            this.emails = initial.map(s => String(s).trim()).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 20);
+        },
+        commit() {
+            const raw = this.draft.trim().replace(/[,;]+$/, '').trim();
+            if (!raw) return;
+            const parts = raw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+            for (const p of parts) {
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) continue;
+                if (this.emails.length >= 20) break;
+                if (this.emails.includes(p)) continue;
+                this.emails.push(p);
+            }
+            this.draft = '';
+        },
+        remove(idx) {
+            this.emails.splice(idx, 1);
+        },
+        onPaste(e) {
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            if (!text) return;
+            if (/[,;\s\n]/.test(text)) {
+                e.preventDefault();
+                this.draft = text;
+                this.commit();
+            }
+        },
+    };
+};
+</script>
+
+<style>
+.email-chips-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+    padding: 7px 10px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    min-height: 42px;
+    cursor: text;
+    transition: border-color .15s, box-shadow .15s;
+}
+.dark .email-chips-wrap { background: rgba(255,255,255,0.04); }
+.email-chips-wrap.has-focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px var(--color-primary-ring);
+}
+.email-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 10px;
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.30);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--color-text-primary);
+    line-height: 1.5;
+    max-width: 100%;
+}
+.dark .email-chip { color: #6EE7B7; }
+.email-chip > button {
+    width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--color-text-tertiary);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all .12s;
+}
+.email-chip > button:hover { background: rgba(244,63,94,0.15); color: #DC2A47; }
+.email-chips-input {
+    flex: 1;
+    min-width: 180px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: 13.5px;
+    padding: 2px 0;
+}
+.email-chips-input::placeholder { color: var(--color-text-muted); }
+</style>
 
 <?php \App\Core\View::stop(); ?>

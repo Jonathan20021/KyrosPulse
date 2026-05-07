@@ -122,7 +122,19 @@ final class NotificationDestinationController extends Controller
         $config = [];
         switch ($type) {
             case 'email':
-                $config = ['email' => trim((string) $request->input('email', ''))];
+                // Acepta: comma/semicolon/whitespace separados. Maximo 20. Valida cada uno.
+                $rawEmails = (string) $request->input('emails', '') ?: (string) $request->input('email', '');
+                $parts = preg_split('/[,;\s]+/', $rawEmails) ?: [];
+                $emails = [];
+                foreach ($parts as $p) {
+                    $p = trim((string) $p);
+                    if ($p === '') continue;
+                    if (filter_var($p, FILTER_VALIDATE_EMAIL) && !in_array($p, $emails, true)) {
+                        $emails[] = $p;
+                    }
+                    if (count($emails) >= 20) break;
+                }
+                $config = ['emails' => $emails];
                 break;
             case 'slack':
             case 'discord':
