@@ -846,7 +846,9 @@ foreach ($items as $i) {
             <strong style="color: #F5F0E8;">Solo presiona enviar</strong> para confirmar con el restaurante.
         </p>
 
-        <a :href="successOrder?.waUrl" target="_blank" rel="noopener"
+        <a :href="successOrder?.waUrl"
+           :target="(successOrder?.waUrl || '').startsWith('whatsapp:') ? '_self' : '_blank'"
+           rel="noopener"
            class="block w-full py-3.5 rounded-2xl font-bold text-base mb-3 transition active:scale-95"
            style="background: linear-gradient(135deg, #25D366, #128C7E); color: white; box-shadow: 0 10px 30px rgba(37,211,102,0.35);">
             <span class="flex items-center justify-center gap-2">
@@ -975,11 +977,11 @@ function menuApp() {
             }
             this.loading = true;
 
-            // Pre-abrir una ventana SINCRONICA con un placeholder. Algunos navegadores
-            // bloquean window.open si se llama tras un await (gesto perdido). Asi
-            // garantizamos que se abra la pestana mientras procesamos en background.
-            const popup = window.open('about:blank', '_blank');
-
+            // No pre-abrimos popup: en webviews in-app (WhatsApp, Instagram, Facebook)
+            // la navegacion JS post-async a esquemas externos suele fallar y dejar la
+            // pestana en about:blank. En lugar de eso mostramos el modal y dejamos que
+            // el usuario tape el boton "Abrir WhatsApp" — un click real es un gesto
+            // valido en cualquier navegador.
             try {
                 const r = await fetch(window.MENU_CHECKOUT_URL, {
                     method: 'POST',
@@ -996,7 +998,6 @@ function menuApp() {
                 });
                 const data = await r.json();
                 if (!r.ok || !data.success) {
-                    if (popup) popup.close();
                     this.error = data.error || 'No se pudo procesar tu orden.';
                     this.loading = false;
                     return;
@@ -1004,7 +1005,6 @@ function menuApp() {
 
                 // Validar que tengamos URL valida de WhatsApp
                 if (!data.wa_url || data.wa_url.indexOf('wa.me/?') !== -1) {
-                    if (popup) popup.close();
                     this.error = 'Orden creada pero falta el numero de WhatsApp del negocio. Contacta al restaurante.';
                     this.loading = false;
                     return;
@@ -1016,16 +1016,9 @@ function menuApp() {
                 // Movil -> deep link nativo (whatsapp://); desktop -> wa.me (WhatsApp Web).
                 const targetUrl = this.pickWaUrl(data);
 
-                // Redirigir popup. Si el navegador bloqueo window.open, redirigir esta pagina.
-                if (popup) {
-                    popup.location.href = targetUrl;
-                } else {
-                    window.location.href = targetUrl;
-                    return;
-                }
-
-                // Mostrar pantalla de exito con boton explicito (UX profesional).
-                // Guardamos ambas URLs para que el boton del modal tambien escoja la mejor.
+                // Mostrar modal de exito. El boton "Abrir WhatsApp" es un <a href>
+                // real, asi el navegador trata el tap como user gesture y abre el
+                // esquema correctamente (incluso dentro del webview de WhatsApp).
                 this.successOrder = {
                     code: data.order_code,
                     total: data.total,
@@ -1036,7 +1029,6 @@ function menuApp() {
                 };
                 this.loading = false;
             } catch (e) {
-                if (popup) popup.close();
                 this.error = 'Error de red. Intenta de nuevo.';
                 this.loading = false;
             }
