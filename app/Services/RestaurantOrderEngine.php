@@ -155,6 +155,9 @@ final class RestaurantOrderEngine
             'note'      => 'Orden creada por IA desde conversacion #' . $conversationId,
         ]);
 
+        // Notificar order.new tras items y totales ya persistidos
+        Order::dispatchCreated($this->tenantId, $orderId);
+
         Logger::info('AI order creada', ['tenant' => $this->tenantId, 'order' => $orderId, 'total' => $total]);
 
         // Sincronizar con CRM/pipeline: crear lead asociado, actualizar contacto.

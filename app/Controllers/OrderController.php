@@ -147,6 +147,10 @@ final class OrderController extends Controller
             'note'      => 'Orden creada manualmente',
         ]);
 
+        // Notificar order.new tras items + recalcTotals para que el email/Slack
+        // lleguen con items reales y total correcto.
+        Order::dispatchCreated($tenantId, $orderId);
+
         // Sincronizar con CRM/pipeline
         try {
             $sync = new LeadSyncService($tenantId);

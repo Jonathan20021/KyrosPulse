@@ -41,23 +41,27 @@ final class Order extends Model
     public static function create(array $data): int
     {
         $data['code'] = $data['code'] ?? self::generateCode((int) $data['tenant_id']);
-        $orderId = Database::insert('orders', $data);
+        return Database::insert('orders', $data);
+    }
 
-        // Notificacion order.new (despues de que el caller agregue items y haga recalcTotals
-        // se podria refinar; para aqui usamos los datos actuales del registro insertado).
+    /**
+     * Disparar el evento order.new despues de que el caller haya insertado los
+     * order_items y llamado recalcTotals. Antes este dispatch estaba dentro de
+     * create(), pero al ejecutarse "demasiado pronto" el email/Slack llegaban
+     * con "Sin items" y total 0. Ahora es responsabilidad del caller invocarlo
+     * al final del flujo de creacion.
+     */
+    public static function dispatchCreated(int $tenantId, int $orderId): void
+    {
         try {
-            $tenantId = (int) $data['tenant_id'];
             $full = self::findById($tenantId, $orderId);
-            if ($full) {
-                $full['items'] = self::items($tenantId, $orderId);
-                (new \App\Services\NotificationDispatcher($tenantId))
-                    ->dispatchOrderEvent($full, 'order.new');
-            }
+            if (!$full) return;
+            $full['items'] = self::items($tenantId, $orderId);
+            (new \App\Services\NotificationDispatcher($tenantId))
+                ->dispatchOrderEvent($full, 'order.new');
         } catch (\Throwable $e) {
             \App\Core\Logger::warning('NotificationDispatcher order.new fallo', ['msg' => $e->getMessage()]);
         }
-
-        return $orderId;
     }
 
     public static function update(int $tenantId, int $id, array $data): int

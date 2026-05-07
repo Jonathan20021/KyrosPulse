@@ -172,6 +172,9 @@ final class PublicMenuController extends Controller
             'note'      => 'Orden creada desde menu publico web',
         ]);
 
+        // Notificar order.new ahora que items y totales ya estan persistidos
+        Order::dispatchCreated($tenantId, $orderId);
+
         // Sync con CRM/leads (no bloqueante)
         try {
             (new \App\Services\LeadSyncService($tenantId))->ensureRestaurantStages();
