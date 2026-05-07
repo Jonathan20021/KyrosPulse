@@ -254,6 +254,10 @@
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 Test
             </button>
+            <button type="button" @click="editing = !editing" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style="background: var(--color-bg-subtle); color: var(--color-text-primary);">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span x-text="editing ? 'Cerrar' : 'Editar'">Editar</span>
+            </button>
             <?php if (empty($ch['is_default'])): ?>
             <form action="<?= url('/settings/channels/' . $ch['id'] . '/default') ?>" method="POST" class="inline">
                 <?= csrf_field() ?>
@@ -268,6 +272,55 @@
                 <?= csrf_field() ?>
                 <input type="hidden" name="_method" value="DELETE">
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-xs" style="color:#F87171;">Eliminar</button>
+            </form>
+        </div>
+
+        <!-- Form de edicion inline -->
+        <div x-show="editing" x-cloak x-transition class="mt-4 pt-4 border-t" style="border-color: var(--color-border-subtle);">
+            <form action="<?= url('/settings/channels/' . $ch['id']) ?>" method="POST" class="space-y-3">
+                <?= csrf_field() ?>
+                <input type="hidden" name="_method" value="PUT">
+                <div class="grid md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="label">Etiqueta</label>
+                        <input type="text" name="label" value="<?= e((string) $ch['label']) ?>" maxlength="120" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Numero (E.164)</label>
+                        <input type="text" name="phone" value="<?= e((string) $ch['phone']) ?>" placeholder="+18495551234" class="input">
+                        <div class="field-help">Debe coincidir con el numero conectado en Wasapi/Cloud API.</div>
+                    </div>
+                </div>
+                <?php if ($ch['provider'] === 'wasapi'): ?>
+                <div>
+                    <label class="label">API Key Wasapi</label>
+                    <input type="password" name="api_key" value="" placeholder="<?= !empty($ch['api_key']) ? '•••• (deja vacio para mantener la actual)' : 'Tu API key de Wasapi' ?>" autocomplete="off" class="input">
+                    <div class="field-help">Solo cambia esto si rotaste tu API key. Dejar vacio mantiene la actual.</div>
+                </div>
+                <?php elseif ($ch['provider'] === 'cloud'): ?>
+                <div class="grid md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="label">Phone Number ID (Meta)</label>
+                        <input type="text" name="phone_number_id" value="<?= e((string) ($ch['phone_number_id'] ?? '')) ?>" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Business Account ID</label>
+                        <input type="text" name="business_account_id" value="<?= e((string) ($ch['business_account_id'] ?? '')) ?>" class="input">
+                    </div>
+                </div>
+                <div>
+                    <label class="label">Access Token (Permanent System User)</label>
+                    <input type="password" name="access_token" value="" placeholder="<?= !empty($ch['access_token']) ? '•••• (deja vacio para mantener)' : 'EAAxxxxxxxx' ?>" autocomplete="off" class="input">
+                </div>
+                <div>
+                    <label class="label">Verify Token (webhook)</label>
+                    <input type="text" name="webhook_verify" value="<?= e((string) ($ch['webhook_verify'] ?? '')) ?>" class="input">
+                </div>
+                <?php endif; ?>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" @click="editing = false" class="btn-cancel">Cancelar</button>
+                    <button type="submit" class="btn-submit">Guardar cambios</button>
+                </div>
             </form>
         </div>
 

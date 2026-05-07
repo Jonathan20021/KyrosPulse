@@ -118,9 +118,87 @@ final class SettingsController extends Controller
             return;
         }
 
+        // Sincronizar con whatsapp_channels: si el tenant cambia su numero o api_key
+        // de Wasapi desde aqui, debe reflejarse en el canal default. Si no existe,
+        // se crea uno automaticamente para que los webhooks puedan resolverlo.
+        $syncMsg = $this->syncWasapiChannel(
+            $tenantId,
+            (string) ($data['wasapi_phone'] ?? ''),
+            (string) ($data['wasapi_api_key'] ?? '')
+        );
+
         Audit::log('settings.integrations', 'tenant', $tenantId);
-        Session::flash('success', 'Integraciones actualizadas correctamente.');
+        Session::flash('success', 'Integraciones actualizadas correctamente.' . ($syncMsg ? ' ' . $syncMsg : ''));
         $this->redirect('/settings/integrations/core');
+    }
+
+    /**
+     * Sincroniza el numero/api_key de Wasapi (legacy en tenants) con el canal
+     * default en whatsapp_channels. Crea el canal si no existe; si existe,
+     * actualiza phone y/o api_key. Devuelve un texto opcional para el flash.
+     */
+    private function syncWasapiChannel(int $tenantId, string $phone, string $apiKey): string
+    {
+        $phone = trim($phone);
+        $apiKey = trim($apiKey);
+        if ($phone === '' && $apiKey === '') return '';
+
+        // Normalizar phone a formato E.164 simple (debe traer + y digitos)
+        if ($phone !== '' && !str_starts_with($phone, '+')) $phone = '+' . preg_replace('/[^0-9]/', '', $phone);
+
+        $existing = Database::fetch(
+            "SELECT * FROM whatsapp_channels
+             WHERE tenant_id = :t AND provider = 'wasapi' AND deleted_at IS NULL
+             ORDER BY is_default DESC, id ASC LIMIT 1",
+            ['t' => $tenantId]
+        );
+
+        if (!$existing) {
+            if ($phone === '') return '';
+            // Crear canal default desde cero
+            $uuid = function_exists('com_create_guid')
+                ? trim(com_create_guid(), '{}')
+                : sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0x0fff)|0x4000,mt_rand(0,0x3fff)|0x8000,mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff));
+            try {
+                Database::insert('whatsapp_channels', [
+                    'tenant_id'  => $tenantId,
+                    'uuid'       => $uuid,
+                    'provider'   => 'wasapi',
+                    'label'      => 'Wasapi · ' . $phone,
+                    'phone'      => $phone,
+                    'api_key'    => $apiKey ?: null,
+                    'status'     => 'active',
+                    'is_default' => 1,
+                    'color'      => '#10B981',
+                ]);
+                return 'Canal Wasapi default creado con ' . $phone . '.';
+            } catch (\Throwable $e) {
+                \App\Core\Logger::warning('syncWasapiChannel create fallo', ['msg' => $e->getMessage()]);
+                return '';
+            }
+        }
+
+        // Actualizar canal existente
+        $patch = [];
+        if ($phone !== '' && $phone !== ($existing['phone'] ?? '')) {
+            $patch['phone'] = $phone;
+            $patch['label'] = 'Wasapi · ' . $phone;
+        }
+        if ($apiKey !== '' && $apiKey !== ($existing['api_key'] ?? '')) {
+            $patch['api_key'] = $apiKey;
+        }
+        if (empty($patch)) return '';
+
+        try {
+            Database::update('whatsapp_channels', $patch, ['id' => (int) $existing['id'], 'tenant_id' => $tenantId]);
+            $changes = [];
+            if (isset($patch['phone']))   $changes[] = 'numero → ' . $phone;
+            if (isset($patch['api_key'])) $changes[] = 'API key';
+            return 'Canal Wasapi sincronizado (' . implode(', ', $changes) . ').';
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('syncWasapiChannel update fallo', ['msg' => $e->getMessage()]);
+            return '';
+        }
     }
 
     /**
