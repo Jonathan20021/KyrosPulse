@@ -268,6 +268,28 @@ $prefillLabels = [
             $meta = $typeMeta[$d['type']] ?? ['icon' => '📡', 'label' => $d['type'], 'color' => '#64748B'];
             $eventsList = is_array($d['events']) ? $d['events'] : (json_decode((string) $d['events'], true) ?: []);
             $configFmt = '';
+            // Detectar config incompleta para mostrar warning
+            $configMissing = '';
+            $cfg = is_array($d['config']) ? $d['config'] : [];
+            switch ($d['type']) {
+                case 'email':
+                    if (empty($cfg['emails']) && empty($cfg['email'])) $configMissing = 'Sin destinatarios';
+                    break;
+                case 'slack':
+                case 'discord':
+                case 'teams':
+                    if (empty(trim((string) ($cfg['webhook_url'] ?? '')))) $configMissing = 'Sin Webhook URL';
+                    break;
+                case 'telegram':
+                    if (empty($cfg['bot_token']) || empty($cfg['chat_id'])) $configMissing = 'Falta bot_token o chat_id';
+                    break;
+                case 'webhook':
+                    if (empty(trim((string) ($cfg['url'] ?? '')))) $configMissing = 'Sin URL';
+                    break;
+                case 'whatsapp':
+                    if (empty($cfg['phone'])) $configMissing = 'Sin numero destino';
+                    break;
+            }
             switch ($d['type']) {
                 case 'email':
                     $emails = $d['config']['emails'] ?? null;
@@ -294,7 +316,9 @@ $prefillLabels = [
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <h4 class="font-bold text-sm" style="color: var(--color-text-primary);"><?= e($d['label']) ?></h4>
                         <span class="badge badge-emerald"><?= e($meta['label']) ?></span>
-                        <?php if (!empty($d['is_active'])): ?>
+                        <?php if ($configMissing): ?>
+                        <span class="badge badge-rose badge-dot" title="<?= e($configMissing) ?>. Edita el destino y completa los campos requeridos.">⚠ Config incompleta</span>
+                        <?php elseif (!empty($d['is_active'])): ?>
                         <span class="badge badge-emerald badge-dot">Activo</span>
                         <?php else: ?>
                         <span class="badge badge-slate badge-dot">Pausado</span>
