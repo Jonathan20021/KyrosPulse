@@ -640,6 +640,104 @@ final class SettingsController extends Controller
         $this->redirect('/settings/ai');
     }
 
+    /**
+     * Sube un archivo .txt / .md y lo importa a la base de conocimiento.
+     * Si el archivo tiene encabezados markdown (## titulo), crea UN articulo
+     * por seccion. Si es texto plano, un solo articulo con el nombre del archivo.
+     * PDF/DOCX no soportados todavia (requieren extension externa).
+     */
+    public function knowledgeUpload(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        $file = $_FILES['kb_file'] ?? null;
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Session::flash('error', 'No se recibio archivo o hubo error en la subida.');
+            $this->redirect('/settings/ai');
+            return;
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 512 * 1024) {  // 512 KB max
+            Session::flash('error', 'Archivo invalido o demasiado grande (max 512 KB).');
+            $this->redirect('/settings/ai');
+            return;
+        }
+
+        $name = (string) ($file['name'] ?? 'documento.txt');
+        $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['txt', 'md', 'markdown'], true)) {
+            Session::flash('error', 'Solo se aceptan archivos .txt o .md por ahora.');
+            $this->redirect('/settings/ai');
+            return;
+        }
+
+        $content = @file_get_contents((string) $file['tmp_name']);
+        if ($content === false || trim($content) === '') {
+            Session::flash('error', 'No se pudo leer el archivo o esta vacio.');
+            $this->redirect('/settings/ai');
+            return;
+        }
+        // Sanitize: solo UTF-8 valido, max 100KB efectivos
+        if (!mb_check_encoding($content, 'UTF-8')) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1, UTF-8');
+        }
+        $content = mb_substr($content, 0, 100000);
+        $category = (string) ($request->input('category') ?: 'documento');
+
+        // Si es markdown con encabezados ## ... crea un articulo por seccion
+        $created = 0;
+        if (in_array($ext, ['md', 'markdown'], true) && preg_match('/^##\s+/m', $content)) {
+            $parts = preg_split('/^(##\s+.+)$/m', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+            $current = ['title' => '', 'body' => ''];
+            foreach ($parts as $part) {
+                if (preg_match('/^##\s+(.+)$/', $part, $m)) {
+                    if ($current['title'] !== '' && trim($current['body']) !== '') {
+                        KnowledgeBase::create([
+                            'tenant_id'  => $tenantId,
+                            'category'   => $category,
+                            'title'      => mb_substr($current['title'], 0, 250),
+                            'content'    => trim($current['body']),
+                            'is_active'  => 1,
+                            'created_by' => Auth::id(),
+                        ]);
+                        $created++;
+                    }
+                    $current = ['title' => trim($m[1]), 'body' => ''];
+                } else {
+                    $current['body'] .= $part;
+                }
+            }
+            // Ultima seccion
+            if ($current['title'] !== '' && trim($current['body']) !== '') {
+                KnowledgeBase::create([
+                    'tenant_id'  => $tenantId,
+                    'category'   => $category,
+                    'title'      => mb_substr($current['title'], 0, 250),
+                    'content'    => trim($current['body']),
+                    'is_active'  => 1,
+                    'created_by' => Auth::id(),
+                ]);
+                $created++;
+            }
+        }
+
+        // Fallback: 1 articulo por archivo (txt o md sin secciones)
+        if ($created === 0) {
+            KnowledgeBase::create([
+                'tenant_id'  => $tenantId,
+                'category'   => $category,
+                'title'      => mb_substr(pathinfo($name, PATHINFO_FILENAME), 0, 250) ?: $name,
+                'content'    => trim($content),
+                'is_active'  => 1,
+                'created_by' => Auth::id(),
+            ]);
+            $created = 1;
+        }
+
+        Session::flash('success', "Importado: $created articulo(s) desde $name.");
+        $this->redirect('/settings/ai');
+    }
+
     public function users(Request $request): void
     {
         $tenantId = Tenant::id();

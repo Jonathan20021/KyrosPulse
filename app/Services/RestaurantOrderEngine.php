@@ -203,6 +203,17 @@ final class RestaurantOrderEngine
             ]);
         } catch (\Throwable) {}
 
+        // Refrescar perfil aprendido del contacto: cada nueva orden cambia
+        // RFM, items favoritos y patrones. Lo hacemos sincronicamente porque
+        // tarda < 50ms y mantiene la memoria al dia para el siguiente turno.
+        try {
+            (new ContactMemoryService($this->tenantId))->refreshProfile($contactId);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('ContactMemory refresh post-order fallo', [
+                'order' => $orderId, 'contact' => $contactId, 'msg' => $e->getMessage(),
+            ]);
+        }
+
         return ['success' => true, 'order_id' => $orderId];
     }
 

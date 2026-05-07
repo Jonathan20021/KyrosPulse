@@ -275,6 +275,12 @@ final class WhatsappCloudService
         Contact::touchInteraction($this->tenantId, (int) $contact['id']);
         WhatsappChannel::touchActivity((int) $this->channel['id']);
 
+        // Trackear ultimo inbound para SalesBot (cart recovery / re-engagement)
+        Database::run(
+            "UPDATE conversations SET last_inbound_at = NOW() WHERE id = :id",
+            ['id' => $convId]
+        );
+
         // Aplicar reglas de routing
         try {
             (new RoutingEngine($this->tenantId))->apply([

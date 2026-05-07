@@ -439,6 +439,13 @@ final class WasapiService
         if ($channelId) WhatsappChannel::touchActivity($channelId);
         $this->markCampaignReply($message['phone']);
 
+        // Trackear ultimo inbound para que el SalesBot pueda detectar carritos
+        // abandonados y clientes inactivos sin escanear la tabla messages.
+        Database::run(
+            "UPDATE conversations SET last_inbound_at = NOW() WHERE id = :id",
+            ['id' => $convId]
+        );
+
         // Aplicar reglas de routing (auto-asignacion)
         try {
             (new RoutingEngine($this->tenantId))->apply([

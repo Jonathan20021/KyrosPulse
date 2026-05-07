@@ -41,6 +41,9 @@ final class NotificationDestination
                 'lead.new' => 'Lead nuevo',
                 'lead.won' => 'Lead ganado',
             ],
+            'ai' => [
+                'ai.budget_alert' => 'Alerta de presupuesto IA (umbral cruzado)',
+            ],
         ];
     }
 

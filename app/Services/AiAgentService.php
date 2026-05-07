@@ -51,7 +51,33 @@ final class AiAgentService
             $history .= "\n\n" . $cartContext;
         }
 
+        // Inyectar la etapa de venta actual para que la IA sepa donde esta en
+        // la maquina de estados (greeting/qualifying/recommending/cart_building/
+        // confirming/closed/follow_up).
+        $stateContext = $this->renderSalesStateForPrompt($conversationId);
+        if ($stateContext !== '') {
+            $history .= "\n\n" . $stateContext;
+        }
+
+        // Inyectar el perfil aprendido del contacto (Fase 3 — memoria persistente).
+        // Si el cliente tiene historial, la IA recibe items favoritos, segmento RFM,
+        // patrones temporales y notas para personalizar la respuesta.
+        try {
+            $memoryContext = (new ContactMemoryService($this->tenantId))->renderForPrompt($contactId);
+            if ($memoryContext !== '') {
+                $history .= "\n\n" . $memoryContext;
+            }
+        } catch (\Throwable $e) {
+            Logger::warning('ContactMemory renderForPrompt fallo', ['msg' => $e->getMessage()]);
+        }
+
         $provider = new AiProviderService($this->tenantId, (int) $agent['id']);
+        // Atribuir esta llamada a la conversacion + mensaje entrante para ROI
+        // (asi el dashboard puede correlacionar costo IA -> orden generada).
+        $provider->withContext([
+            'conversation_id' => $conversationId,
+            'message_id'      => $inboundMessageId,
+        ]);
 
         // 1er intento (con prompt completo: menu + KB + productos)
         $ai = $provider->autoReply($incomingText, $history);
@@ -136,21 +162,32 @@ final class AiAgentService
         // de oficio para que no quede solo en el chat.
         $this->forceCreateOrderIfImplicitConfirmation($conversationId, $contactId, $phone, $reply, $parsed['actions']);
 
-        // Refrescar metadatos generales de la conversacion + contador de exitos
-        Database::run(
-            "UPDATE conversations
-             SET last_message = :msg,
-                 last_message_at = NOW(),
-                 ai_handled_count = ai_handled_count + 1,
-                 ai_failed_attempts = 0,
-                 ai_last_run_at = NOW()
-             WHERE id = :id AND tenant_id = :t",
-            [
-                'msg' => mb_substr($reply, 0, 200),
-                'id'  => $conversationId,
-                't'   => $this->tenantId,
-            ]
-        );
+        // Refrescar metadatos generales de la conversacion + contador de exitos.
+        // last_outbound_at se actualiza solo si el envio salio bien (asi el SalesBot
+        // no asume que fue contactado cuando en realidad fallo el envio).
+        if (!empty($send['success'])) {
+            Database::run(
+                "UPDATE conversations
+                 SET last_message = :msg,
+                     last_message_at = NOW(),
+                     last_outbound_at = NOW(),
+                     ai_handled_count = ai_handled_count + 1,
+                     ai_failed_attempts = 0,
+                     ai_last_run_at = NOW()
+                 WHERE id = :id AND tenant_id = :t",
+                ['msg' => mb_substr($reply, 0, 200), 'id' => $conversationId, 't' => $this->tenantId]
+            );
+        } else {
+            Database::run(
+                "UPDATE conversations
+                 SET last_message = :msg,
+                     last_message_at = NOW(),
+                     ai_handled_count = ai_handled_count + 1,
+                     ai_last_run_at = NOW()
+                 WHERE id = :id AND tenant_id = :t",
+                ['msg' => mb_substr($reply, 0, 200), 'id' => $conversationId, 't' => $this->tenantId]
+            );
+        }
 
         $this->log($agent, $conversationId, $messageId, 'auto_reply', $history, $reply, !empty($send['success']), $send['error'] ?? null, $parsed['actions']);
 
@@ -481,6 +518,19 @@ final class AiAgentService
         // Limpiar carrito
         $this->clearCart($conversationId);
 
+        // Auto-transicion del state machine: orden creada -> closed
+        Database::run(
+            "UPDATE conversations SET sales_state = 'closed', sales_state_at = NOW()
+             WHERE id = :id AND tenant_id = :t",
+            ['id' => $conversationId, 't' => $this->tenantId]
+        );
+
+        // Atribuir el costo IA de los ultimos turnos a esta orden (ROI)
+        $createdOrderId = (int) ($result['order_id'] ?? 0);
+        if ($createdOrderId > 0) {
+            $this->attributeRecentLogsToOrder($conversationId, $createdOrderId);
+        }
+
         // Generar mensaje de confirmacion personalizado y enviarlo
         $orderId = (int) ($result['order_id'] ?? 0);
         $order = $orderId ? Database::fetch("SELECT code, total, currency, prep_time_min FROM orders WHERE id = :o", ['o' => $orderId]) : null;
@@ -681,6 +731,35 @@ final class AiAgentService
         return implode("\n", $lines);
     }
 
+    /**
+     * Renderiza la etapa de venta actual (greeting/qualifying/.../follow_up) en
+     * el contexto que se pasa a la IA, para que el agente sepa en que parte
+     * del funnel esta y cual es la siguiente accion natural.
+     */
+    private function renderSalesStateForPrompt(int $conversationId): string
+    {
+        $row = Database::fetch(
+            "SELECT sales_state, sales_state_at FROM conversations
+             WHERE id = :id AND tenant_id = :t",
+            ['id' => $conversationId, 't' => $this->tenantId]
+        );
+        $state = trim((string) ($row['sales_state'] ?? 'greeting'));
+        if ($state === '') $state = 'greeting';
+
+        $stateLabels = [
+            'greeting'      => 'cliente recien saludo, llevalo a recommending o qualifying',
+            'qualifying'    => 'estas entendiendo el contexto del pedido (UNA pregunta clave maximo)',
+            'recommending'  => 'sugiere 2-3 items reales del menu con precios',
+            'cart_building' => 'el cliente esta eligiendo items, emite [CART_ADD] cuando los mencione + UPSELL si aplica (bebida si no la pidio, etc.)',
+            'confirming'    => 'recapitula la orden y pide confirmacion clara, ante "si/dale" emite [ORDER:{}]',
+            'closed'        => 'orden ya creada, no insistas, espera respuesta del cliente',
+            'follow_up'     => 'post-entrega, agradece y pregunta si todo bien',
+        ];
+        $hint = $stateLabels[$state] ?? 'avanza la conversacion segun corresponda';
+
+        return "ETAPA DE VENTA ACTUAL: $state — $hint.\nSi avanzas de etapa, emite [STATE: nueva_etapa] al final.";
+    }
+
     /** Inserta una nota interna visible solo para el operador con el error de la IA. */
     private function writeAiErrorNote(int $conversationId, int $contactId, string $error, bool $transient): void
     {
@@ -777,6 +856,28 @@ final class AiAgentService
         );
         if ($cur >= max(1, $maxRetries)) {
             $this->escalateToHuman($conversationId, "IA fallo $cur veces. Escalado automatico.");
+        }
+    }
+
+    /**
+     * Atribuye los logs IA recientes (mismos conversation_id, sin order_id
+     * todavia, ultimos 5 min) a la orden recien creada. Asi el dashboard
+     * puede correlacionar costo IA -> ticket de orden y calcular ROI real.
+     */
+    private function attributeRecentLogsToOrder(int $conversationId, int $orderId): void
+    {
+        try {
+            Database::run(
+                "UPDATE ai_logs
+                    SET order_id = :o
+                  WHERE tenant_id = :t
+                    AND conversation_id = :c
+                    AND order_id IS NULL
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)",
+                ['o' => $orderId, 't' => $this->tenantId, 'c' => $conversationId]
+            );
+        } catch (\Throwable $e) {
+            Logger::warning('attributeRecentLogsToOrder fallo', ['msg' => $e->getMessage()]);
         }
     }
 
@@ -924,7 +1025,7 @@ final class AiAgentService
 
         // === LIMPIEZA DE JSON / MARKERS LEAKEADOS (agresiva) ===
         // 1. Tags malformados sin cerrar: "[CART_ADD: {...", "[ORDER: {..." etc.
-        $text = preg_replace('/\[(CART_(?:ADD|SET|CLEAR)|ORDER|ORDER_STATUS|PAYMENT_LINK|TRANSFER|CLOSE_SALE|SCHEDULE|END_CHAT|TAG|TICKET)(?::[^\]]*)?(?:\]|$)/iu', '', (string) $text) ?? $text;
+        $text = preg_replace('/\[(CART_(?:ADD|SET|CLEAR)|ORDER|ORDER_STATUS|PAYMENT_LINK|TRANSFER|CLOSE_SALE|SCHEDULE|END_CHAT|TAG|TICKET|STATE)(?::[^\]]*)?(?:\]|$)/iu', '', (string) $text) ?? $text;
 
         // 2. Bloques JSON con llaves: {"items":[...], "zone":"..."}
         $text = preg_replace('/\{[^{}]*"(?:items|name|qty|delivery_type|payment|address|zone|customer_name|customer_phone|notes|modifiers)"[^{}]*\}/su', '', (string) $text) ?? $text;
@@ -994,6 +1095,10 @@ final class AiAgentService
             'ORDER_STATUS'  => '/\[ORDER_STATUS:\s*([^\]]+)\]/i',
             'PAYMENT_LINK'  => '/\[PAYMENT_LINK:\s*([^\]]+)\]/i',
             'CART_CLEAR'    => '/\[CART_CLEAR\]/i',
+            // Sales state machine: la IA emite [STATE: cart_building] cuando avanza
+            // la conversacion a la siguiente etapa (greeting/qualifying/recommending/
+            // cart_building/confirming/closed/follow_up).
+            'STATE'         => '/\[STATE:\s*([a-z_]+)\]/i',
         ];
         foreach ($patterns as $key => $regex) {
             if (preg_match_all($regex, $text, $matches, PREG_SET_ORDER)) {
@@ -1024,6 +1129,7 @@ final class AiAgentService
             'ORDER_STATUS' => 31,
             'PAYMENT_LINK' => 32,
             'CLOSE_SALE'   => 40,
+            'STATE'        => 50,
             'CART_CLEAR'   => 80,
             'TRANSFER'     => 90,
             'END_CHAT'     => 99,
@@ -1095,6 +1201,18 @@ final class AiAgentService
                         ], ['id' => $conversationId, 'tenant_id' => $this->tenantId]);
                         break;
 
+                    case 'STATE':
+                        $newState = mb_strtolower(trim($args));
+                        $validStates = ['greeting', 'qualifying', 'recommending', 'cart_building', 'confirming', 'closed', 'follow_up'];
+                        if (in_array($newState, $validStates, true)) {
+                            Database::run(
+                                "UPDATE conversations SET sales_state = :s, sales_state_at = NOW()
+                                 WHERE id = :id AND tenant_id = :t",
+                                ['s' => $newState, 'id' => $conversationId, 't' => $this->tenantId]
+                            );
+                        }
+                        break;
+
                     case 'TAG':
                         $tagName = mb_substr(trim($args), 0, 60);
                         if ($tagName === '') break;
@@ -1164,6 +1282,20 @@ final class AiAgentService
                         // Limpiar carrito tras crear la orden con exito
                         if (!empty($orderResult['success'])) {
                             $this->clearCart($conversationId);
+
+                            // Auto-transicion del state machine: orden creada -> closed
+                            Database::run(
+                                "UPDATE conversations SET sales_state = 'closed', sales_state_at = NOW()
+                                 WHERE id = :id AND tenant_id = :t",
+                                ['id' => $conversationId, 't' => $this->tenantId]
+                            );
+
+                            // Atribuir el costo IA de los ultimos turnos a esta orden
+                            // (permite calcular ROI: costo IA -> ticket de la orden).
+                            $newOrderId = (int) ($orderResult['order_id'] ?? 0);
+                            if ($newOrderId > 0) {
+                                $this->attributeRecentLogsToOrder($conversationId, $newOrderId);
+                            }
                         }
                         break;
 

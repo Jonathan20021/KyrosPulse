@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v8_ok';
+    private const CACHE_FILE = '/cache/.schema_v11_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -26,7 +26,7 @@ final class Schema
 
             $pdo = Database::connection();
 
-            // Verificacion barata: si existen TODAS las tablas/columnas criticas hasta v8
+            // Verificacion barata: si existen TODAS las tablas/columnas criticas hasta v9
             $tableOk = self::tableExists($pdo, 'whatsapp_channels')
                     && self::tableExists($pdo, 'menu_items')
                     && self::tableExists($pdo, 'orders')
@@ -37,7 +37,18 @@ final class Schema
                     && self::columnExists($pdo, 'tenants', 'is_restaurant')
                     && self::columnExists($pdo, 'conversations', 'cart_state')
                     && self::columnExists($pdo, 'tenants', 'ai_force_all')
-                    && self::columnExists($pdo, 'tenants', 'public_menu_enabled');
+                    && self::columnExists($pdo, 'tenants', 'public_menu_enabled')
+                    && self::columnExists($pdo, 'tenants', 'ai_budget_usd')
+                    && self::columnExists($pdo, 'tenants', 'ai_cost_used_period')
+                    && self::columnExists($pdo, 'ai_logs', 'order_id')
+                    && self::columnExists($pdo, 'ai_logs', 'message_id')
+                    && self::columnExists($pdo, 'conversations', 'sales_state')
+                    && self::columnExists($pdo, 'conversations', 'last_inbound_at')
+                    && self::columnExists($pdo, 'conversations', 'last_outbound_at')
+                    && self::tableExists($pdo, 'conversation_followups')
+                    && self::columnExists($pdo, 'contacts', 'preferences')
+                    && self::columnExists($pdo, 'contacts', 'rfm_segment')
+                    && self::columnExists($pdo, 'contacts', 'lifetime_orders');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -49,7 +60,12 @@ final class Schema
             // Re-verificar tras migrar. Solo escribimos el cache flag si todo quedo bien;
             // de lo contrario, el proximo request reintentara automaticamente.
             $okAfter = self::tableExists($pdo, 'notification_destinations')
-                    && self::tableExists($pdo, 'notification_logs');
+                    && self::tableExists($pdo, 'notification_logs')
+                    && self::columnExists($pdo, 'tenants', 'ai_budget_usd')
+                    && self::columnExists($pdo, 'ai_logs', 'order_id')
+                    && self::tableExists($pdo, 'conversation_followups')
+                    && self::columnExists($pdo, 'conversations', 'sales_state')
+                    && self::columnExists($pdo, 'contacts', 'preferences');
             if ($okAfter) {
                 @file_put_contents($cachePath, '1');
             }
@@ -483,6 +499,182 @@ SQL);
         if (!self::columnExists($pdo, 'tenants', 'public_menu_enabled')) {
             $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `public_menu_enabled` TINYINT(1) NOT NULL DEFAULT 1 AFTER `is_restaurant`");
         }
+
+        // ============================================================
+        //  v9 — Token economy: budgets en USD, alertas, atribucion ROI
+        // ============================================================
+
+        // Budget mensual en USD por tenant (NULL = sin cap, mantiene comportamiento previo)
+        if (!self::columnExists($pdo, 'tenants', 'ai_budget_usd')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `ai_budget_usd` DECIMAL(10,4) NULL DEFAULT NULL AFTER `ai_token_period_starts_at`");
+        }
+        // Costo USD acumulado en el periodo (se resetea junto con ai_tokens_used_period)
+        if (!self::columnExists($pdo, 'tenants', 'ai_cost_used_period')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `ai_cost_used_period` DECIMAL(12,6) NOT NULL DEFAULT 0 AFTER `ai_budget_usd`");
+        }
+        // Umbral en % para disparar alerta blanda (default 80%, configurable 50-95)
+        if (!self::columnExists($pdo, 'tenants', 'ai_alert_threshold_pct')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `ai_alert_threshold_pct` TINYINT UNSIGNED NOT NULL DEFAULT 80 AFTER `ai_cost_used_period`");
+        }
+        // Timestamp de la ultima alerta enviada en el periodo (anti-spam)
+        if (!self::columnExists($pdo, 'tenants', 'ai_budget_alerted_at')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `ai_budget_alerted_at` DATETIME NULL DEFAULT NULL AFTER `ai_alert_threshold_pct`");
+        }
+
+        // ai_logs: atribucion para ROI. Las columnas `cost` (DECIMAL 10,6) y
+        // `duration_ms` ya existen desde 001_initial_schema.sql; las reusamos.
+        // Solo agregamos message_id y order_id si faltan. conversation_id ya
+        // existe pero la verificamos defensivamente.
+        if (!self::columnExists($pdo, 'ai_logs', 'conversation_id')) {
+            $pdo->exec("ALTER TABLE `ai_logs` ADD COLUMN `conversation_id` BIGINT UNSIGNED NULL AFTER `feature`");
+        }
+        if (!self::columnExists($pdo, 'ai_logs', 'message_id')) {
+            $pdo->exec("ALTER TABLE `ai_logs` ADD COLUMN `message_id` BIGINT UNSIGNED NULL AFTER `conversation_id`");
+        }
+        if (!self::columnExists($pdo, 'ai_logs', 'order_id')) {
+            $pdo->exec("ALTER TABLE `ai_logs` ADD COLUMN `order_id` BIGINT UNSIGNED NULL AFTER `message_id`");
+        }
+        // Indices para acelerar dashboard (tenant_id+created_at) y rollup por conversacion
+        if (!self::indexExists($pdo, 'ai_logs', 'idx_ai_logs_tenant_created')) {
+            try { $pdo->exec("CREATE INDEX `idx_ai_logs_tenant_created` ON `ai_logs` (`tenant_id`, `created_at`)"); } catch (\Throwable) {}
+        }
+        if (!self::indexExists($pdo, 'ai_logs', 'idx_ai_logs_tenant_conv')) {
+            try { $pdo->exec("CREATE INDEX `idx_ai_logs_tenant_conv` ON `ai_logs` (`tenant_id`, `conversation_id`)"); } catch (\Throwable) {}
+        }
+
+        // ============================================================
+        //  v10 — Sales agent autonomo: state machine + cart recovery + re-engagement
+        // ============================================================
+
+        // Estado de venta de la conversacion (greeting/qualifying/recommending/cart_building/confirming/closed/follow_up)
+        if (!self::columnExists($pdo, 'conversations', 'sales_state')) {
+            $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `sales_state` VARCHAR(30) NULL DEFAULT 'greeting' AFTER `cart_state`");
+        }
+        if (!self::columnExists($pdo, 'conversations', 'sales_state_at')) {
+            $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `sales_state_at` DATETIME NULL DEFAULT NULL AFTER `sales_state`");
+        }
+        // Timestamps explicitos de ultima actividad para que el worker pueda
+        // detectar carritos abandonados y clientes inactivos sin escanear messages.
+        if (!self::columnExists($pdo, 'conversations', 'last_inbound_at')) {
+            $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `last_inbound_at` DATETIME NULL DEFAULT NULL AFTER `sales_state_at`");
+        }
+        if (!self::columnExists($pdo, 'conversations', 'last_outbound_at')) {
+            $pdo->exec("ALTER TABLE `conversations` ADD COLUMN `last_outbound_at` DATETIME NULL DEFAULT NULL AFTER `last_inbound_at`");
+        }
+
+        // Tabla de seguimientos proactivos: cart-recovery y re-engagement enviados.
+        // Sirve para anti-spam (no enviar dos cart-recoveries al mismo carrito) y
+        // para auditoria/dashboard.
+        if (!self::tableExists($pdo, 'conversation_followups')) {
+            $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `conversation_followups` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`       BIGINT UNSIGNED NOT NULL,
+    `conversation_id` BIGINT UNSIGNED NULL,
+    `contact_id`      BIGINT UNSIGNED NULL,
+    `kind`            VARCHAR(40) NOT NULL,
+    `cart_signature`  VARCHAR(64) NULL,
+    `message`         TEXT NULL,
+    `status`          VARCHAR(20) NOT NULL DEFAULT 'sent',
+    `error_message`   VARCHAR(255) NULL,
+    `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_cf_tenant_kind_created` (`tenant_id`, `kind`, `created_at`),
+    KEY `idx_cf_conversation` (`conversation_id`),
+    KEY `idx_cf_contact` (`contact_id`),
+    CONSTRAINT `fk_cf_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+        }
+
+        // ============================================================
+        //  v11 — Contact memory: perfil aprendido + RFM scoring
+        // ============================================================
+
+        // Perfil aprendido por contacto: items favoritos, alergias, patrones,
+        // estilo de comunicacion. JSON libre para que ContactMemoryService
+        // evolucione el shape sin migraciones.
+        if (!self::columnExists($pdo, 'contacts', 'preferences')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `preferences` JSON NULL AFTER `custom_fields`");
+        }
+        // Notas libres que la IA escribe sobre el contacto (interpretacion qualitativa)
+        if (!self::columnExists($pdo, 'contacts', 'notes_ai')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `notes_ai` TEXT NULL AFTER `preferences`");
+        }
+        // RFM segmentation: vip|regular|nuevo|dormido|perdido
+        if (!self::columnExists($pdo, 'contacts', 'rfm_segment')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `rfm_segment` VARCHAR(20) NULL AFTER `notes_ai`");
+        }
+        // Score combinado RFM 0-1000 (mas alto = mejor cliente)
+        if (!self::columnExists($pdo, 'contacts', 'rfm_score')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `rfm_score` INT UNSIGNED NULL AFTER `rfm_segment`");
+        }
+        // Estadisticas de vida del cliente (independientes del `score` generico de CRM)
+        if (!self::columnExists($pdo, 'contacts', 'lifetime_orders')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `lifetime_orders` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `rfm_score`");
+        }
+        if (!self::columnExists($pdo, 'contacts', 'lifetime_value')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `lifetime_value` DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER `lifetime_orders`");
+        }
+        if (!self::columnExists($pdo, 'contacts', 'last_order_at')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `last_order_at` DATETIME NULL AFTER `lifetime_value`");
+        }
+        // Cuando se recalculo el perfil aprendido por ultima vez (anti-thrashing)
+        if (!self::columnExists($pdo, 'contacts', 'memory_updated_at')) {
+            $pdo->exec("ALTER TABLE `contacts` ADD COLUMN `memory_updated_at` DATETIME NULL AFTER `last_order_at`");
+        }
+
+        // Backfill: lifetime_orders, lifetime_value, last_order_at desde la
+        // tabla orders existente. Idempotente vía COALESCE/zero defaults.
+        try {
+            $pdo->exec(<<<SQL
+UPDATE contacts co
+LEFT JOIN (
+    SELECT contact_id, tenant_id,
+           COUNT(*) AS cnt,
+           SUM(total) AS total_sum,
+           MAX(created_at) AS last_at
+    FROM orders
+    WHERE status NOT IN ('cancelled')
+    GROUP BY contact_id, tenant_id
+) s ON s.contact_id = co.id AND s.tenant_id = co.tenant_id
+SET co.lifetime_orders = COALESCE(s.cnt, 0),
+    co.lifetime_value  = COALESCE(s.total_sum, 0),
+    co.last_order_at   = s.last_at
+WHERE co.lifetime_orders = 0 AND co.last_order_at IS NULL AND s.cnt IS NOT NULL
+SQL);
+        } catch (\Throwable) {}
+
+        // Indice para rankings y consultas RFM
+        if (!self::indexExists($pdo, 'contacts', 'idx_contacts_tenant_segment')) {
+            try { $pdo->exec("CREATE INDEX `idx_contacts_tenant_segment` ON `contacts` (`tenant_id`, `rfm_segment`)"); } catch (\Throwable) {}
+        }
+
+        // Backfill: para conversaciones existentes, derivar last_inbound_at /
+        // last_outbound_at desde la tabla messages. Solo correr si hay nulls
+        // (idempotente y barato gracias al WHERE IS NULL).
+        try {
+            $pdo->exec(<<<SQL
+UPDATE conversations c
+LEFT JOIN (
+    SELECT conversation_id, MAX(created_at) AS last_at
+    FROM messages WHERE direction = 'inbound'
+    GROUP BY conversation_id
+) m ON m.conversation_id = c.id
+SET c.last_inbound_at = m.last_at
+WHERE c.last_inbound_at IS NULL AND m.last_at IS NOT NULL
+SQL);
+            $pdo->exec(<<<SQL
+UPDATE conversations c
+LEFT JOIN (
+    SELECT conversation_id, MAX(created_at) AS last_at
+    FROM messages WHERE direction = 'outbound'
+    GROUP BY conversation_id
+) m ON m.conversation_id = c.id
+SET c.last_outbound_at = m.last_at
+WHERE c.last_outbound_at IS NULL AND m.last_at IS NOT NULL
+SQL);
+        } catch (\Throwable) {}
 
         // ----- Backfill leads desde ordenes existentes (sincronizacion CRM) -----
         try {

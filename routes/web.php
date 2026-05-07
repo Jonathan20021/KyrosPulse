@@ -77,6 +77,7 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->put   ('/contacts/{id}',    [ContactController::class, 'update'])->middleware('csrf');
     $r->delete('/contacts/{id}',    [ContactController::class, 'destroy'])->middleware('csrf');
     $r->post  ('/contacts/{id}/assign', [ContactController::class, 'assign'])->middleware('csrf');
+    $r->post  ('/contacts/{id}/refresh-memory', [ContactController::class, 'refreshMemory'])->middleware('csrf');
 
     // Leads
     $r->get   ('/leads',         [LeadController::class, 'index']);
@@ -217,14 +218,18 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->delete('/settings/channels/{id}',             [ChannelController::class, 'destroy'])->middleware('csrf');
     $r->get('/settings/ai',               [SettingsController::class, 'ai']);
     $r->put('/settings/ai',               [SettingsController::class, 'updateAi'])->middleware('csrf');
+    // Token economy: dashboard de uso IA + budget mensual + alertas
+    $r->get('/ai/usage',                  [\App\Controllers\AiUsageController::class, 'index']);
+    $r->put('/ai/usage/budget',           [\App\Controllers\AiUsageController::class, 'updateBudget'])->middleware('csrf');
     $r->post('/settings/ai/autopilot',    [SettingsController::class, 'aiAutopilotToggle'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');
     $r->put ('/settings/ai/agents/{id}',  [SettingsController::class, 'aiAgentUpdate'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/duplicate', [SettingsController::class, 'aiAgentDuplicate'])->middleware('csrf');
     $r->delete('/settings/ai/agents/{id}', [SettingsController::class, 'aiAgentDelete'])->middleware('csrf');
-    $r->post('/settings/ai/knowledge',    [SettingsController::class, 'knowledgeStore'])->middleware('csrf');
-    $r->delete('/settings/ai/knowledge/{id}', [SettingsController::class, 'knowledgeDelete'])->middleware('csrf');
+    $r->post('/settings/ai/knowledge',           [SettingsController::class, 'knowledgeStore'])->middleware('csrf');
+    $r->post('/settings/ai/knowledge/upload',    [SettingsController::class, 'knowledgeUpload'])->middleware('csrf');
+    $r->delete('/settings/ai/knowledge/{id}',    [SettingsController::class, 'knowledgeDelete'])->middleware('csrf');
     $r->get('/settings/users',            [SettingsController::class, 'users']);
     $r->post('/settings/users/invite',    [SettingsController::class, 'inviteUser'])->middleware('csrf');
     $r->get('/settings/quick-replies',    [SettingsController::class, 'quickReplies']);

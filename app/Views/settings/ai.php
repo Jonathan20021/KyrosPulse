@@ -141,18 +141,27 @@ $autopilotOn = !empty($tenant['ai_force_all']);
         </div>
 
         <!-- Consumo -->
+        <?php
+            $usdBudget   = $aiSummary['usd_budget']    ?? null;
+            $usdUsed     = (float) ($aiSummary['usd_used'] ?? 0);
+            $tokenQuota  = $aiSummary['token_quota']   ?? null;
+            $tokensUsed  = (int) ($aiSummary['tokens_used'] ?? 0);
+        ?>
         <div class="md:col-span-2">
             <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500 font-semibold">Consumo del periodo</span>
-                <?php if (!empty($aiSummary['period_start'])): ?>
-                <span class="text-[10px] dark:text-slate-500 text-slate-400">desde <?= e(date('d M', strtotime((string) $aiSummary['period_start']))) ?></span>
-                <?php endif; ?>
+                <div class="flex items-center gap-3">
+                    <?php if (!empty($aiSummary['period_start'])): ?>
+                    <span class="text-[10px] dark:text-slate-500 text-slate-400">desde <?= e(date('d M', strtotime((string) $aiSummary['period_start']))) ?></span>
+                    <?php endif; ?>
+                    <a href="<?= e(url('/ai/usage')) ?>" class="text-[11px] font-semibold" style="color: var(--color-primary);">Ver dashboard →</a>
+                </div>
             </div>
-            <?php if ($isGlobal && $aiSummary['quota']): ?>
+            <?php if ($isGlobal && $usdBudget !== null && (float) $usdBudget > 0): ?>
                 <div class="flex items-baseline justify-between mb-2">
                     <div>
-                        <span class="text-2xl font-bold dark:text-white text-slate-900"><?= number_format((int) $aiSummary['used']) ?></span>
-                        <span class="text-sm dark:text-slate-400 text-slate-500"> / <?= number_format((int) $aiSummary['quota']) ?> tokens</span>
+                        <span class="text-2xl font-bold dark:text-white text-slate-900">$<?= number_format($usdUsed, 2) ?></span>
+                        <span class="text-sm dark:text-slate-400 text-slate-500"> / $<?= number_format((float) $usdBudget, 2) ?></span>
                     </div>
                     <span class="text-sm font-bold <?= $pct >= 90 ? 'text-rose-400' : ($pct >= 70 ? 'text-amber-400' : 'text-emerald-400') ?>"><?= $pct ?>%</span>
                 </div>
@@ -160,16 +169,31 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                     <div class="h-full rounded-full transition-all" style="width: <?= $pct ?>%; <?= $barColor ? "background: $barColor;" : 'background: linear-gradient(90deg,#10B981,#06B6D4);' ?>"></div>
                 </div>
                 <?php if ($pct >= 90): ?>
-                <p class="text-xs text-rose-400 mt-2">⚠ Estas cerca de tu cuota mensual. Si quieres tokens adicionales, contacta a tu administrador o agrega tu propia API key abajo.</p>
+                <p class="text-xs text-rose-400 mt-2">⚠ Cerca de tu budget mensual. Aumenta el limite en el <a href="<?= e(url('/ai/usage')) ?>" class="underline">dashboard de uso IA</a> o agrega tu propia API key abajo.</p>
+                <?php endif; ?>
+                <p class="text-[11px] dark:text-slate-500 text-slate-400 mt-2"><?= number_format($tokensUsed) ?> tokens consumidos</p>
+            <?php elseif ($isGlobal && $tokenQuota !== null && $tokenQuota > 0): ?>
+                <div class="flex items-baseline justify-between mb-2">
+                    <div>
+                        <span class="text-2xl font-bold dark:text-white text-slate-900"><?= number_format($tokensUsed) ?></span>
+                        <span class="text-sm dark:text-slate-400 text-slate-500"> / <?= number_format((int) $tokenQuota) ?> tokens</span>
+                    </div>
+                    <span class="text-sm font-bold <?= $pct >= 90 ? 'text-rose-400' : ($pct >= 70 ? 'text-amber-400' : 'text-emerald-400') ?>"><?= $pct ?>%</span>
+                </div>
+                <div class="h-2 rounded-full overflow-hidden dark:bg-white/5 bg-slate-200">
+                    <div class="h-full rounded-full transition-all" style="width: <?= $pct ?>%; <?= $barColor ? "background: $barColor;" : 'background: linear-gradient(90deg,#10B981,#06B6D4);' ?>"></div>
+                </div>
+                <?php if ($pct >= 90): ?>
+                <p class="text-xs text-rose-400 mt-2">⚠ Estas cerca de tu cuota mensual. Configura un budget USD en el <a href="<?= e(url('/ai/usage')) ?>" class="underline">dashboard de uso IA</a>.</p>
                 <?php endif; ?>
             <?php elseif ($isGlobal): ?>
                 <div class="flex items-baseline gap-2">
-                    <span class="text-2xl font-bold dark:text-white text-slate-900"><?= number_format((int) $aiSummary['used']) ?></span>
-                    <span class="text-sm dark:text-slate-400 text-slate-500">tokens · sin limite</span>
+                    <span class="text-2xl font-bold dark:text-white text-slate-900">$<?= number_format($usdUsed, 2) ?></span>
+                    <span class="text-sm dark:text-slate-400 text-slate-500">· sin tope</span>
                 </div>
-                <p class="text-[11px] dark:text-slate-500 text-slate-400 mt-1">El SaaS no aplica limite mensual a tu cuenta.</p>
+                <p class="text-[11px] dark:text-slate-500 text-slate-400 mt-1"><?= number_format($tokensUsed) ?> tokens · <a href="<?= e(url('/ai/usage')) ?>" class="underline">configura un budget</a> para evitar gastos descontrolados.</p>
             <?php else: ?>
-                <p class="text-sm dark:text-slate-300 text-slate-700 mt-1">Estas usando tu propia API key — el costo va directo a tu cuenta del proveedor. <strong class="dark:text-white text-slate-900">Sin limite</strong> impuesto por el SaaS.</p>
+                <p class="text-sm dark:text-slate-300 text-slate-700 mt-1">Usas tu propia API key — el costo va directo a tu cuenta del proveedor. <strong class="dark:text-white text-slate-900">Sin limite</strong> impuesto por el SaaS, pero igual <a href="<?= e(url('/ai/usage')) ?>" class="underline">rastreamos uso y ROI</a>.</p>
             <?php endif; ?>
         </div>
     </div>
@@ -253,6 +277,24 @@ $autopilotOn = !empty($tenant['ai_force_all']);
                       class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900"></textarea>
             <button type="submit" class="px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#10B981,#06B6D4)">Agregar</button>
         </div>
+
+        <!-- Bonus: subir archivo .txt / .md (Fase 3) -->
+    </form>
+
+    <form action="<?= url('/settings/ai/knowledge/upload') ?>" method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-5 mt-4">
+        <?= csrf_field() ?>
+        <h3 class="font-bold dark:text-white text-slate-900 mb-1">📎 Importar archivo (.txt / .md)</h3>
+        <p class="text-xs dark:text-slate-400 text-slate-500 mb-3">
+            Sube un archivo de texto o markdown (max 512 KB). Si es markdown con encabezados <code>##</code>,
+            cada seccion se importa como articulo independiente.
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+            <input type="text" name="category" placeholder="Categoria (ej: politicas)" value="documento"
+                   class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900">
+            <input type="file" name="kb_file" accept=".txt,.md,.markdown" required
+                   class="w-full px-3 py-2 dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 rounded-lg dark:text-white text-slate-900">
+        </div>
+        <button type="submit" class="mt-3 px-5 py-2 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#0EA572,#06B6D4)">Importar archivo</button>
     </form>
 </div>
 

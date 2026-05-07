@@ -51,6 +51,13 @@ final class RestaurantController extends Controller
             'whatsapp_menu_pdf' => trim((string) $request->input('whatsapp_menu_pdf', '')) ?: null,
             'address'          => trim((string) $request->input('address', '')) ?: null,
             'cuisine_type'     => trim((string) $request->input('cuisine_type', '')) ?: null,
+            // Sales Bot autonomo (Fase 2)
+            'cart_recovery_enabled' => !empty($request->input('cart_recovery_enabled')) ? 1 : 0,
+            'cart_recovery_min'     => max(15, (int) ($request->input('cart_recovery_min') ?: 120)),
+            'cart_recovery_batch'   => max(1, min(100, (int) ($request->input('cart_recovery_batch') ?: 20))),
+            're_engagement_enabled' => !empty($request->input('re_engagement_enabled')) ? 1 : 0,
+            're_engagement_days'    => max(3, min(180, (int) ($request->input('re_engagement_days') ?: 14))),
+            're_engagement_batch'   => max(1, min(50, (int) ($request->input('re_engagement_batch') ?: 10))),
         ]);
 
         Database::update('tenants', [
@@ -124,6 +131,13 @@ final class RestaurantController extends Controller
             'whatsapp_menu_pdf' => null,
             'address'          => null,
             'cuisine_type'     => null,
+            // Sales Bot autonomo (Fase 2). Cart recovery default ON, re-engagement opt-in.
+            'cart_recovery_enabled' => 1,
+            'cart_recovery_min'     => 120,
+            'cart_recovery_batch'   => 20,
+            're_engagement_enabled' => 0,
+            're_engagement_days'    => 14,
+            're_engagement_batch'   => 10,
         ];
         $stored = !empty($tenant['restaurant_settings'])
             ? (json_decode((string) $tenant['restaurant_settings'], true) ?: [])

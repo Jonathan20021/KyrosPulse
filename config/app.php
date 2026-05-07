@@ -11,6 +11,8 @@ return [
     'timezone'  => env('APP_TIMEZONE', 'America/Santo_Domingo'),
     'locale'    => env('APP_LOCALE', 'es'),
     'key'       => env('APP_KEY', ''),
+    // Token requerido por endpoints /api/cron/* (sales bot, etc.)
+    'cron_token'=> env('CRON_TOKEN', ''),
 
     'paths' => [
         'root'      => dirname(__DIR__),

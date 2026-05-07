@@ -41,4 +41,25 @@ return [
     'ai' => [
         'default_provider' => env('AI_PROVIDER', 'claude'),
     ],
+
+    /*
+     * Tarifas por modelo en USD por millon de tokens (input / output).
+     * Mantener actualizado cuando Anthropic / OpenAI ajusten precios.
+     * Si un modelo no aparece aqui se asume costo 0 (tokens igual se cuentan).
+     */
+    'ai_pricing' => [
+        // Claude 4.x
+        'claude-haiku-4-5'             => ['in' => 1.00,  'out' => 5.00],
+        'claude-haiku-4-5-20251001'    => ['in' => 1.00,  'out' => 5.00],
+        'claude-sonnet-4-6'            => ['in' => 3.00,  'out' => 15.00],
+        'claude-opus-4-7'              => ['in' => 15.00, 'out' => 75.00],
+        // Claude 3.x (legacy)
+        'claude-3-5-sonnet'            => ['in' => 3.00,  'out' => 15.00],
+        'claude-3-5-haiku'             => ['in' => 0.80,  'out' => 4.00],
+        'claude-3-opus'                => ['in' => 15.00, 'out' => 75.00],
+        // OpenAI
+        'gpt-4o-mini'                  => ['in' => 0.15,  'out' => 0.60],
+        'gpt-4o'                       => ['in' => 2.50,  'out' => 10.00],
+        'gpt-4-turbo'                  => ['in' => 10.00, 'out' => 30.00],
+    ],
 ];

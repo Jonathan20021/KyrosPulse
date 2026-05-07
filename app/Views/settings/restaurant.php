@@ -112,6 +112,71 @@
         </div>
     </div>
 
+    <!-- Sales Bot autonomo (Fase 2) -->
+    <div class="surface p-5">
+        <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
+            <div>
+                <h3 class="font-bold" style="color: var(--color-text-primary);">🤖 Sales Bot autonomo</h3>
+                <p class="text-xs mt-1" style="color: var(--color-text-tertiary);">Recupera ventas perdidas y reactiva clientes inactivos sin que muevas un dedo. Requiere cron en el servidor (ver al final).</p>
+            </div>
+        </div>
+
+        <!-- Cart recovery -->
+        <div class="rounded-xl p-4 mb-3" style="background: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle);">
+            <label class="flex items-start gap-3 cursor-pointer mb-3">
+                <input type="checkbox" name="cart_recovery_enabled" value="1" <?= !empty($settings['cart_recovery_enabled'] ?? true) ? 'checked' : '' ?> class="w-4 h-4 rounded mt-0.5">
+                <div>
+                    <div class="font-semibold" style="color: var(--color-text-primary);">Recuperacion de carrito abandonado</div>
+                    <div class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">Si el cliente armo un pedido pero no confirmo, la IA le envia un recordatorio personalizado.</div>
+                </div>
+            </label>
+            <div class="grid md:grid-cols-2 gap-3 mt-2">
+                <div>
+                    <label class="label text-xs">Esperar antes de recuperar (minutos)</label>
+                    <input type="number" name="cart_recovery_min" min="15" step="15" value="<?= e((string) ($settings['cart_recovery_min'] ?? 120)) ?>" class="input">
+                    <p class="text-[11px] mt-1" style="color: var(--color-text-tertiary);">Default 120 (2h). Minimo 15 min para evitar interrupciones.</p>
+                </div>
+                <div>
+                    <label class="label text-xs">Maximo de carritos por ciclo</label>
+                    <input type="number" name="cart_recovery_batch" min="1" max="100" value="<?= e((string) ($settings['cart_recovery_batch'] ?? 20)) ?>" class="input">
+                    <p class="text-[11px] mt-1" style="color: var(--color-text-tertiary);">Cuantos clientes contactar en cada corrida del cron.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Re-engagement -->
+        <div class="rounded-xl p-4" style="background: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle);">
+            <label class="flex items-start gap-3 cursor-pointer mb-3">
+                <input type="checkbox" name="re_engagement_enabled" value="1" <?= !empty($settings['re_engagement_enabled']) ? 'checked' : '' ?> class="w-4 h-4 rounded mt-0.5">
+                <div>
+                    <div class="font-semibold" style="color: var(--color-text-primary);">Re-enganche de clientes inactivos</div>
+                    <div class="text-xs mt-0.5" style="color: var(--color-text-tertiary);">Clientes con pedidos previos que llevan tiempo sin escribir reciben un mensaje personalizado de la IA con sus items favoritos.</div>
+                </div>
+            </label>
+            <div class="grid md:grid-cols-2 gap-3 mt-2">
+                <div>
+                    <label class="label text-xs">Dias de silencio antes de reactivar</label>
+                    <input type="number" name="re_engagement_days" min="3" max="180" value="<?= e((string) ($settings['re_engagement_days'] ?? 14)) ?>" class="input">
+                    <p class="text-[11px] mt-1" style="color: var(--color-text-tertiary);">Default 14 dias. Cooldown automatico de 30 dias entre reactivaciones al mismo contacto.</p>
+                </div>
+                <div>
+                    <label class="label text-xs">Maximo de clientes por ciclo</label>
+                    <input type="number" name="re_engagement_batch" min="1" max="50" value="<?= e((string) ($settings['re_engagement_batch'] ?? 10)) ?>" class="input">
+                    <p class="text-[11px] mt-1" style="color: var(--color-text-tertiary);">Cuantos contactos reactivar en cada corrida.</p>
+                </div>
+            </div>
+        </div>
+
+        <details class="mt-3 text-xs" style="color: var(--color-text-tertiary);">
+            <summary class="cursor-pointer font-semibold">¿Como configuro el cron?</summary>
+            <div class="mt-2 p-3 rounded-lg" style="background: var(--color-bg-subtle); font-family: ui-monospace, monospace;">
+                <p class="mb-2">En cPanel → Cron Jobs, anade un job que corra cada 10 minutos con este comando:</p>
+                <code class="block break-all">curl -s -X POST -H "X-Cron-Token: TU_TOKEN" <?= e(rtrim((string) (\App\Core\Config::get('app.url', '')), '/')) ?>/api/cron/sales-bot</code>
+                <p class="mt-2">Reemplaza <code>TU_TOKEN</code> por el valor de la variable <code>CRON_TOKEN</code> en tu archivo <code>.env</code>. Si no esta seteada, el endpoint devuelve 401.</p>
+            </div>
+        </details>
+    </div>
+
     <div class="flex justify-end">
         <button type="submit" class="px-5 py-2 rounded-xl text-white font-semibold shadow-lg" style="background: linear-gradient(135deg,#10B981,#06B6D4);">Guardar configuracion</button>
     </div>

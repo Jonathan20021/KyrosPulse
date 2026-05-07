@@ -17,12 +17,31 @@ final class AiProviderService
 {
     public function __construct(private int $tenantId, private ?int $agentId = null) {}
 
+    /**
+     * Contexto opcional para atribuir cada llamada IA a una conversacion,
+     * mensaje y/o orden (permite calcular ROI: "esta IA gasto $0.04 y genero
+     * orden de $25"). Lo setea el caller (AiAgentService) antes de llamar a
+     * call(). Se limpia automaticamente despues de cada call().
+     */
+    private array $callContext = [];
+
+    public function withContext(array $ctx): self
+    {
+        $this->callContext = [
+            'conversation_id' => isset($ctx['conversation_id']) ? (int) $ctx['conversation_id'] : null,
+            'message_id'      => isset($ctx['message_id'])      ? (int) $ctx['message_id']      : null,
+            'order_id'        => isset($ctx['order_id'])        ? (int) $ctx['order_id']        : null,
+        ];
+        return $this;
+    }
+
     public function tenantConfig(): array
     {
         $row = Database::fetch(
             "SELECT name, ai_assistant_name, ai_tone, ai_enabled, ai_provider,
                     claude_api_key, claude_model, openai_api_key, openai_model,
                     global_ai_provider_id, ai_token_quota, ai_tokens_used_period, ai_token_period_starts_at,
+                    ai_budget_usd, ai_cost_used_period, ai_alert_threshold_pct, ai_budget_alerted_at,
                     business_hours, out_of_hours_msg, welcome_message, language
              FROM tenants WHERE id = :id",
             ['id' => $this->tenantId]
@@ -97,7 +116,8 @@ final class AiProviderService
     }
 
     /**
-     * Reinicia el contador de tokens si entramos en un nuevo mes calendario.
+     * Reinicia los contadores (tokens y costo USD) y la marca de alerta si
+     * entramos en un nuevo mes calendario.
      */
     private function ensurePeriod(): void
     {
@@ -106,40 +126,65 @@ final class AiProviderService
         $now = date('Y-m-01');
         if ($start !== $now) {
             Database::run(
-                "UPDATE tenants SET ai_token_period_starts_at = :s, ai_tokens_used_period = 0 WHERE id = :id",
+                "UPDATE tenants
+                    SET ai_token_period_starts_at = :s,
+                        ai_tokens_used_period = 0,
+                        ai_cost_used_period = 0,
+                        ai_budget_alerted_at = NULL
+                  WHERE id = :id",
                 ['s' => $now, 'id' => $this->tenantId]
             );
         }
     }
 
     /**
-     * Suma tokens consumidos al periodo. Solo trackeamos si la respuesta usa
-     * el provider GLOBAL (los tenants con su propia key pagan a su cuenta).
+     * Suma tokens y costo USD consumidos al periodo. Solo enforce contra el
+     * budget si la respuesta usa el provider GLOBAL — los tenants con su
+     * propia key pagan a su cuenta, pero igual loggeamos para analytics/ROI.
      */
-    private function recordTokens(string $source, int $tokensIn, int $tokensOut): void
+    private function recordUsage(string $source, int $tokensIn, int $tokensOut, float $costUsd): void
     {
         if ($source !== 'global') return;
         $total = max(0, $tokensIn) + max(0, $tokensOut);
-        if ($total === 0) return;
+        $cost  = max(0.0, $costUsd);
+        if ($total === 0 && $cost === 0.0) return;
         Database::run(
-            "UPDATE tenants SET ai_tokens_used_period = ai_tokens_used_period + :t WHERE id = :id",
-            ['t' => $total, 'id' => $this->tenantId]
+            "UPDATE tenants
+                SET ai_tokens_used_period = ai_tokens_used_period + :t,
+                    ai_cost_used_period   = ai_cost_used_period + :c
+              WHERE id = :id",
+            ['t' => $total, 'c' => $cost, 'id' => $this->tenantId]
         );
     }
 
     /**
-     * Verifica si al tenant le quedan tokens disponibles (solo si usa global).
+     * Verifica si al tenant le quedan recursos disponibles antes de hacer la
+     * llamada. Caps soportados (cualquiera lo bloquea):
+     *   - ai_token_quota   (legacy, en tokens absolutos)
+     *   - ai_budget_usd    (nuevo, en USD por mes)
+     * Solo aplica para source=global (tenant con key propia es ilimitado).
      */
     public function hasTokensAvailable(): bool
     {
         $cfg = $this->tenantConfig();
         $resolved = $this->resolve();
-        if (!$resolved || $resolved['source'] !== 'global') return true; // tenant con key propia, sin limite del SaaS
+        if (!$resolved || $resolved['source'] !== 'global') return true;
 
-        $quota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
-        if ($quota === null || $quota <= 0) return true; // sin cuota = ilimitado
-        $used = (int) ($cfg['ai_tokens_used_period'] ?? 0);
-        return $used < $quota;
+        // Cap por tokens (legacy)
+        $tokenQuota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
+        if ($tokenQuota !== null && $tokenQuota > 0) {
+            $tokensUsed = (int) ($cfg['ai_tokens_used_period'] ?? 0);
+            if ($tokensUsed >= $tokenQuota) return false;
+        }
+
+        // Cap por USD (preferido)
+        $usdBudget = $cfg['ai_budget_usd'] !== null ? (float) $cfg['ai_budget_usd'] : null;
+        if ($usdBudget !== null && $usdBudget > 0) {
+            $usdUsed = (float) ($cfg['ai_cost_used_period'] ?? 0);
+            if ($usdUsed >= $usdBudget) return false;
+        }
+
+        return true;
     }
 
     /** Resumen util para mostrar al usuario en el dashboard. */
@@ -147,19 +192,76 @@ final class AiProviderService
     {
         $cfg = $this->tenantConfig();
         $resolved = $this->resolve();
-        $quota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
-        $used  = (int) ($cfg['ai_tokens_used_period'] ?? 0);
+
+        $tokenQuota = $cfg['ai_token_quota'] !== null ? (int) $cfg['ai_token_quota'] : null;
+        $tokensUsed = (int) ($cfg['ai_tokens_used_period'] ?? 0);
+
+        $usdBudget = $cfg['ai_budget_usd'] !== null ? (float) $cfg['ai_budget_usd'] : null;
+        $usdUsed   = (float) ($cfg['ai_cost_used_period'] ?? 0);
+        $threshold = (int) ($cfg['ai_alert_threshold_pct'] ?? 80);
+
+        // El "pct" reportado prioriza el cap mas estricto (USD si esta seteado, si no tokens)
+        $pct = 0;
+        if ($usdBudget !== null && $usdBudget > 0) {
+            $pct = min(100, (int) round($usdUsed / $usdBudget * 100));
+        } elseif ($tokenQuota !== null && $tokenQuota > 0) {
+            $pct = min(100, (int) round($tokensUsed / $tokenQuota * 100));
+        }
+
         return [
-            'source'       => $resolved['source'] ?? null,
-            'display_name' => $resolved['display_name'] ?? null,
-            'provider'     => $resolved['provider'] ?? null,
-            'model'        => $resolved['model'] ?? null,
-            'quota'        => $quota,
-            'used'         => $used,
-            'available'    => $quota === null || $quota <= 0 ? null : max(0, $quota - $used),
-            'pct'          => $quota && $quota > 0 ? min(100, (int) round($used / $quota * 100)) : 0,
-            'period_start' => $cfg['ai_token_period_starts_at'] ?? null,
+            'source'        => $resolved['source'] ?? null,
+            'display_name'  => $resolved['display_name'] ?? null,
+            'provider'      => $resolved['provider'] ?? null,
+            'model'         => $resolved['model'] ?? null,
+            'token_quota'   => $tokenQuota,
+            'tokens_used'   => $tokensUsed,
+            'usd_budget'    => $usdBudget,
+            'usd_used'      => $usdUsed,
+            'usd_remaining' => $usdBudget === null || $usdBudget <= 0 ? null : max(0.0, $usdBudget - $usdUsed),
+            'threshold_pct' => $threshold,
+            'alerted_at'    => $cfg['ai_budget_alerted_at'] ?? null,
+            'pct'           => $pct,
+            'period_start'  => $cfg['ai_token_period_starts_at'] ?? null,
         ];
+    }
+
+    /**
+     * Si el uso del periodo cruzo el umbral de alerta y aun no se notifico
+     * en este periodo, dispara una notificacion via NotificationDispatcher
+     * (event: ai.budget_alert) y marca ai_budget_alerted_at para no spamear.
+     */
+    private function maybeFireBudgetAlert(): void
+    {
+        $cfg = $this->tenantConfig();
+        $resolved = $this->resolve();
+        if (!$resolved || $resolved['source'] !== 'global') return;
+
+        $usdBudget = $cfg['ai_budget_usd'] !== null ? (float) $cfg['ai_budget_usd'] : null;
+        if ($usdBudget === null || $usdBudget <= 0) return; // sin budget USD, no hay alerta
+
+        $usdUsed   = (float) ($cfg['ai_cost_used_period'] ?? 0);
+        $threshold = max(50, min(95, (int) ($cfg['ai_alert_threshold_pct'] ?? 80)));
+        $pct       = (int) round($usdUsed / $usdBudget * 100);
+
+        if ($pct < $threshold) return;
+        if (!empty($cfg['ai_budget_alerted_at'])) return; // ya notificado en este periodo
+
+        Database::run(
+            "UPDATE tenants SET ai_budget_alerted_at = NOW() WHERE id = :id",
+            ['id' => $this->tenantId]
+        );
+
+        try {
+            (new NotificationDispatcher($this->tenantId))->dispatchAiBudgetAlert([
+                'pct'         => $pct,
+                'threshold'   => $threshold,
+                'usd_used'    => $usdUsed,
+                'usd_budget'  => $usdBudget,
+                'period_start'=> (string) ($cfg['ai_token_period_starts_at'] ?? date('Y-m-01')),
+            ]);
+        } catch (\Throwable $e) {
+            Logger::warning('AI budget alert dispatch fallo', ['msg' => $e->getMessage()]);
+        }
     }
 
     public function provider(): string
@@ -259,7 +361,7 @@ final class AiProviderService
         $kb = Database::fetchAll(
             "SELECT category, title, content FROM knowledge_base
              WHERE tenant_id = :t AND is_active = 1
-             ORDER BY sort_order ASC LIMIT 20",
+             ORDER BY sort_order ASC, id ASC LIMIT 50",
             ['t' => $this->tenantId]
         );
         $kbText = '';
@@ -284,6 +386,22 @@ ACCIONES ESPECIALES (al final de tu respuesta, en una linea aparte, puedes inclu
 - [ORDER: {"items":[...],"delivery_type":"delivery","address":"...","payment":"cash","customer_name":"..."}] - Crea la orden FIRME cuando el cliente CONFIRMA. Si el carrito ya tiene items, puedes emitir [ORDER:{}] vacio y el sistema usa el carrito automaticamente. delivery_type: delivery|pickup|dine_in. payment: cash|card|transfer|online.
 - [ORDER_STATUS: id, status] - Cambia el estado de una orden existente. status: confirmed|preparing|ready|out_for_delivery|delivered|cancelled.
 - [PAYMENT_LINK: id] - Genera y comparte el link de pago de una orden.
+- [STATE: nombre] - Avanza la etapa de la conversacion. Estados: greeting | qualifying | recommending | cart_building | confirming | closed | follow_up. Emite cuando AVANCES de etapa (no cada turno).
+
+MAQUINA DE ESTADOS DE VENTA (importante para la autonomia del agente):
+- greeting: cliente acaba de saludar. Saludo calido + invitalo a explorar el menu o decirte que se le antoja. Avanza a qualifying o recommending segun corresponda.
+- qualifying: estas entendiendo el contexto (delivery vs pickup, cuantas personas, antojo, presupuesto). Una pregunta clave maximo, no interrogues.
+- recommending: sugieres opciones concretas del menu. SIEMPRE menciona 2-3 items reales con precio. Avanza a cart_building cuando elija algo.
+- cart_building: el cliente esta decidiendo items. Cada vez que diga "quiero X" -> emite [CART_ADD] inmediatamente. UPSELL: si tiene plato fuerte pero NO bebida, propone una; si no tiene postre, sugiere uno (sin presionar). Avanza a confirming cuando parezca que termino.
+- confirming: recapitulas la orden con items + delivery + total + tiempo estimado. Pide confirmacion clara ("¿Lo confirmamos?"). Si dice "si/dale/confirmo" emite [ORDER:{}].
+- closed: orden creada, le pasaste codigo y tiempo. Modo "tranquilo" — no pidas mas hasta que el cliente vuelva a hablar.
+- follow_up: post-entrega. Si el cliente vuelve a escribir, agradece y pregunta si todo bien.
+
+REGLAS DE UPSELL (en cart_building):
+- Si el cliente lleva platos sin bebida -> sugiere UNA bebida especifica del menu (ej. "¿Le agregamos una Coca-Cola fria? + RD$80")
+- Si lleva orden grande (>RD$1500) sin postre -> sugiere postre opcional, una sola vez.
+- Si pidio plato individual y hay combo similar -> menciona el combo si conviene.
+- NO insistas si rechaza. NO upselling en greeting/qualifying/closed.
 
 REGLA ANTI-DUPLICADO DE ORDENES (CRITICO):
 - Si el mensaje del cliente menciona un codigo de orden existente (formato OR-XXXXXX-XXXX, ej. "Quiero confirmar mi orden #OR-260507-0005"), la orden YA FUE CREADA desde el menu publico web o por ti antes. NO emitas [ORDER:{}] de nuevo, eso crearia un duplicado. En su lugar:
@@ -504,7 +622,7 @@ RESTAURANT;
         if ($resolved['source'] === 'global' && !$this->hasTokensAvailable()) {
             return [
                 'success' => false,
-                'error'   => 'Tokens IA del periodo agotados. Contacta al administrador para ampliar tu cuota o agrega tu propia API key.',
+                'error'   => 'Presupuesto IA del periodo agotado. Aumenta tu budget en Configuracion > IA o agrega tu propia API key.',
                 'quota_exceeded' => true,
             ];
         }
@@ -519,6 +637,7 @@ RESTAURANT;
             $model = $resolved['model'] !== '' ? $resolved['model'] : ($providerType === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-6');
         }
 
+        $startedAt = microtime(true);
         if ($providerType === 'openai') {
             $result = $this->callOpenAi($apiKey, $model, $system, $userInput, $maxTokens);
             $modelUsed = $model;
@@ -526,16 +645,30 @@ RESTAURANT;
             $result = $this->callClaude($apiKey, $this->normalizeClaudeModel($model), $system, $userInput, $maxTokens);
             $modelUsed = $this->normalizeClaudeModel($model);
         }
+        $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
 
-        // Trackear tokens contra la cuota del tenant si usa global
-        $usage = $result['usage'] ?? [];
-        $this->recordTokens(
-            $resolved['source'],
-            (int) ($usage['input_tokens']  ?? 0),
-            (int) ($usage['output_tokens'] ?? 0)
-        );
+        // Tokens y costo USD: tarifa por modelo desde config/services.php
+        $usage     = $result['usage'] ?? [];
+        $tokensIn  = (int) ($usage['input_tokens']  ?? 0);
+        $tokensOut = (int) ($usage['output_tokens'] ?? 0);
+        $costUsd   = AiPricing::compute($modelUsed, $tokensIn, $tokensOut);
 
-        $this->logCall($feature, $userInput, $result, $modelUsed, $providerType, $resolved['source']);
+        // Acumular contra periodo + disparar alerta si cruza umbral
+        $this->recordUsage($resolved['source'], $tokensIn, $tokensOut, $costUsd);
+        $this->maybeFireBudgetAlert();
+
+        // Persistir log con costo, latencia y atribucion (conversacion/mensaje/orden)
+        $this->logCall($feature, $userInput, $result, $modelUsed, $providerType, $resolved['source'], $costUsd, $latencyMs);
+
+        // El callContext NO se limpia aqui: muchas operaciones logicas (autoReply
+        // con reintento minimal, p.ej.) hacen 2+ llamadas a call() que comparten
+        // la misma conversacion/mensaje. El caller resetea con withContext([]) si
+        // lo necesita, o bien crea una nueva instancia para cada operacion logica.
+
+        // Exponer costo computado en la respuesta (util para el caller)
+        $result['cost_usd']   = $costUsd;
+        $result['latency_ms'] = $latencyMs;
+        $result['model']      = $modelUsed;
         return $result;
     }
 
@@ -790,21 +923,35 @@ RESTAURANT;
     }
 
 
-    private function logCall(string $feature, mixed $prompt, array $result, string $model, string $provider, string $source = 'own'): void
+    private function logCall(
+        string $feature,
+        mixed $prompt,
+        array $result,
+        string $model,
+        string $provider,
+        string $source = 'own',
+        float $costUsd = 0.0,
+        int $latencyMs = 0
+    ): void
     {
         try {
             $usage = $result['usage'] ?? [];
             $tag = $provider . ($source === 'global' ? ':global' : '');
             Database::insert('ai_logs', [
-                'tenant_id'     => $this->tenantId,
-                'feature'       => $feature . ":$tag",
-                'model'         => $model,
-                'prompt'        => is_string($prompt) ? mb_substr($prompt, 0, 4000) : (json_encode($prompt, JSON_UNESCAPED_UNICODE) ?: ''),
-                'response'      => mb_substr((string) ($result['text'] ?? ''), 0, 4000),
-                'tokens_input'  => $usage['input_tokens']  ?? null,
-                'tokens_output' => $usage['output_tokens'] ?? null,
-                'success'       => !empty($result['success']) ? 1 : 0,
-                'error_message' => $result['error'] ?? null,
+                'tenant_id'       => $this->tenantId,
+                'feature'         => $feature . ":$tag",
+                'conversation_id' => $this->callContext['conversation_id'] ?? null,
+                'message_id'      => $this->callContext['message_id']      ?? null,
+                'order_id'        => $this->callContext['order_id']        ?? null,
+                'model'           => $model,
+                'prompt'          => is_string($prompt) ? mb_substr($prompt, 0, 4000) : (json_encode($prompt, JSON_UNESCAPED_UNICODE) ?: ''),
+                'response'        => mb_substr((string) ($result['text'] ?? ''), 0, 4000),
+                'tokens_input'    => $usage['input_tokens']  ?? null,
+                'tokens_output'   => $usage['output_tokens'] ?? null,
+                'cost'            => $costUsd,
+                'duration_ms'     => $latencyMs > 0 ? $latencyMs : null,
+                'success'         => !empty($result['success']) ? 1 : 0,
+                'error_message'   => $result['error'] ?? null,
             ]);
         } catch (\Throwable $e) {
             Logger::error('AI log fail', ['msg' => $e->getMessage()]);

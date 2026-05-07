@@ -75,6 +75,101 @@ $name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''
             <p class="text-sm dark:text-slate-300 text-slate-700 whitespace-pre-line"><?= e((string) $contact['notes']) ?></p>
         </div>
         <?php endif; ?>
+
+        <!-- Memoria del cliente (Fase 3) -->
+        <?php
+            $prefs = isset($contact['preferences']) && is_string($contact['preferences'])
+                ? (json_decode((string) $contact['preferences'], true) ?: [])
+                : (is_array($contact['preferences'] ?? null) ? $contact['preferences'] : []);
+            $rfmSegment = (string) ($contact['rfm_segment'] ?? '');
+            $lifetimeOrders = (int) ($contact['lifetime_orders'] ?? 0);
+            $lifetimeValue  = (float) ($contact['lifetime_value'] ?? 0);
+            $lastOrderAt    = $contact['last_order_at'] ?? null;
+            $segMeta = [
+                'vip'     => ['🌟 VIP',     'background: linear-gradient(135deg,#FBBF24,#F59E0B); color:#fff'],
+                'regular' => ['Regular',    'background: rgba(16,185,129,.15); color:#10B981'],
+                'nuevo'   => ['Nuevo',      'background: rgba(6,182,212,.15); color:#06B6D4'],
+                'dormido' => ['💤 Dormido', 'background: rgba(245,158,11,.15); color:#F59E0B'],
+                'perdido' => ['Perdido',    'background: rgba(244,63,94,.15); color:#F43F5E'],
+            ];
+        ?>
+        <?php if ($lifetimeOrders > 0 || !empty($prefs)): ?>
+        <div class="mt-4 pt-4 border-t dark:border-white/5 border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-xs uppercase tracking-wider dark:text-slate-400 text-slate-500 font-semibold">🧠 Memoria del cliente</div>
+                <?php if ($rfmSegment !== '' && isset($segMeta[$rfmSegment])): ?>
+                    <span class="px-2 py-0.5 text-xs rounded-full font-semibold" style="<?= e($segMeta[$rfmSegment][1]) ?>">
+                        <?= e($segMeta[$rfmSegment][0]) ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($lifetimeOrders > 0): ?>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div class="rounded-lg p-2.5" style="background: var(--color-bg-subtle);">
+                    <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500">Pedidos</div>
+                    <div class="font-bold text-lg dark:text-white text-slate-900"><?= number_format($lifetimeOrders) ?></div>
+                </div>
+                <div class="rounded-lg p-2.5" style="background: var(--color-bg-subtle);">
+                    <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500">Total gastado</div>
+                    <div class="font-bold text-lg dark:text-white text-slate-900">$<?= number_format($lifetimeValue, 2) ?></div>
+                </div>
+                <?php if (!empty($prefs['avg_ticket'])): ?>
+                <div class="rounded-lg p-2.5" style="background: var(--color-bg-subtle);">
+                    <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500">Ticket promedio</div>
+                    <div class="font-bold text-sm dark:text-white text-slate-900">$<?= number_format((float) $prefs['avg_ticket'], 2) ?></div>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($contact['rfm_score'])): ?>
+                <div class="rounded-lg p-2.5" style="background: var(--color-bg-subtle);">
+                    <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500">RFM</div>
+                    <div class="font-bold text-sm dark:text-white text-slate-900"><?= (int) $contact['rfm_score'] ?> / 1000</div>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($prefs['favorite_items'])): ?>
+            <div class="mb-3">
+                <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500 font-semibold mb-1.5">Items favoritos</div>
+                <div class="flex flex-wrap gap-1.5">
+                    <?php foreach (array_slice($prefs['favorite_items'], 0, 5) as $f): ?>
+                    <span class="px-2 py-1 text-xs rounded-lg" style="background: rgba(16,185,129,.10); color: #10B981; font-weight: 500;">
+                        <?= e((string) ($f['name'] ?? '')) ?>
+                        <span class="opacity-60 ml-1"><?= (int) ($f['times'] ?? 0) ?>×</span>
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($prefs['preferred_days']) || !empty($prefs['preferred_hours'])): ?>
+            <div class="mb-3 text-xs dark:text-slate-300 text-slate-700">
+                <span class="dark:text-slate-400 text-slate-500">Suele pedir:</span>
+                <?php if (!empty($prefs['preferred_days'])): ?>
+                    <strong><?= e(implode('/', array_slice($prefs['preferred_days'], 0, 3))) ?></strong>
+                <?php endif; ?>
+                <?php if (!empty($prefs['preferred_hours'])): ?>
+                    a las <strong><?= e(implode('h, ', array_slice($prefs['preferred_hours'], 0, 2))) ?>h</strong>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($contact['notes_ai'])): ?>
+            <div class="mt-2 pt-2 border-t dark:border-white/5 border-slate-200">
+                <div class="text-[10px] uppercase tracking-wider dark:text-slate-400 text-slate-500 font-semibold mb-1">Notas IA</div>
+                <p class="text-xs dark:text-slate-300 text-slate-700 whitespace-pre-line"><?= e((string) $contact['notes_ai']) ?></p>
+            </div>
+            <?php endif; ?>
+
+            <form action="<?= e(url('/contacts/' . (int) $contact['id'] . '/refresh-memory')) ?>" method="POST" class="mt-3">
+                <?= csrf_field() ?>
+                <button type="submit" class="w-full py-1.5 text-xs rounded-lg font-semibold" style="background: var(--color-bg-subtle); color: var(--color-text-secondary); border: 1px solid var(--color-border-subtle);">
+                    🔄 Refrescar perfil
+                </button>
+            </form>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Timeline -->

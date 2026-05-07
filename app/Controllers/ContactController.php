@@ -165,6 +165,36 @@ final class ContactController extends Controller
         ], 'layouts.app');
     }
 
+    /**
+     * Refrescar el perfil aprendido del contacto (Fase 3 — memoria persistente).
+     * Recalcula items favoritos, RFM, patrones temporales desde el historial
+     * de ordenes. Se invoca desde el boton "🔄 Refrescar perfil" en /contacts/{id}.
+     */
+    public function refreshMemory(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $id = (int) ($params['id'] ?? 0);
+        $contact = Contact::findById($id);
+        if (!$contact) $this->abort(404);
+
+        $result = (new \App\Services\ContactMemoryService($tenantId))->refreshProfile($id);
+
+        if (!empty($result['success'])) {
+            $msg = sprintf(
+                'Perfil refrescado: %d pedidos, segmento %s, %d items favoritos.',
+                (int) ($result['orders_count'] ?? 0),
+                (string) ($result['rfm_segment'] ?? '?'),
+                count($result['favorite_items'] ?? [])
+            );
+            Session::flash('success', $msg);
+            Audit::log('contact.memory_refreshed', 'contact', $id);
+        } else {
+            Session::flash('error', $result['error'] ?? 'No se pudo refrescar el perfil.');
+        }
+
+        $this->redirect("/contacts/$id");
+    }
+
     public function update(Request $request, array $params): void
     {
         $tenantId = Tenant::id();

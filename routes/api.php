@@ -19,3 +19,9 @@ $router->post('/webhooks/cloud/{channel_uuid}',  [WebhookController::class, 'clo
 // Webhooks genericos para integraciones (Stripe, MercadoPago, Telegram, etc.)
 $router->post('/webhooks/integration/{slug}/{tenant_uuid}', [WebhookController::class, 'integration'])
     ->middleware('rate:api');
+
+// Sales Bot (Fase 2): cron endpoint para cart recovery + re-engagement.
+// Auth via header `X-Cron-Token` que debe matchear env CRON_TOKEN.
+// Llamar via cPanel cron / GitHub Actions cada 5-10 min.
+$router->post('/cron/sales-bot', [\App\Controllers\CronController::class, 'salesBot']);
+$router->get ('/cron/sales-bot', [\App\Controllers\CronController::class, 'salesBot']);

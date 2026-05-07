@@ -47,6 +47,81 @@ final class NotificationDispatcher
     }
 
     /**
+     * Dispara una alerta de presupuesto IA (token economy) a destinos suscritos
+     * al evento `ai.budget_alert`. Se invoca desde AiProviderService cuando el
+     * uso del periodo cruza el umbral configurado por el tenant (default 80%).
+     *
+     * $info: ['pct' => int, 'threshold' => int, 'usd_used' => float,
+     *        'usd_budget' => float, 'period_start' => 'YYYY-MM-01']
+     */
+    public function dispatchAiBudgetAlert(array $info): void
+    {
+        $event = 'ai.budget_alert';
+        $destinations = NotificationDestination::activeForEvent($this->tenantId, $event);
+        if (empty($destinations)) return;
+
+        $tenant = Database::fetch(
+            "SELECT name FROM tenants WHERE id = :t",
+            ['t' => $this->tenantId]
+        );
+        $brand = (string) ($tenant['name'] ?? 'Tu cuenta');
+
+        $pct        = (int) ($info['pct'] ?? 0);
+        $threshold  = (int) ($info['threshold'] ?? 80);
+        $usdUsed    = (float) ($info['usd_used'] ?? 0);
+        $usdBudget  = (float) ($info['usd_budget'] ?? 0);
+        $remaining  = max(0.0, $usdBudget - $usdUsed);
+
+        $title    = sprintf('⚠️ Presupuesto IA al %d%% — %s', $pct, $brand);
+        $subject  = sprintf('[Kyros Pulse] Alerta presupuesto IA · %s al %d%%', $brand, $pct);
+        $textBody = sprintf(
+            "Tu uso de IA en este periodo cruzo el umbral del %d%%.\n\n"
+          . "• Gastado: $%s de $%s\n"
+          . "• Restante: $%s\n"
+          . "• Periodo desde: %s\n\n"
+          . "Si llegas al 100%% el agente IA se pausara hasta el proximo mes o hasta que aumentes el budget.\n"
+          . "Ajustalo en Configuracion > IA.",
+            $threshold,
+            number_format($usdUsed, 2),
+            number_format($usdBudget, 2),
+            number_format($remaining, 2),
+            (string) ($info['period_start'] ?? date('Y-m-01'))
+        );
+
+        $baseUrl = rtrim((string) (\App\Core\Config::get('app.url', '')), '/');
+        $usageUrl = ($baseUrl !== '' ? $baseUrl : 'https://pulse.kyrosrd.com') . '/ai/usage';
+
+        $htmlBody = '<p><strong>Tu uso de IA cruzo el ' . $threshold . '% del budget mensual.</strong></p>'
+            . '<ul>'
+            . '<li>Gastado: <strong>$' . number_format($usdUsed, 2) . '</strong> de $' . number_format($usdBudget, 2) . '</li>'
+            . '<li>Restante: <strong>$' . number_format($remaining, 2) . '</strong></li>'
+            . '<li>Periodo desde: ' . htmlspecialchars((string) ($info['period_start'] ?? date('Y-m-01')), ENT_QUOTES) . '</li>'
+            . '</ul>'
+            . '<p>Si llegas al 100% el agente IA se pausara hasta el proximo mes o hasta que aumentes el budget.</p>'
+            . '<p><a href="' . htmlspecialchars($usageUrl, ENT_QUOTES) . '" style="display:inline-block;padding:10px 20px;background:#0EA572;color:#fff;border-radius:8px;text-decoration:none">Ver uso de IA</a></p>';
+
+        $payload = [
+            'subject' => $subject,
+            'title'   => $title,
+            'text'    => $textBody,
+            'html'    => $htmlBody,
+            'fields'  => [
+                ['label' => 'Uso',         'value' => $pct . '%'],
+                ['label' => 'Gastado',     'value' => '$' . number_format($usdUsed, 2)],
+                ['label' => 'Budget',      'value' => '$' . number_format($usdBudget, 2)],
+                ['label' => 'Restante',    'value' => '$' . number_format($remaining, 2)],
+                ['label' => 'Umbral',      'value' => $threshold . '%'],
+                ['label' => 'Periodo',     'value' => (string) ($info['period_start'] ?? date('Y-m-01'))],
+            ],
+            'event'   => $event,
+        ];
+
+        foreach ($destinations as $dest) {
+            $this->sendToDestination($dest, $event, $payload, 'ai_budget', $this->tenantId);
+        }
+    }
+
+    /**
      * Envia un mensaje de prueba a un destino concreto. Lo usa el boton "Probar"
      * en la UI para validar que la config funciona antes de guardar.
      */
