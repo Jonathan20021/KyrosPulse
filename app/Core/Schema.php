@@ -26,11 +26,13 @@ final class Schema
 
             $pdo = Database::connection();
 
-            // Verificacion barata: si existen las tablas criticas v3
+            // Verificacion barata: si existen TODAS las tablas/columnas criticas hasta v8
             $tableOk = self::tableExists($pdo, 'whatsapp_channels')
                     && self::tableExists($pdo, 'menu_items')
                     && self::tableExists($pdo, 'orders')
-                    && self::tableExists($pdo, 'channel_routing_rules');
+                    && self::tableExists($pdo, 'channel_routing_rules')
+                    && self::tableExists($pdo, 'notification_destinations')
+                    && self::tableExists($pdo, 'notification_logs');
             $colOk   = self::columnExists($pdo, 'conversations', 'channel_id')
                     && self::columnExists($pdo, 'tenants', 'is_restaurant')
                     && self::columnExists($pdo, 'conversations', 'cart_state')
@@ -43,7 +45,14 @@ final class Schema
             }
 
             self::applyMigration($pdo);
-            @file_put_contents($cachePath, '1');
+
+            // Re-verificar tras migrar. Solo escribimos el cache flag si todo quedo bien;
+            // de lo contrario, el proximo request reintentara automaticamente.
+            $okAfter = self::tableExists($pdo, 'notification_destinations')
+                    && self::tableExists($pdo, 'notification_logs');
+            if ($okAfter) {
+                @file_put_contents($cachePath, '1');
+            }
         } catch (\Throwable $e) {
             Logger::error('Schema::ensure fallo', ['msg' => $e->getMessage()]);
             // No lanzamos: la app debe seguir aunque la auto-migracion falle.
