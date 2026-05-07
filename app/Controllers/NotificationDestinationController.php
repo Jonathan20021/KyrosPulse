@@ -44,7 +44,7 @@ final class NotificationDestinationController extends Controller
         $tenantId = Tenant::id();
         $data = $this->collectInput($request);
 
-        if ($err = $this->validate($data)) {
+        if ($err = $this->validateDestination($data)) {
             Session::flash('error', $err);
             $this->redirect('/settings/notifications?prefill=' . urlencode($data['type']));
             return;
@@ -65,7 +65,7 @@ final class NotificationDestinationController extends Controller
         if (!$existing) { Session::flash('error', 'Destino no encontrado.'); $this->redirect('/settings/notifications'); return; }
 
         $data = $this->collectInput($request);
-        if ($err = $this->validate($data)) {
+        if ($err = $this->validateDestination($data)) {
             Session::flash('error', $err);
             $this->redirect('/settings/notifications');
             return;
@@ -78,10 +78,12 @@ final class NotificationDestinationController extends Controller
     }
 
     /**
-     * Validacion server-side: rechaza si faltan label, eventos o campos del canal.
-     * Devuelve string con el mensaje de error o null si OK.
+     * Validacion server-side de un destino: rechaza si faltan label, eventos o
+     * campos del canal. Devuelve string con el mensaje de error o null si OK.
+     * Nota: NO se llama validate() porque el parent Controller ya define ese
+     * metodo con otra firma; PHP lo rechaza por incompatibilidad de signatura.
      */
-    private function validate(array $data): ?string
+    private function validateDestination(array $data): ?string
     {
         if (empty($data['label']))  return 'La etiqueta interna es obligatoria.';
         if (empty($data['type']))   return 'El tipo de canal es obligatorio.';
@@ -160,7 +162,7 @@ final class NotificationDestinationController extends Controller
 
         // Validacion previa: si la config esta incompleta, mensaje claro y no
         // contar como fallo de envio (es de configuracion).
-        $preErr = $this->validate([
+        $preErr = $this->validateDestination([
             'label'  => $row['label'] ?? 'X',
             'type'   => $row['type']  ?? '',
             'events' => $row['events'] ?? ['x'],
