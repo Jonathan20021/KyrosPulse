@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v7_ok';
+    private const CACHE_FILE = '/cache/.schema_v8_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -394,6 +394,59 @@ CREATE TABLE IF NOT EXISTS `order_events` (
     PRIMARY KEY (`id`),
     KEY `idx_oe_order` (`order_id`),
     KEY `idx_oe_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Destinos de notificacion configurables por tenant para eventos de ordenes
+        // (y, en el futuro, para tickets/leads). Multi-canal: email/slack/discord/teams/
+        // telegram/webhook/whatsapp. Cada destino define a que eventos se suscribe.
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `notification_destinations` (
+    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`   BIGINT UNSIGNED NOT NULL,
+    `type`        ENUM('email','slack','discord','teams','telegram','webhook','whatsapp') NOT NULL,
+    `label`       VARCHAR(120) NOT NULL,
+    `config`      JSON NOT NULL,
+    `events`      JSON NOT NULL,
+    `entity`      VARCHAR(40) NOT NULL DEFAULT 'order',
+    `is_active`   TINYINT(1) NOT NULL DEFAULT 1,
+    `last_used_at` DATETIME NULL,
+    `last_status` VARCHAR(20) NULL,
+    `last_error`  TEXT NULL,
+    `success_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `failure_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by`  BIGINT UNSIGNED NULL,
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`  DATETIME NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_nd_tenant` (`tenant_id`),
+    KEY `idx_nd_type` (`type`),
+    KEY `idx_nd_entity` (`entity`),
+    KEY `idx_nd_active` (`is_active`),
+    CONSTRAINT `fk_nd_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Log de envios de notificaciones para auditar y reintentos manuales
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `notification_logs` (
+    `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`      BIGINT UNSIGNED NOT NULL,
+    `destination_id` BIGINT UNSIGNED NULL,
+    `type`           VARCHAR(40) NOT NULL,
+    `event`          VARCHAR(60) NOT NULL,
+    `entity_type`    VARCHAR(40) NOT NULL,
+    `entity_id`      BIGINT UNSIGNED NULL,
+    `status`         ENUM('success','failed','queued') NOT NULL DEFAULT 'queued',
+    `payload`        JSON NULL,
+    `response`       TEXT NULL,
+    `error`          TEXT NULL,
+    `created_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_nl_tenant` (`tenant_id`),
+    KEY `idx_nl_dest` (`destination_id`),
+    KEY `idx_nl_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 

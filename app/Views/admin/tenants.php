@@ -153,6 +153,36 @@
                 </p>
             </form>
 
+            <!-- Modulos activos -->
+            <form action="<?= url('/admin/tenants/' . $t['id'] . '/modules') ?>" method="POST" class="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 space-y-2">
+                <?= csrf_field() ?>
+                <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Modulos activos</div>
+                <div class="grid md:grid-cols-3 gap-2">
+                    <label class="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10">
+                        <input type="checkbox" name="is_restaurant" value="1" <?= !empty($t['is_restaurant']) ? 'checked' : '' ?> class="w-3.5 h-3.5 rounded mt-0.5">
+                        <div class="flex-1">
+                            <div class="text-xs font-semibold text-white">🍔 Restaurante</div>
+                            <div class="text-[10px] text-slate-400 leading-tight">Activa Ordenes y Menu en sidebar. Para clientes con servicio de comida.</div>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10">
+                        <input type="checkbox" name="public_menu_enabled" value="1" <?= !empty($t['public_menu_enabled']) ? 'checked' : '' ?> class="w-3.5 h-3.5 rounded mt-0.5">
+                        <div class="flex-1">
+                            <div class="text-xs font-semibold text-white">🌐 Menu publico</div>
+                            <div class="text-[10px] text-slate-400 leading-tight">Permite menu publico via /menu/{slug} para checkout WhatsApp.</div>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10">
+                        <input type="checkbox" name="ai_force_all" value="1" <?= !empty($t['ai_force_all']) ? 'checked' : '' ?> class="w-3.5 h-3.5 rounded mt-0.5">
+                        <div class="flex-1">
+                            <div class="text-xs font-semibold text-white">🤖 IA forzada</div>
+                            <div class="text-[10px] text-slate-400 leading-tight">IA responde a todas las conversaciones automaticamente.</div>
+                        </div>
+                    </label>
+                </div>
+                <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-semibold bg-emerald-500/30 hover:bg-emerald-500/40">Guardar modulos</button>
+            </form>
+
             <!-- Acciones -->
             <div class="flex flex-wrap gap-2 pt-2">
                 <?php if ($t['status'] === 'suspended' || $t['status'] === 'expired'): ?>

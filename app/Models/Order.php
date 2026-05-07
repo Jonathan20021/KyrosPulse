@@ -41,7 +41,23 @@ final class Order extends Model
     public static function create(array $data): int
     {
         $data['code'] = $data['code'] ?? self::generateCode((int) $data['tenant_id']);
-        return Database::insert('orders', $data);
+        $orderId = Database::insert('orders', $data);
+
+        // Notificacion order.new (despues de que el caller agregue items y haga recalcTotals
+        // se podria refinar; para aqui usamos los datos actuales del registro insertado).
+        try {
+            $tenantId = (int) $data['tenant_id'];
+            $full = self::findById($tenantId, $orderId);
+            if ($full) {
+                $full['items'] = self::items($tenantId, $orderId);
+                (new \App\Services\NotificationDispatcher($tenantId))
+                    ->dispatchOrderEvent($full, 'order.new');
+            }
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('NotificationDispatcher order.new fallo', ['msg' => $e->getMessage()]);
+        }
+
+        return $orderId;
     }
 
     public static function update(int $tenantId, int $id, array $data): int
@@ -146,6 +162,16 @@ final class Order extends Model
                 'to_status'   => $newStatus,
             ]);
         } catch (\Throwable) {}
+
+        // Notificaciones multi-canal a destinos configurados
+        try {
+            $fullOrder = self::findById($tenantId, $orderId) ?? $order;
+            $fullOrder['items'] = self::items($tenantId, $orderId);
+            (new \App\Services\NotificationDispatcher($tenantId))
+                ->dispatchOrderEvent($fullOrder, 'order.' . $newStatus);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('NotificationDispatcher fallo', ['msg' => $e->getMessage()]);
+        }
 
         return true;
     }

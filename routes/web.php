@@ -199,6 +199,14 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/settings/routing/{id}/toggle',      [RoutingController::class, 'toggle'])->middleware('csrf');
     $r->delete('/settings/routing/{id}',             [RoutingController::class, 'destroy'])->middleware('csrf');
 
+    // Settings · Notificaciones (multi-canal: email/slack/discord/teams/telegram/webhook/whatsapp)
+    $r->get   ('/settings/notifications',                  [\App\Controllers\NotificationDestinationController::class, 'index']);
+    $r->post  ('/settings/notifications',                  [\App\Controllers\NotificationDestinationController::class, 'store'])->middleware('csrf');
+    $r->put   ('/settings/notifications/{id}',             [\App\Controllers\NotificationDestinationController::class, 'update'])->middleware('csrf');
+    $r->delete('/settings/notifications/{id}',             [\App\Controllers\NotificationDestinationController::class, 'destroy'])->middleware('csrf');
+    $r->post  ('/settings/notifications/{id}/toggle',      [\App\Controllers\NotificationDestinationController::class, 'toggle'])->middleware('csrf');
+    $r->post  ('/settings/notifications/{id}/test',        [\App\Controllers\NotificationDestinationController::class, 'test'])->middleware('csrf');
+
     // Settings · Canales WhatsApp (multi-numero)
     $r->get   ('/settings/channels',                  [ChannelController::class, 'index']);
     $r->post  ('/settings/channels',                  [ChannelController::class, 'store'])->middleware('csrf');
@@ -241,6 +249,7 @@ $router->group(['middleware' => ['auth', 'super']], function ($r) {
     $r->post('/admin/tenants/{id}/expiry',           [AdminController::class, 'tenantSetExpiry'])->middleware('csrf');
     $r->post('/admin/tenants/{id}/impersonate',      [AdminController::class, 'tenantImpersonate'])->middleware('csrf');
     $r->post('/admin/tenants/{id}/ai-assign',        [AdminController::class, 'tenantAiAssign'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/modules',          [AdminController::class, 'tenantModules'])->middleware('csrf');
 
     // Usuarios (todos los tenants)
     $r->get   ('/admin/users',                  [AdminController::class, 'usersIndex']);

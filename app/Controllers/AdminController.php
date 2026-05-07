@@ -138,6 +138,24 @@ final class AdminController extends Controller
         $this->redirect('/admin/tenants');
     }
 
+    /**
+     * Activa o desactiva modulos del tenant (Restaurante, Menu publico, IA forzada).
+     * Los checkboxes que no llegan en el POST se interpretan como 0.
+     */
+    public function tenantModules(Request $request, array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $data = [
+            'is_restaurant'        => $request->input('is_restaurant') ? 1 : 0,
+            'public_menu_enabled'  => $request->input('public_menu_enabled') ? 1 : 0,
+            'ai_force_all'         => $request->input('ai_force_all') ? 1 : 0,
+        ];
+        Database::update('tenants', $data, ['id' => $id]);
+        Audit::log('admin.tenant.modules_updated', 'tenant', $id, [], $data);
+        Session::flash('success', 'Modulos del tenant actualizados.');
+        $this->redirect('/admin/tenants');
+    }
+
     public function tenantActivate(Request $request, array $params): void
     {
         $id = (int) ($params['id'] ?? 0);
