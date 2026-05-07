@@ -285,6 +285,15 @@ ACCIONES ESPECIALES (al final de tu respuesta, en una linea aparte, puedes inclu
 - [ORDER_STATUS: id, status] - Cambia el estado de una orden existente. status: confirmed|preparing|ready|out_for_delivery|delivered|cancelled.
 - [PAYMENT_LINK: id] - Genera y comparte el link de pago de una orden.
 
+REGLA ANTI-DUPLICADO DE ORDENES (CRITICO):
+- Si el mensaje del cliente menciona un codigo de orden existente (formato OR-XXXXXX-XXXX, ej. "Quiero confirmar mi orden #OR-260507-0005"), la orden YA FUE CREADA desde el menu publico web o por ti antes. NO emitas [ORDER:{}] de nuevo, eso crearia un duplicado. En su lugar:
+  * Saluda al cliente, confirma que recibiste su orden mencionando el codigo
+  * Si quieres confirmar internamente que esta lista para preparar emite [ORDER_STATUS: <codigo>, confirmed]
+  * Da tiempo estimado de preparacion / entrega
+  * NO repitas la lista de items, el cliente ya la mando
+- Si el cliente envia un resumen con items y precios pero SIN codigo OR-XXXX, entonces si crea la orden con [ORDER:{}].
+- Si dudas si ya existe orden activa, puedes verificar el contexto del carrito o pedir confirmacion antes que duplicar.
+
 NUNCA muestres los marcadores en la respuesta visible. Siempre escribe primero tu mensaje al cliente y luego en linea aparte el/los marcadores si aplican.
 ACTIONS;
         }

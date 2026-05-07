@@ -41,6 +41,28 @@ final class RestaurantOrderEngine
             return ['success' => false, 'error' => 'items vacios'];
         }
 
+        // ================================================================
+        //  DEDUPLICACION: prevenir ordenes dobles
+        // ================================================================
+        $dup = $this->detectDuplicateOrder($payload, $conversationId, $contactId, $items);
+        if ($dup) {
+            Logger::info('AI order DUPLICADA evitada', [
+                'tenant'      => $this->tenantId,
+                'conversation'=> $conversationId,
+                'contact'     => $contactId,
+                'reason'      => $dup['reason'],
+                'existing'    => $dup['order_id'] ?? null,
+            ]);
+            return [
+                'success'     => true,
+                'duplicate'   => true,
+                'order_id'    => $dup['order_id'] ?? null,
+                'order_code'  => $dup['order_code'] ?? null,
+                'reason'      => $dup['reason'],
+                'message'     => 'Esta orden ya esta registrada (' . ($dup['order_code'] ?? '#' . ($dup['order_id'] ?? '?')) . '). No se creo duplicado.',
+            ];
+        }
+
         $deliveryType = strtolower((string) ($payload['delivery_type'] ?? 'delivery'));
         if (!in_array($deliveryType, ['delivery','pickup','dine_in'], true)) $deliveryType = 'delivery';
 
@@ -241,6 +263,101 @@ final class RestaurantOrderEngine
             "SELECT * FROM delivery_zones WHERE tenant_id = :t AND is_active = 1 AND LOWER(name) LIKE :n LIMIT 1",
             ['t' => $this->tenantId, 'n' => '%' . mb_strtolower($name) . '%']
         );
+    }
+
+    /**
+     * Detecta si esta orden seria un duplicado de una existente. Devuelve un
+     * array con order_id/order_code/reason si encuentra duplicado, o null si
+     * no hay duplicado. Casos detectados:
+     *
+     *  1. payload referencia un codigo OR-XXXX existente del tenant.
+     *  2. el ultimo mensaje del cliente contiene "OR-XXXXXX" que apunta a una
+     *     orden ya creada (tipico cuando el cliente confirma desde menu publico).
+     *  3. existe una orden de la MISMA conversacion creada en los ultimos 10 min.
+     *  4. existe una orden con mismo customer_phone + mismo total (centavos
+     *     exactos) creada en los ultimos 10 min.
+     */
+    private function detectDuplicateOrder(array $payload, int $conversationId, int $contactId, array $items): ?array
+    {
+        // 1) Si el payload mismo trae order_code/order_ref, buscarlo
+        $explicitCode = trim((string) ($payload['order_code'] ?? $payload['order_ref'] ?? ''));
+        if ($explicitCode !== '' && preg_match('/(OR-[A-Z0-9-]{6,})/i', $explicitCode, $m)) {
+            $row = Database::fetch(
+                "SELECT id, code FROM orders WHERE tenant_id = :t AND code = :c LIMIT 1",
+                ['t' => $this->tenantId, 'c' => strtoupper($m[1])]
+            );
+            if ($row) {
+                return ['order_id' => (int) $row['id'], 'order_code' => $row['code'], 'reason' => 'payload referencia codigo existente'];
+            }
+        }
+
+        // 2) Buscar codigo OR-XXX en el ultimo mensaje inbound de la conversacion
+        if ($conversationId > 0) {
+            $lastInbound = Database::fetch(
+                "SELECT content FROM messages
+                 WHERE conversation_id = :c AND tenant_id = :t AND direction = 'inbound'
+                 ORDER BY id DESC LIMIT 1",
+                ['c' => $conversationId, 't' => $this->tenantId]
+            );
+            if ($lastInbound && !empty($lastInbound['content'])) {
+                if (preg_match('/(OR-[A-Z0-9-]{6,})/i', (string) $lastInbound['content'], $m)) {
+                    $row = Database::fetch(
+                        "SELECT id, code FROM orders WHERE tenant_id = :t AND code = :c LIMIT 1",
+                        ['t' => $this->tenantId, 'c' => strtoupper($m[1])]
+                    );
+                    if ($row) {
+                        return ['order_id' => (int) $row['id'], 'order_code' => $row['code'], 'reason' => 'mensaje del cliente menciona codigo de orden existente'];
+                    }
+                }
+            }
+        }
+
+        // 3) Misma conversacion con orden en los ultimos 10 minutos (anti double-fire)
+        if ($conversationId > 0) {
+            $recent = Database::fetch(
+                "SELECT id, code FROM orders
+                 WHERE tenant_id = :t AND conversation_id = :c
+                   AND status NOT IN ('cancelled')
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                 ORDER BY id DESC LIMIT 1",
+                ['t' => $this->tenantId, 'c' => $conversationId]
+            );
+            if ($recent) {
+                return ['order_id' => (int) $recent['id'], 'order_code' => $recent['code'], 'reason' => 'misma conversacion creo orden hace <10min'];
+            }
+        }
+
+        // 4) Mismo telefono + mismo total exacto en los ultimos 10 min
+        $phone = trim((string) ($payload['customer_phone'] ?? ''));
+        if ($phone === '' && $contactId > 0) {
+            $contactRow = Database::fetch("SELECT phone, whatsapp FROM contacts WHERE id = :c AND tenant_id = :t", ['c' => $contactId, 't' => $this->tenantId]);
+            $phone = (string) ($contactRow['whatsapp'] ?? $contactRow['phone'] ?? '');
+        }
+        $estimatedTotal = 0.0;
+        foreach ($items as $line) {
+            if (!is_array($line)) continue;
+            $qty = max(1, (int) ($line['qty'] ?? $line['quantity'] ?? 1));
+            $unit = (float) ($line['unit_price'] ?? $line['price'] ?? 0);
+            $estimatedTotal += $unit * $qty;
+        }
+        if ($phone !== '' && $estimatedTotal > 0) {
+            $phoneNorm = preg_replace('/[^0-9]/', '', $phone) ?: '';
+            $recent = Database::fetch(
+                "SELECT id, code FROM orders
+                 WHERE tenant_id = :t
+                   AND status NOT IN ('cancelled')
+                   AND REPLACE(REPLACE(REPLACE(customer_phone, '+',''), '-',''), ' ','') = :p
+                   AND ABS(total - :tot) < 0.05
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                 ORDER BY id DESC LIMIT 1",
+                ['t' => $this->tenantId, 'p' => $phoneNorm, 'tot' => $estimatedTotal]
+            );
+            if ($recent) {
+                return ['order_id' => (int) $recent['id'], 'order_code' => $recent['code'], 'reason' => 'mismo telefono + mismo total hace <10min'];
+            }
+        }
+
+        return null;
     }
 
     /**
