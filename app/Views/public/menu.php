@@ -747,6 +747,35 @@ foreach ($items as $i) {
     <p class="font-display italic"><?= e($brand) ?> · Pedidos confirmados por WhatsApp</p>
 </footer>
 
+<!-- Modal de exito tras checkout -->
+<div x-show="successOrder" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);" @click.self="successOrder = null">
+    <div x-show="successOrder" x-transition class="w-full max-w-md rounded-3xl p-6 sm:p-8 text-center" style="background: linear-gradient(180deg, #1a1410, #13100D); border: 1px solid rgba(212,165,116,0.25); box-shadow: 0 30px 80px rgba(0,0,0,0.6);">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgba(37,211,102,0.20), rgba(37,211,102,0.05)); border: 1.5px solid rgba(37,211,102,0.4); box-shadow: 0 0 40px rgba(37,211,102,0.25);">
+            <svg class="w-9 h-9" viewBox="0 0 24 24" fill="#25D366"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.371-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        </div>
+        <h2 class="font-display text-2xl mb-1" style="color: #F5F0E8;">Orden creada</h2>
+        <p class="text-sm mb-1" style="color: rgba(212,165,116,0.85);">Codigo <span class="font-mono font-bold" x-text="successOrder?.code"></span></p>
+        <p class="text-2xl font-bold mb-5" style="color: #25D366;" x-text="successOrder ? (successOrder.currency + ' ' + successOrder.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})) : ''"></p>
+
+        <p class="text-sm leading-relaxed mb-5" style="color: rgba(245,240,232,0.7);">
+            Abrimos WhatsApp en una pestana nueva con tu pedido pre-redactado.
+            <strong style="color: #F5F0E8;">Solo presiona enviar</strong> para confirmar con el restaurante.
+        </p>
+
+        <a :href="successOrder?.waUrl" target="_blank" rel="noopener"
+           class="block w-full py-3.5 rounded-2xl font-bold text-base mb-3 transition active:scale-95"
+           style="background: linear-gradient(135deg, #25D366, #128C7E); color: white; box-shadow: 0 10px 30px rgba(37,211,102,0.35);">
+            <span class="flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654z"/></svg>
+                Abrir WhatsApp
+            </span>
+        </a>
+        <button type="button" @click="successOrder = null" class="text-xs" style="color: rgba(245,240,232,0.55);">
+            Cerrar y seguir navegando
+        </button>
+    </div>
+</div>
+
 <script>
 window.MENU_ITEMS = <?= json_encode($itemsForJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 window.MENU_ZONES = <?= json_encode(array_map(fn($z) => ['id' => (int) $z['id'], 'fee' => (float) $z['fee']], $zones), JSON_UNESCAPED_UNICODE) ?>;
@@ -773,6 +802,7 @@ function menuApp() {
         error: '',
         bumpCart: false,
         activeCategory: 0,
+        successOrder: null,
         customer: {
             name: '',
             phone: '',
@@ -841,6 +871,12 @@ function menuApp() {
                 return;
             }
             this.loading = true;
+
+            // Pre-abrir una ventana SINCRONICA con un placeholder. Algunos navegadores
+            // bloquean window.open si se llama tras un await (gesto perdido). Asi
+            // garantizamos que se abra la pestana mientras procesamos en background.
+            const popup = window.open('about:blank', '_blank');
+
             try {
                 const r = await fetch(window.MENU_CHECKOUT_URL, {
                     method: 'POST',
@@ -857,14 +893,42 @@ function menuApp() {
                 });
                 const data = await r.json();
                 if (!r.ok || !data.success) {
+                    if (popup) popup.close();
                     this.error = data.error || 'No se pudo procesar tu orden.';
                     this.loading = false;
                     return;
                 }
+
+                // Validar que tengamos URL valida de WhatsApp
+                if (!data.wa_url || data.wa_url.indexOf('wa.me/?') !== -1) {
+                    if (popup) popup.close();
+                    this.error = 'Orden creada pero falta el numero de WhatsApp del negocio. Contacta al restaurante.';
+                    this.loading = false;
+                    return;
+                }
+
                 localStorage.removeItem('kp_cart_<?= e($tenant['uuid']) ?>');
                 this.cart = {};
-                window.location.href = data.wa_url;
+
+                // Redirigir popup al wa.me para evitar bloqueos
+                if (popup) {
+                    popup.location.href = data.wa_url;
+                } else {
+                    // Fallback: si el navegador bloqueo window.open, redirigir esta pagina
+                    window.location.href = data.wa_url;
+                    return;
+                }
+
+                // Mostrar pantalla de exito con boton explicito (UX profesional)
+                this.successOrder = {
+                    code: data.order_code,
+                    total: data.total,
+                    currency: data.currency,
+                    waUrl: data.wa_url,
+                };
+                this.loading = false;
             } catch (e) {
+                if (popup) popup.close();
                 this.error = 'Error de red. Intenta de nuevo.';
                 this.loading = false;
             }

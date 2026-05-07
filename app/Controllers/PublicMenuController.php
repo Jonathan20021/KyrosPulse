@@ -187,13 +187,30 @@ final class PublicMenuController extends Controller
         $order = Order::findById($tenantId, $orderId);
 
         // Construir wa.me con el resumen pre-cargado (cliente confirma con un tap)
+        // Buscar numero del canal default; fallback al campo legacy en tenants.
         $channel = WhatsappChannel::findDefault($tenantId);
-        $waPhone = $this->normalizePhone((string) ($channel['phone'] ?? ($tenant['wasapi_phone'] ?? '')));
-        $msg     = $this->renderWhatsAppMessage($order, $clean, $tenant);
-        $waUrl   = 'https://wa.me/' . $waPhone . '?text=' . rawurlencode($msg);
+        $rawPhone = (string) ($channel['phone'] ?? '');
+        if ($rawPhone === '') $rawPhone = (string) ($tenant['wasapi_phone'] ?? '');
+        $waPhone = $this->normalizePhone($rawPhone);
+
+        if ($waPhone === '') {
+            // Orden creada pero no podemos abrir WhatsApp - avisar al frontend
+            $this->json([
+                'success'    => true,
+                'order_code' => $order['code'],
+                'total'      => (float) $order['total'],
+                'currency'   => $currency,
+                'wa_url'     => '',
+                'warning'    => 'Orden registrada, pero el negocio no tiene un numero de WhatsApp configurado.',
+            ]);
+            return;
+        }
+
+        $msg   = $this->renderWhatsAppMessage($order, $clean, $tenant);
+        $waUrl = 'https://wa.me/' . $waPhone . '?text=' . rawurlencode($msg);
 
         $this->json([
-            'success'   => true,
+            'success'    => true,
             'order_code' => $order['code'],
             'total'      => (float) $order['total'],
             'currency'   => $currency,

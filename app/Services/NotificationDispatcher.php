@@ -123,58 +123,246 @@ final class NotificationDispatcher
 
     private function buildOrderPayload(array $order, string $event): array
     {
-        $statusLabels = [
-            'order.new'              => 'Nueva orden',
-            'order.confirmed'        => 'Orden confirmada',
-            'order.preparing'        => 'En preparacion',
-            'order.ready'            => 'Lista',
-            'order.out_for_delivery' => 'En camino',
-            'order.delivered'        => 'Entregada',
-            'order.cancelled'        => 'Cancelada',
+        $statusMeta = [
+            'order.new'              => ['Nueva orden',         '🆕', '#06B6D4'],
+            'order.confirmed'        => ['Orden confirmada',    '✅', '#0EA572'],
+            'order.preparing'        => ['En preparacion',      '👨‍🍳', '#F59E0B'],
+            'order.ready'            => ['Lista para entregar', '🛎️', '#0EA572'],
+            'order.out_for_delivery' => ['En camino',           '🛵', '#0EA5E9'],
+            'order.delivered'        => ['Entregada',           '🎉', '#0B7C56'],
+            'order.cancelled'        => ['Cancelada',           '❌', '#DC2A47'],
         ];
-        $code     = (string) ($order['code'] ?? ('#' . ($order['id'] ?? '')));
+        $orderId  = (int) ($order['id'] ?? 0);
+        $code     = (string) ($order['code'] ?? ('#' . $orderId));
         $customer = trim((string) ($order['customer_name'] ?? ($order['contact_name'] ?? 'Cliente')));
         $phone    = (string) ($order['customer_phone'] ?? ($order['contact_phone'] ?? ''));
         $total    = number_format((float) ($order['total'] ?? 0), 2);
         $currency = (string) ($order['currency'] ?? 'USD');
-        $statusLb = $statusLabels[$event] ?? ucfirst((string) ($order['status'] ?? ''));
+        $subtotal = (float) ($order['subtotal'] ?? 0);
+        $delivery = (float) ($order['delivery_fee'] ?? 0);
+        $tax      = (float) ($order['tax'] ?? 0);
+        $address  = (string) ($order['delivery_address'] ?? '');
+        $notes    = (string) ($order['delivery_notes'] ?? ($order['kitchen_notes'] ?? ''));
+        $deliveryType = (string) ($order['delivery_type'] ?? 'delivery');
+        [$statusLb, $emoji, $color] = $statusMeta[$event] ?? [ucfirst((string) ($order['status'] ?? '')), 'ℹ️', '#0EA572'];
         $items    = $order['items'] ?? [];
 
+        // URL absoluta a la orden en el panel del SaaS
+        $baseUrl  = rtrim((string) (\App\Core\Config::get('app.url', '')), '/');
+        $orderUrl = $baseUrl . '/orders/' . $orderId;
+
+        // Versión texto plano (Slack/Telegram fallback + email plain)
         $itemsTextLines = [];
-        $itemsHtml = '';
         foreach ($items as $it) {
-            $line = sprintf('%dx %s', (int) ($it['qty'] ?? 1), (string) ($it['name'] ?? 'Producto'));
+            $line = sprintf('  • %dx %s', (int) ($it['qty'] ?? 1), (string) ($it['name'] ?? 'Producto'));
             if (!empty($it['notes'])) $line .= ' (' . $it['notes'] . ')';
             $line .= ' — ' . $currency . ' ' . number_format((float) ($it['subtotal'] ?? 0), 2);
             $itemsTextLines[] = $line;
-            $itemsHtml .= '<li>' . htmlspecialchars($line, ENT_QUOTES) . '</li>';
         }
-        $itemsText = empty($itemsTextLines) ? '(sin items)' : implode("\n", $itemsTextLines);
+        $itemsText = empty($itemsTextLines) ? '  (sin items)' : implode("\n", $itemsTextLines);
 
-        $title = sprintf('%s · %s', $statusLb, $code);
-        $text  = "Cliente: {$customer}\nTelefono: {$phone}\nTotal: {$currency} {$total}\nEstado: {$statusLb}\n\nItems:\n{$itemsText}";
+        $title = sprintf('%s %s · %s', $emoji, $statusLb, $code);
+        $text  = "{$title}\n\n"
+               . "Cliente: {$customer}\n"
+               . "Telefono: {$phone}\n"
+               . ($address ? "Direccion: {$address}\n" : '')
+               . ($notes ? "Notas: {$notes}\n" : '')
+               . "\nItems:\n{$itemsText}\n\n"
+               . "TOTAL: {$currency} {$total}\n\n"
+               . "Ver orden: {$orderUrl}";
 
-        $html = "<h2 style='margin:0 0 12px;color:#0EA572'>" . htmlspecialchars($title, ENT_QUOTES) . "</h2>"
-              . "<table style='border-collapse:collapse;font-family:Inter,system-ui,sans-serif'>"
-              . "<tr><td style='padding:4px 12px 4px 0;color:#6B7588'>Cliente</td><td style='padding:4px 0;font-weight:600'>" . htmlspecialchars($customer, ENT_QUOTES) . "</td></tr>"
-              . "<tr><td style='padding:4px 12px 4px 0;color:#6B7588'>Telefono</td><td style='padding:4px 0'>" . htmlspecialchars($phone, ENT_QUOTES) . "</td></tr>"
-              . "<tr><td style='padding:4px 12px 4px 0;color:#6B7588'>Total</td><td style='padding:4px 0;font-weight:700;color:#0EA572'>" . $currency . ' ' . $total . "</td></tr>"
-              . "<tr><td style='padding:4px 12px 4px 0;color:#6B7588;vertical-align:top'>Items</td><td style='padding:4px 0'><ul style='margin:0;padding-left:18px'>" . $itemsHtml . "</ul></td></tr>"
-              . "</table>";
+        // ============================================================
+        //  Email HTML profesional (responsive, table-based para Outlook)
+        // ============================================================
+        $itemsRowsHtml = '';
+        foreach ($items as $it) {
+            $qty   = (int) ($it['qty'] ?? 1);
+            $name  = htmlspecialchars((string) ($it['name'] ?? 'Producto'), ENT_QUOTES);
+            $note  = !empty($it['notes'])
+                ? '<div style="font-size:12px;color:#6B7588;margin-top:2px">' . htmlspecialchars((string) $it['notes'], ENT_QUOTES) . '</div>'
+                : '';
+            $sub   = $currency . ' ' . number_format((float) ($it['subtotal'] ?? 0), 2);
+            $itemsRowsHtml .=
+                '<tr>'
+              . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;width:42px;vertical-align:top"><span style="display:inline-block;min-width:28px;padding:2px 8px;background:#ECFDF5;color:#0B7C56;border-radius:999px;font-weight:700;font-size:12px;text-align:center">' . $qty . '×</span></td>'
+              . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;font-weight:500">' . $name . $note . '</td>'
+              . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' . $sub . '</td>'
+              . '</tr>';
+        }
+        if ($itemsRowsHtml === '') {
+            $itemsRowsHtml = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#6B7588;font-size:13px">Sin items</td></tr>';
+        }
+
+        // Filas de totales
+        $totalsRows = '';
+        if ($subtotal > 0 && ($subtotal !== (float) $total || $delivery > 0 || $tax > 0)) {
+            $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">Subtotal</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($subtotal, 2) . '</td></tr>';
+        }
+        if ($delivery > 0) {
+            $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">Delivery</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($delivery, 2) . '</td></tr>';
+        }
+        if ($tax > 0) {
+            $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">Impuestos</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($tax, 2) . '</td></tr>';
+        }
+
+        $deliveryTypeLabels = ['delivery' => '🛵 Delivery', 'pickup' => '🏪 Pickup', 'dine_in' => '🍽️ Dine-in'];
+        $deliveryTypeLb = $deliveryTypeLabels[$deliveryType] ?? ucfirst($deliveryType);
+
+        $appUrl  = $baseUrl !== '' ? $baseUrl : 'https://pulse.kyrosrd.com';
+        $brandName = htmlspecialchars((string) (\App\Core\Config::get('app.name', 'Kyros Pulse')), ENT_QUOTES);
+        $year = date('Y');
+
+        // Email HTML — table-based, mobile-first, compatible Outlook/Gmail/Apple
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title>{$title}</title>
+</head>
+<body style="margin:0;padding:0;background:#F6F8FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0B1220;-webkit-font-smoothing:antialiased">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F6F8FA;padding:32px 16px">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(11,18,32,0.06);border:1px solid #EEF1F4">
+
+        <!-- Header con brand -->
+        <tr>
+          <td style="padding:20px 24px;background:#0B1220;border-bottom:3px solid {$color}">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size:18px;font-weight:700;color:#FFFFFF;letter-spacing:-0.01em">
+                  <span style="display:inline-block;width:32px;height:32px;background:linear-gradient(135deg,#10B981,#0EA572);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:16px;vertical-align:middle;margin-right:8px">⚡</span>
+                  {$brandName}
+                </td>
+                <td style="text-align:right;font-size:11px;color:#7C8699;text-transform:uppercase;letter-spacing:0.08em;font-weight:600">
+                  Notificacion de orden
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Hero status -->
+        <tr>
+          <td style="padding:32px 24px 24px;text-align:center;background:linear-gradient(180deg,rgba(16,185,129,0.04),#FFFFFF)">
+            <div style="font-size:48px;line-height:1;margin-bottom:12px">{$emoji}</div>
+            <div style="display:inline-block;padding:5px 14px;background:{$color}1A;color:{$color};border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px">{$statusLb}</div>
+            <h1 style="margin:0 0 4px;font-size:28px;font-weight:800;color:#0B1220;letter-spacing:-0.02em">Orden {$code}</h1>
+            <p style="margin:0;font-size:14px;color:#6B7588">{$deliveryTypeLb}</p>
+          </td>
+        </tr>
+
+        <!-- Datos del cliente -->
+        <tr>
+          <td style="padding:8px 24px 24px">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F6F8;border-radius:12px;border:1px solid #EEF1F4">
+              <tr>
+                <td style="padding:14px 16px">
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6B7588;margin-bottom:4px">Cliente</div>
+                  <div style="font-size:15px;font-weight:600;color:#0B1220">{$customer}</div>
+                </td>
+                <td style="padding:14px 16px;border-left:1px solid #EEF1F4">
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6B7588;margin-bottom:4px">Telefono</div>
+                  <div style="font-size:14px;color:#0B1220;font-family:'SF Mono',Consolas,monospace">{$phone}</div>
+                </td>
+              </tr>
+HTML;
+
+        if ($address !== '') {
+            $addressEsc = htmlspecialchars($address, ENT_QUOTES);
+            $html .= '<tr><td colspan="2" style="padding:0 16px 14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6B7588;margin-bottom:4px">Direccion</div><div style="font-size:13px;color:#364152;line-height:1.5">' . $addressEsc . '</div></td></tr>';
+        }
+        if ($notes !== '') {
+            $notesEsc = htmlspecialchars($notes, ENT_QUOTES);
+            $html .= '<tr><td colspan="2" style="padding:0 16px 14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F59E0B;margin-bottom:4px">⚠ Notas</div><div style="font-size:13px;color:#364152;line-height:1.5;font-style:italic">"' . $notesEsc . '"</div></td></tr>';
+        }
+
+        $totalFmt = $currency . ' ' . $total;
+        $html .= <<<HTML
+            </table>
+          </td>
+        </tr>
+
+        <!-- Items -->
+        <tr>
+          <td style="padding:0 24px 8px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6B7588;margin-bottom:8px;padding-left:4px">Items del pedido</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFFFFF;border:1px solid #EEF1F4;border-radius:12px;overflow:hidden">
+              {$itemsRowsHtml}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Totales -->
+        <tr>
+          <td style="padding:16px 24px 8px">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              {$totalsRows}
+              <tr>
+                <td style="padding:14px 12px;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.02));border-radius:10px;border:1px solid rgba(16,185,129,0.20)">
+                  <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#0B7C56">Total</div>
+                </td>
+                <td style="padding:14px 12px;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.02));border-radius:10px;border:1px solid rgba(16,185,129,0.20);text-align:right">
+                  <div style="font-size:22px;font-weight:800;color:#0B7C56;font-variant-numeric:tabular-nums">{$totalFmt}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- CTA principal -->
+        <tr>
+          <td style="padding:24px 24px 8px;text-align:center">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto">
+              <tr>
+                <td style="border-radius:10px;background:linear-gradient(135deg,#10B981,#0EA572);box-shadow:0 8px 22px rgba(14,165,114,0.35)">
+                  <a href="{$orderUrl}" style="display:inline-block;padding:14px 32px;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px">Ver orden completa →</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:14px 0 0;font-size:12px;color:#6B7588">Click para abrir la orden en tu panel y gestionarla.</p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:24px;text-align:center;border-top:1px solid #EEF1F4;background:#F6F8FA">
+            <p style="margin:0 0 6px;font-size:12px;color:#6B7588">Este aviso te llega porque configuraste un destino de notificacion en {$brandName}.</p>
+            <p style="margin:0;font-size:11px;color:#98A2B3">
+              <a href="{$baseUrl}/settings/notifications" style="color:#0EA572;text-decoration:none">Gestionar notificaciones</a>
+              &nbsp;·&nbsp;
+              <a href="{$baseUrl}" style="color:#0EA572;text-decoration:none">Ir al panel</a>
+            </p>
+            <p style="margin:14px 0 0;font-size:11px;color:#98A2B3">© {$year} {$brandName} · Powered by Kyros Pulse</p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+HTML;
 
         return [
-            'subject' => $title,
-            'title'   => $title,
-            'text'    => $text,
-            'html'    => $html,
-            'event'   => $event,
-            'order_id' => (int) ($order['id'] ?? 0),
-            'fields'  => [
+            'subject'   => $title,
+            'title'     => $title,
+            'text'      => $text,
+            'html'      => $html,
+            'event'     => $event,
+            'order_id'  => $orderId,
+            'order_url' => $orderUrl,
+            'fields'    => [
                 ['label' => 'Cliente',  'value' => $customer ?: '—'],
                 ['label' => 'Telefono', 'value' => $phone ?: '—'],
                 ['label' => 'Total',    'value' => $currency . ' ' . $total],
                 ['label' => 'Estado',   'value' => $statusLb],
                 ['label' => 'Codigo',   'value' => $code],
+                ['label' => 'Tipo',     'value' => $deliveryTypeLb],
             ],
         ];
     }
@@ -230,17 +418,31 @@ final class NotificationDispatcher
         foreach (($p['fields'] ?? []) as $f) {
             $fields[] = ['type' => 'mrkdwn', 'text' => "*{$f['label']}:*\n{$f['value']}"];
         }
-        $body = [
-            'text' => $p['title'] ?? 'Notificacion',
-            'blocks' => [
-                ['type' => 'header', 'text' => ['type' => 'plain_text', 'text' => mb_substr((string) $p['title'], 0, 150)]],
-                ['type' => 'section', 'fields' => array_slice($fields, 0, 10)],
-                ['type' => 'context', 'elements' => [
-                    ['type' => 'mrkdwn', 'text' => '🚀 Kyros Pulse · ' . date('d M Y H:i')],
-                ]],
-            ],
+
+        $blocks = [
+            ['type' => 'header', 'text' => ['type' => 'plain_text', 'text' => mb_substr((string) $p['title'], 0, 150)]],
+            ['type' => 'section', 'fields' => array_slice($fields, 0, 10)],
         ];
-        return $this->postJson($url, $body);
+        if (!empty($p['order_url'])) {
+            $blocks[] = [
+                'type' => 'actions',
+                'elements' => [[
+                    'type'  => 'button',
+                    'text'  => ['type' => 'plain_text', 'text' => 'Ver orden completa →', 'emoji' => true],
+                    'style' => 'primary',
+                    'url'   => (string) $p['order_url'],
+                ]],
+            ];
+        }
+        $blocks[] = [
+            'type' => 'context',
+            'elements' => [['type' => 'mrkdwn', 'text' => '⚡ Kyros Pulse · ' . date('d M Y H:i')]],
+        ];
+
+        return $this->postJson($url, [
+            'text'   => $p['title'] ?? 'Notificacion',
+            'blocks' => $blocks,
+        ]);
     }
 
     private function sendDiscord(array $config, array $p): array
@@ -254,18 +456,23 @@ final class NotificationDispatcher
         foreach (($p['fields'] ?? []) as $f) {
             $fields[] = ['name' => (string) $f['label'], 'value' => (string) $f['value'], 'inline' => true];
         }
-        $body = [
-            'username' => $config['username'] ?? 'Kyros Pulse',
-            'embeds'   => [[
-                'title'       => mb_substr((string) $p['title'], 0, 256),
-                'description' => mb_substr((string) $p['text'], 0, 2000),
-                'color'       => 0x0EA572,
-                'fields'      => $fields,
-                'footer'      => ['text' => 'Kyros Pulse · ' . date('Y-m-d H:i')],
-                'timestamp'   => date('c'),
-            ]],
+        $embed = [
+            'title'       => mb_substr((string) $p['title'], 0, 256),
+            'description' => mb_substr((string) $p['text'], 0, 2000),
+            'color'       => 0x0EA572,
+            'fields'      => $fields,
+            'footer'      => ['text' => 'Kyros Pulse · ' . date('Y-m-d H:i')],
+            'timestamp'   => date('c'),
         ];
-        return $this->postJson($url, $body);
+        if (!empty($p['order_url'])) {
+            // Discord no tiene "buttons" en webhooks; el url va en el title como link
+            $embed['url'] = (string) $p['order_url'];
+            $embed['description'] .= "\n\n**[Ver orden completa →](" . $p['order_url'] . ')**';
+        }
+        return $this->postJson($url, [
+            'username' => $config['username'] ?? 'Kyros Pulse',
+            'embeds'   => [$embed],
+        ]);
     }
 
     private function sendTeams(array $config, array $p): array
@@ -292,6 +499,13 @@ final class NotificationDispatcher
                 'facts' => $facts,
             ]],
         ];
+        if (!empty($p['order_url'])) {
+            $body['potentialAction'] = [[
+                '@type' => 'OpenUri',
+                'name'  => 'Ver orden completa',
+                'targets' => [['os' => 'default', 'uri' => (string) $p['order_url']]],
+            ]];
+        }
         return $this->postJson($url, $body);
     }
 
@@ -306,6 +520,10 @@ final class NotificationDispatcher
         $lines = ['*' . $this->escapeMarkdown((string) $p['title']) . '*', ''];
         foreach (($p['fields'] ?? []) as $f) {
             $lines[] = '*' . $this->escapeMarkdown((string) $f['label']) . ':* ' . $this->escapeMarkdown((string) $f['value']);
+        }
+        if (!empty($p['order_url'])) {
+            $lines[] = '';
+            $lines[] = '[Ver orden completa →](' . $p['order_url'] . ')';
         }
         $text = implode("\n", $lines);
 
