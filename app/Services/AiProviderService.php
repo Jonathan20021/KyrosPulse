@@ -475,7 +475,12 @@ RESTAURANT;
      * Llama al proveedor IA resuelto. $userInput puede ser string o array
      * de mensajes [{role, content}]. Devuelve un shape uniforme.
      */
-    public function call(string $feature, string|array $userInput, int $maxTokens = 1024, bool $allowActions = true): array
+    /**
+     * @param string|null $modelOverride Permite forzar un modelo especifico
+     *        (ej. Haiku para chat conversacional). Si es null, usa la
+     *        configuracion del tenant/global.
+     */
+    public function call(string $feature, string|array $userInput, int $maxTokens = 1024, bool $allowActions = true, ?string $modelOverride = null): array
     {
         $resolved = $this->resolve();
         if (!$resolved) {
@@ -498,7 +503,12 @@ RESTAURANT;
         $system = $this->buildSystemPrompt($feature, $allowActions);
         $providerType = $resolved['provider'];
         $apiKey       = $resolved['api_key'];
-        $model        = $resolved['model'] !== '' ? $resolved['model'] : ($providerType === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-6');
+        // Prioridad: override explicito > config tenant > default por provider
+        if ($modelOverride !== null && $modelOverride !== '') {
+            $model = $modelOverride;
+        } else {
+            $model = $resolved['model'] !== '' ? $resolved['model'] : ($providerType === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-6');
+        }
 
         if ($providerType === 'openai') {
             $result = $this->callOpenAi($apiKey, $model, $system, $userInput, $maxTokens);
@@ -642,13 +652,19 @@ RESTAURANT;
         }
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
-        // Modo minimal: usado en reintento cuando el primer intento fallo.
-        // Reduce maxTokens y desactiva inyecciones grandes (menu/KB/productos)
-        // via flag interno leido por buildSystemPrompt.
-        $maxTokens = $minimal ? 600 : (int) config('services.claude.max_tokens', 1024);
+        // Optimizacion de velocidad para chat conversacional:
+        // - Haiku es 3-5x mas rapido que Sonnet (latencia ~1-2s vs 3-6s)
+        // - 700 tokens es suficiente para respuestas conversacionales (1-3 parrafos)
+        // - Si el tenant configuro explicitamente un modelo Opus/Sonnet en sus
+        //   ajustes, lo respetamos (modelOverride solo aplica si no hay config)
+        $maxTokens = $minimal ? 500 : 700;
+        $resolved = $this->resolve();
+        $tenantHasOwnConfig = $resolved && ($resolved['source'] ?? '') === 'own' && !empty($resolved['model']);
+        $modelOverride = $tenantHasOwnConfig ? null : 'claude-haiku-4-5-20251001';
+
         $this->minimalPrompt = $minimal;
         try {
-            return $this->call('auto_reply', $messages, $maxTokens);
+            return $this->call('auto_reply', $messages, $maxTokens, true, $modelOverride);
         } finally {
             $this->minimalPrompt = false;
         }

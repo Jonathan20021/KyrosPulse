@@ -212,6 +212,28 @@ foreach ($items as $i) {
         }
         .input-field::placeholder { color: rgba(245,240,232,.42); }
         .input-field:focus { outline: none; border-color: #d4a574; background: rgba(248,243,232,.06); box-shadow: 0 0 0 3px rgba(212,165,116,.18); }
+        /* Override autofill de Chrome/Safari/Edge: por defecto pintan fondo blanco/amarillo
+           y texto negro encima de cualquier CSS. Truco: box-shadow inset enorme + delay infinito */
+        .input-field:-webkit-autofill,
+        .input-field:-webkit-autofill:hover,
+        .input-field:-webkit-autofill:focus,
+        .input-field:-webkit-autofill:active {
+            -webkit-text-fill-color: #f8f3e8 !important;
+            -webkit-box-shadow: 0 0 0 1000px #1a1410 inset !important;
+            box-shadow: 0 0 0 1000px #1a1410 inset !important;
+            caret-color: #f8f3e8;
+            transition: background-color 600000s ease-in-out 0s, color 600000s ease-in-out 0s;
+        }
+        .input-field:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 1000px #1a1410 inset, 0 0 0 3px rgba(212,165,116,.18) !important;
+            box-shadow: 0 0 0 1000px #1a1410 inset, 0 0 0 3px rgba(212,165,116,.18) !important;
+            border-color: #d4a574 !important;
+        }
+        /* Firefox tiene su propio autofill (mas leve, pero igual lo manejamos) */
+        .input-field:autofill {
+            background: #1a1410 !important;
+            color: #f8f3e8 !important;
+        }
         /* Select: chevron custom + opciones legibles en dropdown nativo */
         select.input-field {
             appearance: none;
