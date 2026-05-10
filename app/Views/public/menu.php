@@ -99,9 +99,16 @@ foreach ($items as $i) {
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-left: env(safe-area-inset-left, 0px);
             --safe-right: env(safe-area-inset-right, 0px);
-            --header-h: 68px;
+            --header-h: 64px;
+            /* Altura visual real (la setea JS para Android viejo y para
+               cuando el teclado se abre). Fallback a 100% de viewport. */
+            --vh: 1vh;
+            --visual-h: 100vh;
         }
-        @media (min-width: 640px) { :root { --header-h: 76px; } }
+        @supports (height: 100dvh) {
+            :root { --visual-h: 100dvh; }
+        }
+        @media (min-width: 640px) { :root { --header-h: 72px; } }
         * { -webkit-tap-highlight-color: transparent; }
         html, body { font-family: 'Inter', system-ui, sans-serif; }
         html { -webkit-text-size-adjust: 100%; }
@@ -114,10 +121,24 @@ foreach ($items as $i) {
             -webkit-font-smoothing: antialiased;
             text-rendering: optimizeLegibility;
             overflow-x: hidden;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
             min-height: 100vh;
             min-height: 100dvh;
             padding-left: var(--safe-left);
             padding-right: var(--safe-right);
+        }
+        /* Drawer del carrito: usa altura visual real para que el footer
+           (boton "Confirmar por WhatsApp") siempre quede dentro del area
+           visible, incluso en Chrome de Android con la URL bar visible o
+           cuando se abre el teclado. inset-y-0 ya cubre el caso moderno;
+           esto agrega cinturon y tirantes para Android viejo. */
+        .cart-drawer {
+            height: 100vh;                    /* fallback browsers viejos */
+            height: calc(var(--vh, 1vh) * 100); /* JS-driven, mas preciso */
+            height: 100dvh;                   /* moderno */
+            max-height: 100dvh;
+            max-height: 100svh;               /* small viewport en iOS evita salto */
         }
         img, video { max-width: 100%; height: auto; }
         .font-display { font-family: 'Fraunces', Georgia, serif; font-feature-settings: 'ss01' 1, 'ss02' 1; letter-spacing: -.02em; }
@@ -275,7 +296,12 @@ foreach ($items as $i) {
         }
         .checkout-bar {
             box-shadow: 0 -16px 40px rgba(245,165,36,.25);
-            padding-bottom: calc(16px + var(--safe-bottom));
+            /* safe-area + holgura extra para que en Android con gesture nav
+               no quede pegado al borde y el boton siempre se vea bien. */
+            padding-bottom: calc(14px + var(--safe-bottom));
+            /* Forzar que el bar este por encima de cualquier overlay extrano
+               de webviews y respete la zona segura inferior real. */
+            bottom: 0;
         }
         @media (min-width: 1024px) { .checkout-bar { display: none !important; } }
         .drawer-footer { padding-bottom: calc(20px + var(--safe-bottom)); }
@@ -301,20 +327,46 @@ foreach ($items as $i) {
         /* iOS evita zoom al focus si font-size >= 16px */
         @media (max-width: 640px) {
             .input-field { font-size: 16px; }
+            select.input-field { font-size: 16px; }
+            textarea.input-field { font-size: 16px; }
         }
-        /* Pantallas muy estrechas (Galaxy Fold cerrado, etc.) */
-        @media (max-width: 360px) {
-            .hero-title { font-size: 2rem !important; line-height: 1; }
-            .hero-stats { font-size: 11px; }
-            .item-card .price-tag { font-size: 1.05rem; }
-            .add-btn { padding: .5rem .85rem; font-size: .8rem; }
-            .qty-btn { width: 32px; height: 32px; font-size: 14px; }
+        /* Pantallas estrechas estandar (iPhone SE, Pixel A series, etc.) */
+        @media (max-width: 380px) {
+            .hero-title { font-size: 1.85rem !important; line-height: 1.02; letter-spacing: -.01em; }
+            .item-card h4 { font-size: .95rem; }
+            .add-btn { padding: .5rem 1rem; }
+            .pill { font-size: 11px; padding-left: .65rem; padding-right: .65rem; }
+        }
+        /* Pantallas ultra estrechas (Galaxy Fold cerrado ~280px) */
+        @media (max-width: 340px) {
+            .hero-title { font-size: 1.65rem !important; }
+            .hero-stats { font-size: 10.5px; }
+            .item-card .price-tag { font-size: 1rem; }
+            .add-btn { padding: .45rem .7rem; font-size: .75rem; min-height: 36px; }
+            .qty-btn { width: 30px; height: 30px; font-size: 14px; }
+            .checkout-bar { padding: .5rem; }
         }
         /* Landscape de telefono: drawer sigue cabiendo, header mas compacto */
-        @media (max-height: 480px) and (orientation: landscape) {
-            .hero-pad { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-            .hero-title { font-size: 2.25rem !important; }
+        @media (max-height: 500px) and (orientation: landscape) {
+            .hero-pad { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+            .hero-title { font-size: 1.85rem !important; }
+            :root { --header-h: 56px; }
+            header .min-h-\[64px\] { min-height: 52px !important; }
+            /* Drawer a pantalla completa pero scroll suave */
+            .cart-drawer { width: 100% !important; max-width: 520px; }
         }
+        /* Tablets pequenas y telefonos grandes en horizontal */
+        @media (min-width: 641px) and (max-width: 900px) and (orientation: landscape) and (max-height: 600px) {
+            .cart-drawer { width: 60% !important; max-width: 500px; }
+        }
+        /* Webview de WhatsApp/Instagram/Facebook: scroll mas suave + evitar
+           overscroll-bounce que rompe sticky en iOS in-app browser */
+        body { overscroll-behavior-y: contain; }
+        .cart-drawer { overscroll-behavior: contain; }
+        /* Mejor tap targets globales (Apple HIG: 44px min, Material: 48dp) */
+        button, [role="button"], a.add-btn, a.wa-btn { touch-action: manipulation; }
+        /* Asegurar que cualquier flex item con texto largo no rompa el layout */
+        h1, h2, h3, h4, p, span, a { min-width: 0; }
         /* Reducir motion para usuarios con preferencia */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -331,7 +383,7 @@ foreach ($items as $i) {
 
 <!-- Sticky header -->
 <header class="sticky top-0 z-30 backdrop-blur-xl" style="background: rgba(19,16,13,.78); border-bottom: 1px solid rgba(212,165,116,.12);">
-    <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3 min-h-[68px] sm:min-h-[76px]">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 min-h-[64px] sm:min-h-[72px]">
         <a href="#top" class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <?php if ($logoUrl): ?>
                 <img src="<?= e($logoUrl) ?>" alt="<?= e($brand) ?>" class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover ring-1 ring-gold/30 flex-shrink-0">
@@ -623,8 +675,8 @@ foreach ($items as $i) {
        x-transition:leave="transition ease-in duration-220"
        x-transition:leave-start="translate-x-0"
        x-transition:leave-end="translate-x-full"
-       class="fixed top-0 right-0 z-50 w-full sm:w-[440px] md:w-[460px] flex flex-col"
-       style="background: linear-gradient(180deg, #1c1813, #13100d); border-left: 1px solid rgba(212,165,116,.18); display:none; height: 100vh; height: 100dvh; max-height: 100dvh;">
+       class="cart-drawer fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] md:w-[460px] flex flex-col"
+       style="background: linear-gradient(180deg, #1c1813, #13100d); border-left: 1px solid rgba(212,165,116,.18); display:none;">
     <header class="drawer-pad-top flex items-center justify-between px-5 sm:px-6 pb-4 sm:pb-5 flex-shrink-0" style="border-bottom: 1px solid rgba(212,165,116,.12);">
         <div class="min-w-0">
             <p class="label-mini text-gold">Tu pedido</p>
@@ -818,8 +870,8 @@ foreach ($items as $i) {
         </template>
     </div>
 
-    <footer class="drawer-footer px-5 sm:px-6 pt-4 sm:pt-5 flex-shrink-0" style="border-top: 1px solid rgba(212,165,116,.12); background: rgba(19,16,13,.6);" x-show="totalQty() > 0">
-        <button @click="checkout()" :disabled="loading" class="wa-btn w-full py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
+    <footer class="drawer-footer px-4 sm:px-6 pt-3 sm:pt-4 flex-shrink-0" style="border-top: 1px solid rgba(212,165,116,.12); background: rgba(19,16,13,.85);" x-show="totalQty() > 0">
+        <button @click="checkout()" :disabled="loading" class="wa-btn w-full py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed min-h-[52px]">
             <template x-if="!loading">
                 <span class="flex items-center gap-2 sm:gap-2.5">
                     <svg class="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.371-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
@@ -840,8 +892,13 @@ foreach ($items as $i) {
 </footer>
 
 <!-- Modal de exito tras checkout -->
-<div x-show="successOrder" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);" @click.self="successOrder = null">
-    <div x-show="successOrder" x-transition class="w-full max-w-md rounded-3xl p-6 sm:p-8 text-center" style="background: linear-gradient(180deg, #1a1410, #13100D); border: 1px solid rgba(212,165,116,0.25); box-shadow: 0 30px 80px rgba(0,0,0,0.6);">
+<div x-show="successOrder" x-cloak x-transition.opacity
+     class="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     style="background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); padding-top: calc(.75rem + var(--safe-top)); padding-bottom: calc(.75rem + var(--safe-bottom));"
+     @click.self="successOrder = null">
+    <div x-show="successOrder" x-transition
+         class="w-full max-w-md rounded-3xl p-5 sm:p-7 text-center my-auto"
+         style="background: linear-gradient(180deg, #1a1410, #13100D); border: 1px solid rgba(212,165,116,0.25); box-shadow: 0 30px 80px rgba(0,0,0,0.6);">
         <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgba(37,211,102,0.20), rgba(37,211,102,0.05)); border: 1.5px solid rgba(37,211,102,0.4); box-shadow: 0 0 40px rgba(37,211,102,0.25);">
             <svg class="w-9 h-9" viewBox="0 0 24 24" fill="#25D366"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.371-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
         </div>
@@ -857,14 +914,24 @@ foreach ($items as $i) {
         <a :href="successOrder?.waUrl"
            :target="(successOrder?.waUrl || '').startsWith('whatsapp:') ? '_self' : '_blank'"
            rel="noopener"
-           class="block w-full py-3.5 rounded-2xl font-bold text-base mb-3 transition active:scale-95"
+           @click="onWaClick($event)"
+           class="block w-full py-4 rounded-2xl font-bold text-base mb-3 transition active:scale-95 min-h-[52px]"
            style="background: linear-gradient(135deg, #25D366, #128C7E); color: white; box-shadow: 0 10px 30px rgba(37,211,102,0.35);">
             <span class="flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654z"/></svg>
-                Abrir WhatsApp
+                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654z"/></svg>
+                <span>Abrir WhatsApp</span>
             </span>
         </a>
-        <button type="button" @click="successOrder = null" class="text-xs" style="color: rgba(245,240,232,0.55);">
+        <!-- Boton secundario: usar wa.me explicitamente para casos donde el deep link no abra (telefono sin WhatsApp instalado, webview con esquemas bloqueados) -->
+        <a x-show="successOrder?.waWebUrl && successOrder?.waWebUrl !== successOrder?.waUrl"
+           :href="successOrder?.waWebUrl"
+           target="_blank"
+           rel="noopener"
+           class="block w-full text-xs py-2 mb-1"
+           style="color: rgba(212,165,116,0.85); text-decoration: underline; text-underline-offset: 3px;">
+            ¿No abrio WhatsApp? Abrir en navegador
+        </a>
+        <button type="button" @click="successOrder = null" class="text-xs py-2" style="color: rgba(245,240,232,0.55);">
             Cerrar y seguir navegando
         </button>
     </div>
@@ -895,6 +962,36 @@ document.addEventListener('alpine:init', () => {
         observer.observe(el);
     });
 });
+
+// Viewport-height shim: en Android Chrome viejo (sin soporte dvh) y
+// en iOS Safari, 100vh extiende mas alla del area visible cuando la URL
+// bar esta presente. window.innerHeight si refleja el visual viewport,
+// asi que exponemos --vh y --visual-h para que el drawer y otros elementos
+// (botones flotantes, modales) queden siempre dentro del area visible.
+(function() {
+    function setVH() {
+        var h = window.visualViewport && window.visualViewport.height
+            ? window.visualViewport.height
+            : window.innerHeight;
+        if (!h) return;
+        var root = document.documentElement;
+        root.style.setProperty('--vh', (h / 100) + 'px');
+        root.style.setProperty('--visual-h', h + 'px');
+    }
+    setVH();
+    // Throttle con rAF para no saturar en resize/scroll
+    var raf = null;
+    function onResize() {
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(setVH);
+    }
+    window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('orientationchange', onResize, { passive: true });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onResize, { passive: true });
+        window.visualViewport.addEventListener('scroll', onResize, { passive: true });
+    }
+})();
 
 function menuApp() {
     return {
@@ -975,9 +1072,33 @@ function menuApp() {
             if (navigator.maxTouchPoints > 1 && /Mac|iPad/.test(navigator.platform || '')) return true;
             return false;
         },
+        // In-app webviews (FB, Instagram, TikTok, etc.) suelen bloquear el
+        // esquema whatsapp://. En ese caso preferimos wa.me para que abra
+        // el flujo nativo via intent o redirect del navegador del sistema.
+        isInAppWebview() {
+            const ua = (navigator.userAgent || '').toLowerCase();
+            return /fbav|fban|fb_iab|fbios|instagram|line\/|micromessenger|tiktok|wv\)|inapp/i.test(ua);
+        },
         pickWaUrl(data) {
+            if (this.isInAppWebview()) return data.wa_url || data.wa_deep_url;
             if (this.isMobileDevice() && data.wa_deep_url) return data.wa_deep_url;
             return data.wa_url;
+        },
+        // Tras tap del boton de WhatsApp del modal: si en 1500ms el documento
+        // sigue activo (no cambio de app), asumimos que el deep link no abrio
+        // y caemos al wa.me explicitamente para que nunca se quede colgado.
+        onWaClick(ev) {
+            const url = this.successOrder && this.successOrder.waUrl;
+            if (!url || !url.startsWith('whatsapp:')) return;
+            const fallback = this.successOrder && this.successOrder.waWebUrl;
+            if (!fallback || fallback === url) return;
+            const start = Date.now();
+            const tryFallback = () => {
+                if (document.hidden) return; // si la app abrio, doc esta hidden
+                if (Date.now() - start < 1400) return;
+                window.location.href = fallback;
+            };
+            setTimeout(tryFallback, 1500);
         },
         async checkout() {
             this.error = '';

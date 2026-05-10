@@ -3,9 +3,12 @@
 \App\Core\View::start('content');
 ?>
 
-<div class="mb-6">
-    <h1 class="text-2xl font-bold text-white mb-1">Planes y precios</h1>
-    <p class="text-sm text-slate-400">Configura limites, precios y features que cada plan incluye.</p>
+<div class="mb-6 flex items-center justify-between flex-wrap gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-white mb-1">Planes y precios</h1>
+        <p class="text-sm text-slate-400">Define el limite por defecto de clientes (contactos) y demas cuotas. Cada empresa puede recibir un override personal en <a class="text-emerald-300 hover:underline" href="<?= url('/admin/licenses') ?>">Licencias</a>.</p>
+    </div>
+    <a href="<?= url('/admin/licenses') ?>" class="px-3 py-2 rounded-lg text-sm font-semibold text-white shadow-lg shadow-cyan-500/30" style="background:linear-gradient(135deg,#06B6D4,#10B981);">📇 Ver consumo por empresa</a>
 </div>
 
 <div class="grid md:grid-cols-2 gap-4">
@@ -43,7 +46,7 @@
             <?php
             $limits = [
                 ['max_users','Usuarios'],
-                ['max_contacts','Contactos'],
+                ['max_contacts','Clientes (contactos)'],
                 ['max_messages','Mensajes/mes'],
                 ['max_campaigns','Campanas'],
             ];

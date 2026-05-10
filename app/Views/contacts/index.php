@@ -5,8 +5,10 @@
 /** @var array $agents */
 /** @var array $allTags */
 /** @var int $total */
+/** @var array $license */
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
+$license = $license ?? null;
 ?>
 
 <!-- Header premium -->
@@ -17,6 +19,22 @@
         </div>
         <h1 class="text-[28px] font-bold tracking-tight" style="color: var(--color-text-primary); letter-spacing: -0.025em;">Contactos</h1>
         <p class="text-sm mt-1" style="color: var(--color-text-tertiary);"><?= number_format($total) ?> contacto<?= $total === 1 ? '' : 's' ?> en tu base de datos.</p>
+        <?php if ($license && (int) $license['limit'] > 0):
+            $pct = (int) $license['percent'];
+            $clr = $pct >= 100 ? '#F43F5E' : ($pct >= 85 ? '#F59E0B' : '#10B981');
+        ?>
+        <div class="mt-2 flex items-center gap-2 max-w-md">
+            <div class="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div class="h-full rounded-full" style="width: <?= min(100, $pct) ?>%; background: <?= $clr ?>;"></div>
+            </div>
+            <span class="text-[11px] font-mono" style="color: <?= $clr ?>;"><?= number_format((int) $license['used']) ?> / <?= number_format((int) $license['limit']) ?></span>
+        </div>
+        <?php if ($license['full']): ?>
+        <p class="text-[11px] mt-1.5 text-rose-400">Licencia llena. <?= $license['locked'] ? 'No podras crear nuevos contactos hasta ampliar tu plan.' : 'Solicita ampliacion al administrador.' ?></p>
+        <?php elseif ($license['warn']): ?>
+        <p class="text-[11px] mt-1.5 text-amber-400">Cerca del limite (<?= $pct ?>%). Considera ampliar tu plan.</p>
+        <?php endif; ?>
+        <?php endif; ?>
     </div>
     <div class="flex items-center gap-2">
         <a href="<?= url('/contacts/import') ?>" class="btn btn-secondary">

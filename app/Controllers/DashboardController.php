@@ -12,6 +12,7 @@ use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Order;
+use App\Services\LicenseService;
 
 final class DashboardController extends Controller
 {
@@ -180,6 +181,22 @@ final class DashboardController extends Controller
         $alerts = [];
         if (!empty($tenantData['trial_ends_at']) && strtotime($tenantData['trial_ends_at']) - time() < 86400 * 3) {
             $alerts[] = ['type' => 'warning', 'msg' => 'Tu periodo de prueba expira pronto. Actualiza tu plan para no interrumpir el servicio.'];
+        }
+
+        // Licencia: aviso si te acercas o pasaste el limite de clientes.
+        $license = LicenseService::clientsSnapshot($tenantId);
+        $stats['license_clients'] = $license;
+        if ($license['full']) {
+            $alerts[] = ['type' => 'error', 'msg' => sprintf(
+                'Alcanzaste el limite de clientes de tu licencia (%d/%d). %s',
+                (int) $license['used'], (int) $license['limit'],
+                $license['locked'] ? 'No podras crear nuevos clientes hasta ampliar el plan.' : 'Solicita ampliacion para evitar bloqueos.'
+            )];
+        } elseif ($license['warn']) {
+            $alerts[] = ['type' => 'warning', 'msg' => sprintf(
+                'Tu licencia de clientes esta al %d%% (%d/%d). Considera ampliar tu plan pronto.',
+                (int) $license['percent'], (int) $license['used'], (int) $license['limit']
+            )];
         }
         if (empty($tenantData['wasapi_api_key'])) {
             $alerts[] = ['type' => 'info', 'msg' => 'Conecta tu cuenta de Wasapi para empezar a recibir mensajes de WhatsApp.'];

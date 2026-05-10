@@ -255,6 +255,10 @@ $router->group(['middleware' => ['auth', 'super']], function ($r) {
     $r->post('/admin/tenants/{id}/impersonate',      [AdminController::class, 'tenantImpersonate'])->middleware('csrf');
     $r->post('/admin/tenants/{id}/ai-assign',        [AdminController::class, 'tenantAiAssign'])->middleware('csrf');
     $r->post('/admin/tenants/{id}/modules',          [AdminController::class, 'tenantModules'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/client-limit',     [AdminController::class, 'tenantClientLimit'])->middleware('csrf');
+
+    // Licencias (consumo de clientes por tenant)
+    $r->get ('/admin/licenses',                      [AdminController::class, 'licensesIndex']);
 
     // Usuarios (todos los tenants)
     $r->get   ('/admin/users',                  [AdminController::class, 'usersIndex']);

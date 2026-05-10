@@ -15,6 +15,7 @@ use App\Core\Tenant;
 use App\Models\Contact;
 use App\Models\Tag;
 use App\Models\User;
+use App\Services\LicenseService;
 
 final class ContactController extends Controller
 {
@@ -59,6 +60,7 @@ final class ContactController extends Controller
             'agents'   => User::listByTenant($tenantId),
             'allTags'  => Tag::listForTenant($tenantId),
             'total'    => $total,
+            'license'  => LicenseService::clientsSnapshot($tenantId),
         ], 'layouts.app');
     }
 
@@ -76,6 +78,16 @@ final class ContactController extends Controller
     public function store(Request $request): void
     {
         $tenantId = Tenant::id();
+
+        if (!LicenseService::canAddClients($tenantId, 1)) {
+            $snap = LicenseService::clientsSnapshot($tenantId);
+            LicenseService::markLimitHit($tenantId);
+            Audit::log('license.client_limit_blocked', 'tenant', $tenantId, [], $snap);
+            Session::flash('error', LicenseService::limitMessage($snap));
+            $this->redirect('/contacts');
+            return;
+        }
+
         $data = $this->validate($request, [
             'first_name' => 'required|min:2|max:120',
             'last_name'  => 'max:120',
@@ -110,6 +122,7 @@ final class ContactController extends Controller
         ];
 
         $id = Database::insert('contacts', $contactData);
+        LicenseService::recountAndCache($tenantId);
 
         // Tags
         if (!empty($data['tags'])) {
@@ -237,6 +250,7 @@ final class ContactController extends Controller
         if (!$contact) $this->abort(404);
 
         Contact::softDelete($tenantId, $id);
+        LicenseService::recountAndCache($tenantId);
         Audit::log('contact.deleted', 'contact', $id, $contact);
 
         Session::flash('success', 'Contacto eliminado.');
@@ -299,10 +313,20 @@ final class ContactController extends Controller
 
         $created = 0;
         $skipped = 0;
+        $blocked = 0;
+
+        $snap = LicenseService::clientsSnapshot($tenantId);
+        $hardLimit = $snap['locked'] ? $snap['remaining'] : PHP_INT_MAX;
+
         while (($row = fgetcsv($fh)) !== false) {
             $assoc = @array_combine($header, array_pad($row, count($header), null)) ?: [];
             $first = trim((string) ($assoc['first_name'] ?? $assoc['nombre'] ?? ''));
             if ($first === '') { $skipped++; continue; }
+
+            if ($created >= $hardLimit) {
+                $blocked++;
+                continue;
+            }
 
             try {
                 Database::insert('contacts', [
@@ -325,9 +349,18 @@ final class ContactController extends Controller
             }
         }
         fclose($fh);
+        LicenseService::recountAndCache($tenantId);
 
-        Audit::log('contacts.imported', 'contact', null, [], ['created' => $created, 'skipped' => $skipped]);
-        Session::flash('success', "Importacion completada: $created contactos agregados, $skipped omitidos.");
+        Audit::log('contacts.imported', 'contact', null, [], [
+            'created' => $created, 'skipped' => $skipped, 'blocked_by_license' => $blocked,
+        ]);
+
+        if ($blocked > 0) {
+            LicenseService::markLimitHit($tenantId);
+            Session::flash('error', "Importacion parcial: $created creados, $blocked rechazados por limite de licencia. Solicita ampliar tu plan.");
+        } else {
+            Session::flash('success', "Importacion completada: $created contactos agregados, $skipped omitidos.");
+        }
         $this->redirect('/contacts');
     }
 

@@ -12,6 +12,7 @@ $_currentPageLabel = 'Dashboard';
     <div class="flex items-center gap-2 flex-wrap">
         <a href="<?= url('/admin/branding') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Branding</a>
         <a href="<?= url('/admin/changelog') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Changelog</a>
+        <a href="<?= url('/admin/licenses') ?>" class="px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition">Licencias</a>
         <a href="<?= url('/admin/tenants') ?>" class="px-3 py-2 rounded-lg text-sm font-semibold text-white shadow-lg shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Empresas</a>
     </div>
 </div>
@@ -50,6 +51,7 @@ $_currentPageLabel = 'Dashboard';
         ['Mensajes 30d',     number_format($stats['messages_30d']),  'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',  'from-cyan-500/20 to-cyan-500/0', '#06B6D4'],
         ['Altas 7d',         $stats['new_signups_7d'],  'M13 10V3L4 14h7v7l9-11h-7z', 'from-emerald-500/20 to-emerald-500/0', '#34D399'],
         ['Churn 30d',        $stats['churn_30d'],       'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6', 'from-rose-500/20 to-rose-500/0', '#F43F5E'],
+        ['Licencias en tope',$stats['licenses_over'] ?? 0, 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', 'from-rose-500/20 to-rose-500/0', '#F43F5E'],
     ];
     foreach ($kpis as $i => [$label, $value, $iconPath, $bg, $color]):
     ?>

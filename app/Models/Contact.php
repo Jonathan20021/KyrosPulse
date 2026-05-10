@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Core\Database;
 use App\Core\Model;
 use App\Core\Tenant;
+use App\Services\LicenseService;
 
 final class Contact extends Model
 {
@@ -33,12 +34,29 @@ final class Contact extends Model
         );
     }
 
+    /**
+     * Crea un contacto minimo (usado por flujos automatizados: webhooks de
+     * WhatsApp/Wasapi, public menu, etc). Aplica enforcement suave: nunca
+     * descarta un contacto que viene de un mensaje real, pero marca el
+     * limite golpeado para que el super admin lo vea en el panel y el
+     * tenant reciba la advertencia en su dashboard.
+     *
+     * Para enforcement duro (formularios/CSV manuales), usar
+     * LicenseService::canAddClients() ANTES y rechazar tu mismo.
+     */
     public static function createMinimal(int $tenantId, array $data): int
     {
+        $snap = LicenseService::clientsSnapshot($tenantId);
+        if ($snap['locked'] && $snap['full']) {
+            LicenseService::markLimitHit($tenantId);
+        }
+
         $data['tenant_id'] = $tenantId;
         $data['uuid'] = $data['uuid'] ?? uuid4();
         $data['status'] = $data['status'] ?? 'lead';
-        return Database::insert('contacts', $data);
+        $id = Database::insert('contacts', $data);
+        LicenseService::recountAndCache($tenantId);
+        return $id;
     }
 
     public static function touchInteraction(int $tenantId, int $contactId): void

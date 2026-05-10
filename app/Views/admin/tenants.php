@@ -153,6 +153,46 @@
                 </p>
             </form>
 
+            <!-- Licencia: limite de clientes -->
+            <form action="<?= url('/admin/tenants/' . $t['id'] . '/client-limit') ?>" method="POST" class="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/15 space-y-3">
+                <?= csrf_field() ?>
+                <input type="hidden" name="_redirect" value="/admin/tenants">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">📇 Licencia · Clientes</div>
+                    <?php
+                    $clPct  = (int) ($t['_client_pct']  ?? 0);
+                    $clUsed = (int) ($t['_client_used'] ?? 0);
+                    $clLim  = (int) ($t['_client_limit'] ?? 0);
+                    $clSrc  = (string) ($t['_client_limit_source'] ?? 'default');
+                    ?>
+                    <div class="text-[11px] text-slate-300 font-mono">
+                        <?= number_format($clUsed) ?> / <?= number_format($clLim) ?> · <?= $clPct ?>%
+                        <span class="text-[10px] text-slate-500">(<?= e($clSrc) ?>)</span>
+                    </div>
+                </div>
+                <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div class="h-full rounded-full" style="width: <?= min(100, $clPct) ?>%; <?= $clPct >= 100 ? 'background: #F43F5E;' : ($clPct >= 85 ? 'background: #F59E0B;' : 'background: linear-gradient(90deg,#10B981,#06B6D4);') ?>"></div>
+                </div>
+                <div class="grid md:grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-[10px] text-cyan-300/80">Override (vacio = plan)</label>
+                        <input type="number" name="max_contacts_override" min="0" value="<?= $t['max_contacts_override'] !== null ? (int) $t['max_contacts_override'] : '' ?>" placeholder="<?= !empty($t['plan_max_contacts']) ? 'Plan: ' . (int) $t['plan_max_contacts'] : 'sin plan' ?>" class="w-full mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm">
+                    </div>
+                    <div class="flex items-end">
+                        <label class="flex items-center gap-2 text-xs text-slate-300 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer w-full">
+                            <input type="checkbox" name="client_limit_locked" value="1" <?= !empty($t['client_limit_locked']) ? 'checked' : '' ?> class="w-3.5 h-3.5 rounded">
+                            Bloqueo duro (rechaza altas manuales al tope)
+                        </label>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full px-3 py-2 rounded-lg text-white text-xs font-semibold bg-cyan-500/30 hover:bg-cyan-500/40">Guardar limite</button>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    El limite se aplica a contactos no eliminados. Cuando esta el bloqueo duro, los formularios y CSV no permiten crear mas; los webhooks de WhatsApp aun crean el contacto pero el tope queda marcado en auditoria.
+                </p>
+            </form>
+
             <!-- Modulos activos -->
             <form action="<?= url('/admin/tenants/' . $t['id'] . '/modules') ?>" method="POST" class="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 space-y-2">
                 <?= csrf_field() ?>

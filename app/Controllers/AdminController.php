@@ -17,6 +17,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\AiProviderService;
 use App\Services\HttpClient;
+use App\Services\LicenseService;
 
 final class AdminController extends Controller
 {
@@ -40,6 +41,14 @@ final class AdminController extends Controller
             ),
             'new_signups_7d'   => (int) Database::fetchColumn("SELECT COUNT(*) FROM tenants WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND deleted_at IS NULL"),
             'churn_30d'        => (int) Database::fetchColumn("SELECT COUNT(*) FROM tenants WHERE status = 'cancelled' AND updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)"),
+            'licenses_over'    => (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM tenants t
+                 LEFT JOIN plans p ON p.id = t.plan_id
+                 WHERE t.deleted_at IS NULL
+                   AND (
+                     SELECT COUNT(*) FROM contacts c WHERE c.tenant_id = t.id AND c.deleted_at IS NULL
+                   ) >= COALESCE(t.max_contacts_override, p.max_contacts, 1000)"
+            ),
         ];
 
         $byPlan = Database::fetchAll(
@@ -104,13 +113,36 @@ final class AdminController extends Controller
     public function tenants(Request $request): void
     {
         $tenants = Database::fetchAll(
-            "SELECT t.*, p.name AS plan_name, gp.name AS global_ai_name, gp.provider AS global_ai_provider
+            "SELECT t.*, p.name AS plan_name, p.max_contacts AS plan_max_contacts,
+                    gp.name AS global_ai_name, gp.provider AS global_ai_provider,
+                    (SELECT COUNT(*) FROM contacts c WHERE c.tenant_id = t.id AND c.deleted_at IS NULL) AS clients_used
              FROM tenants t
              LEFT JOIN plans p ON p.id = t.plan_id
              LEFT JOIN global_ai_providers gp ON gp.id = t.global_ai_provider_id
              WHERE t.deleted_at IS NULL
              ORDER BY t.created_at DESC"
         );
+
+        // Calcula limite efectivo y porcentaje en cada fila para la vista.
+        foreach ($tenants as &$t) {
+            $override = $t['max_contacts_override'] ?? null;
+            $planMax  = $t['plan_max_contacts'] ?? null;
+            if ($override !== null) {
+                $t['_client_limit'] = (int) $override;
+                $t['_client_limit_source'] = 'override';
+            } elseif ($planMax !== null) {
+                $t['_client_limit'] = (int) $planMax;
+                $t['_client_limit_source'] = 'plan';
+            } else {
+                $t['_client_limit'] = 1000;
+                $t['_client_limit_source'] = 'default';
+            }
+            $used = (int) ($t['clients_used'] ?? 0);
+            $t['_client_used'] = $used;
+            $t['_client_pct']  = $t['_client_limit'] > 0 ? (int) min(100, round($used / $t['_client_limit'] * 100)) : 0;
+        }
+        unset($t);
+
         $this->view('admin.tenants', [
             'page'      => 'admin',
             'tenants'   => $tenants,
@@ -125,9 +157,37 @@ final class AdminController extends Controller
         $data = $request->only(['plan_id','status','expires_at']);
         if (empty($data['expires_at'])) $data['expires_at'] = null;
         Database::update('tenants', $data, ['id' => $id]);
+        // Si se cambio el plan, recalcular el cache de uso de clientes.
+        LicenseService::recountAndCache($id);
         Audit::log('admin.tenant.updated', 'tenant', $id, [], $data);
         Session::flash('success', 'Empresa actualizada.');
         $this->redirect('/admin/tenants');
+    }
+
+    /**
+     * Actualiza el limite de clientes para un tenant especifico.
+     * Permite override por encima/debajo del limite del plan, marcar
+     * bloqueo duro/suave y recalcular el cache de uso.
+     */
+    public function tenantClientLimit(Request $request, array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        if (!Tenant::findById($id)) $this->abort(404);
+
+        $rawOverride = $request->input('max_contacts_override');
+        $override = ($rawOverride === '' || $rawOverride === null) ? null : max(0, (int) $rawOverride);
+        $locked   = $request->input('client_limit_locked') !== null ? 1 : 0;
+
+        $update = [
+            'max_contacts_override' => $override,
+            'client_limit_locked'   => $locked,
+        ];
+        Database::update('tenants', $update, ['id' => $id]);
+        LicenseService::recountAndCache($id);
+
+        Audit::log('admin.tenant.client_limit_updated', 'tenant', $id, [], $update);
+        Session::flash('success', 'Limite de clientes actualizado.');
+        $this->redirect($request->input('_redirect') ?: '/admin/licenses');
     }
 
     public function tenantSuspend(Request $request, array $params): void
@@ -733,5 +793,53 @@ final class AdminController extends Controller
         Audit::log('admin.seed_demo.ok', 'tenant', null);
         Session::flash('success', 'Demo BBQ MeatHouse re-cargado: ' . mb_substr(strip_tags($output), 0, 1200));
         $this->redirect('/admin');
+    }
+
+    // -------------------------------------------------------------- Licencias / limites de clientes
+    /**
+     * Panel super admin de licencias: muestra cada tenant con su uso real
+     * de clientes vs su limite efectivo (override > plan > default).
+     * Permite filtrar y exporta KPIs globales.
+     */
+    public function licensesIndex(Request $request): void
+    {
+        $rows = LicenseService::tenantsOverview();
+
+        $filter = (string) $request->query('filter', '');
+        if ($filter === 'over') {
+            $rows = array_values(array_filter($rows, fn($r) => $r['clients_percent'] >= 100));
+        } elseif ($filter === 'warn') {
+            $rows = array_values(array_filter($rows, fn($r) => $r['clients_percent'] >= 85 && $r['clients_percent'] < 100));
+        } elseif ($filter === 'override') {
+            $rows = array_values(array_filter($rows, fn($r) => $r['max_contacts_override'] !== null));
+        }
+
+        $kpi = [
+            'total_tenants'  => count($rows),
+            'over_limit'     => 0,
+            'near_limit'     => 0,
+            'with_override'  => 0,
+            'total_clients'  => 0,
+            'total_capacity' => 0,
+            'global_pct'     => 0,
+        ];
+        foreach ($rows as $r) {
+            $kpi['total_clients']  += (int) $r['clients_used'];
+            $kpi['total_capacity'] += (int) $r['limit_effective'];
+            if ($r['clients_percent'] >= 100) $kpi['over_limit']++;
+            if ($r['clients_percent'] >= 85 && $r['clients_percent'] < 100) $kpi['near_limit']++;
+            if ($r['max_contacts_override'] !== null) $kpi['with_override']++;
+        }
+        if ($kpi['total_capacity'] > 0) {
+            $kpi['global_pct'] = (int) min(100, round(($kpi['total_clients'] / $kpi['total_capacity']) * 100));
+        }
+
+        $this->view('admin.licenses', [
+            'page'   => 'admin',
+            'rows'   => $rows,
+            'filter' => $filter,
+            'kpi'    => $kpi,
+            'plans'  => Plan::listActive(),
+        ], 'layouts.admin');
     }
 }
