@@ -12,10 +12,37 @@ use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Order;
+use App\Services\ExecutiveDashboardService;
 use App\Services\LicenseService;
 
 final class DashboardController extends Controller
 {
+    /**
+     * GET /dashboard — dashboard ejecutivo unificado (default).
+     * Para volver al dashboard legacy: /dashboard?view=legacy
+     */
+    public function executive(Request $request): void
+    {
+        $tenantId = Tenant::id();
+        if ($tenantId === null) {
+            $this->redirect('/login');
+            return;
+        }
+        // Escape hatch al dashboard legacy
+        if ($request->query('view') === 'legacy') {
+            $this->index($request);
+            return;
+        }
+        $snapshot = (new ExecutiveDashboardService($tenantId))->snapshot();
+        $tenant = Tenant::current();
+        $this->view('dashboard.executive', [
+            'page'     => 'dashboard',
+            'tenant'   => $tenant,
+            'snapshot' => $snapshot,
+            'currency' => (string) ($tenant['currency'] ?? 'USD'),
+        ], 'layouts.app');
+    }
+
     public function index(Request $request): void
     {
         $tenantId = Tenant::id();

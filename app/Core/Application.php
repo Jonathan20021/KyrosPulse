@@ -44,6 +44,9 @@ final class Application
         // Activar motor de automatizaciones (escucha global de eventos)
         \App\Services\AutomationEngine::bootstrap();
 
+        // Activar workflow engine v2 (steps tipados, branching, delays)
+        \App\Services\WorkflowEngine::bootstrap();
+
         $this->router = new Router();
         return $this;
     }
@@ -59,6 +62,9 @@ final class Application
     public function run(): void
     {
         $request = new Request();
+        // Headers de seguridad globales (CSP, X-Frame, HSTS, Referrer-Policy...)
+        // antes del dispatch para cubrir todas las responses, incluso 404/500.
+        \App\Middlewares\SecurityHeadersMiddleware::apply($request);
         $this->router->dispatch($request);
     }
 

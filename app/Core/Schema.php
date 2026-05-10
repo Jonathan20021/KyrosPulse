@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v11_ok';
+    private const CACHE_FILE = '/cache/.schema_v19_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -48,7 +48,31 @@ final class Schema
                     && self::tableExists($pdo, 'conversation_followups')
                     && self::columnExists($pdo, 'contacts', 'preferences')
                     && self::columnExists($pdo, 'contacts', 'rfm_segment')
-                    && self::columnExists($pdo, 'contacts', 'lifetime_orders');
+                    && self::columnExists($pdo, 'contacts', 'lifetime_orders')
+                    && self::tableExists($pdo, 'api_keys')
+                    && self::tableExists($pdo, 'api_request_logs')
+                    && self::tableExists($pdo, 'api_rate_limits')
+                    && self::tableExists($pdo, 'agent_runs')
+                    && self::tableExists($pdo, 'webhook_endpoints')
+                    && self::tableExists($pdo, 'webhook_deliveries')
+                    && self::tableExists($pdo, 'workflows')
+                    && self::tableExists($pdo, 'workflow_steps')
+                    && self::tableExists($pdo, 'workflow_runs')
+                    && self::tableExists($pdo, 'workflow_run_steps')
+                    && self::tableExists($pdo, 'user_2fa')
+                    && self::tableExists($pdo, 'user_recovery_codes')
+                    && self::tableExists($pdo, 'login_attempts')
+                    && self::tableExists($pdo, 'user_sessions')
+                    && self::tableExists($pdo, 'security_events')
+                    && self::tableExists($pdo, 'workflow_templates')
+                    && self::hasGlobalWorkflowTemplates($pdo)
+                    && self::columnExists($pdo, 'tenants', 'onboarding_step')
+                    && self::columnExists($pdo, 'tenants', 'onboarding_completed_at')
+                    && self::columnExists($pdo, 'tenants', 'onboarding_skipped')
+                    && self::columnExists($pdo, 'plans',   'api_quota_monthly')
+                    && self::columnExists($pdo, 'tenants', 'api_calls_period')
+                    && self::tableExists($pdo, 'alert_rules')
+                    && self::tableExists($pdo, 'alert_history');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -738,7 +762,832 @@ WHERE t.wasapi_api_key IS NOT NULL
 SQL);
         } catch (\Throwable) {}
 
+        // ---------------------------------------------------------------
+        // API publica + Agent-as-a-Service (migration 008)
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `api_keys` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`     INT UNSIGNED NOT NULL,
+    `created_by`    INT UNSIGNED NULL,
+    `name`          VARCHAR(120) NOT NULL,
+    `prefix`        VARCHAR(16) NOT NULL,
+    `key_hash`      CHAR(64) NOT NULL,
+    `last4`         CHAR(4) NOT NULL,
+    `scopes`        JSON NULL,
+    `allowed_ips`   JSON NULL,
+    `last_used_at`  DATETIME NULL,
+    `last_used_ip`  VARCHAR(64) NULL,
+    `expires_at`    DATETIME NULL,
+    `revoked_at`    DATETIME NULL,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_key_hash` (`key_hash`),
+    KEY `idx_tenant` (`tenant_id`),
+    KEY `idx_prefix` (`prefix`),
+    KEY `idx_active` (`tenant_id`, `revoked_at`, `expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `api_request_logs` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `api_key_id`    BIGINT UNSIGNED NULL,
+    `tenant_id`     INT UNSIGNED NULL,
+    `method`        VARCHAR(8) NOT NULL,
+    `endpoint`      VARCHAR(255) NOT NULL,
+    `status_code`   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `latency_ms`    INT UNSIGNED NOT NULL DEFAULT 0,
+    `ip`            VARCHAR(64) NULL,
+    `user_agent`    VARCHAR(255) NULL,
+    `request_id`    CHAR(36) NULL,
+    `bytes_in`      INT UNSIGNED NOT NULL DEFAULT 0,
+    `bytes_out`     INT UNSIGNED NOT NULL DEFAULT 0,
+    `error`         VARCHAR(255) NULL,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_tenant_time` (`tenant_id`, `created_at`),
+    KEY `idx_key_time` (`api_key_id`, `created_at`),
+    KEY `idx_status` (`status_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `api_rate_limits` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `key_hash`      CHAR(64) NOT NULL,
+    `bucket`        VARCHAR(64) NOT NULL,
+    `attempts`      INT UNSIGNED NOT NULL DEFAULT 0,
+    `expires_at`    DATETIME NOT NULL,
+    UNIQUE KEY `uniq_bucket` (`key_hash`, `bucket`),
+    KEY `idx_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `agent_runs` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid`            CHAR(36) NOT NULL,
+    `tenant_id`       INT UNSIGNED NOT NULL,
+    `agent_id`        BIGINT UNSIGNED NOT NULL,
+    `api_key_id`      BIGINT UNSIGNED NULL,
+    `contact_id`      BIGINT UNSIGNED NULL,
+    `conversation_id` BIGINT UNSIGNED NULL,
+    `channel`         VARCHAR(32) NOT NULL DEFAULT 'api',
+    `status`          ENUM('queued','running','succeeded','failed','timeout') NOT NULL DEFAULT 'queued',
+    `input`           MEDIUMTEXT NULL,
+    `output`          MEDIUMTEXT NULL,
+    `actions`         JSON NULL,
+    `metadata`        JSON NULL,
+    `tokens_in`       INT UNSIGNED NOT NULL DEFAULT 0,
+    `tokens_out`      INT UNSIGNED NOT NULL DEFAULT 0,
+    `cost_usd`        DECIMAL(10,6) NOT NULL DEFAULT 0,
+    `latency_ms`      INT UNSIGNED NOT NULL DEFAULT 0,
+    `error`           TEXT NULL,
+    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `completed_at`    DATETIME NULL,
+    UNIQUE KEY `uniq_uuid` (`uuid`),
+    KEY `idx_tenant_time` (`tenant_id`, `created_at`),
+    KEY `idx_agent` (`agent_id`),
+    KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `agent_skills` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`     INT UNSIGNED NULL,
+    `slug`          VARCHAR(64) NOT NULL,
+    `name`          VARCHAR(120) NOT NULL,
+    `description`   TEXT NULL,
+    `system_prompt` MEDIUMTEXT NULL,
+    `tools`         JSON NULL,
+    `config`        JSON NULL,
+    `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_tenant_slug` (`tenant_id`, `slug`),
+    KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `agent_skill_links` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`     INT UNSIGNED NOT NULL,
+    `agent_id`      BIGINT UNSIGNED NOT NULL,
+    `skill_id`      BIGINT UNSIGNED NOT NULL,
+    `priority`      SMALLINT UNSIGNED NOT NULL DEFAULT 100,
+    `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
+    `config`        JSON NULL,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_agent_skill` (`agent_id`, `skill_id`),
+    KEY `idx_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Seed de skills globales (idempotente con INSERT IGNORE)
+        $pdo->exec(<<<SQL
+INSERT IGNORE INTO `agent_skills` (`tenant_id`, `slug`, `name`, `description`, `tools`, `is_active`)
+VALUES
+    (NULL, 'sales',        'Ventas',                'Calificacion de leads, recomendacion y cierre.',  JSON_ARRAY('query_catalog','create_order','escalate'), 1),
+    (NULL, 'support',      'Soporte al cliente',    'Resuelve dudas, abre tickets y escala humanos.',  JSON_ARRAY('query_kb','create_ticket','escalate'),     1),
+    (NULL, 'cart_recover', 'Recuperacion carrito',  'Re-engagement de clientes con carrito abandonado.', JSON_ARRAY('send_message','apply_discount','escalate'), 1),
+    (NULL, 'scheduling',   'Agendamiento',          'Reserva citas y bloques de tiempo.',              JSON_ARRAY('check_availability','book_slot','escalate'),1),
+    (NULL, 'collections',  'Cobranza',              'Recordatorios de pago y reconciliacion.',         JSON_ARRAY('query_invoice','send_reminder','escalate'), 1)
+SQL);
+
+        // ---------------------------------------------------------------
+        // Webhooks salientes con HMAC (migration 009)
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `webhook_endpoints` (
+    `id`               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`        INT UNSIGNED NOT NULL,
+    `created_by`       INT UNSIGNED NULL,
+    `name`             VARCHAR(120) NOT NULL,
+    `url`              VARCHAR(500) NOT NULL,
+    `secret`           VARCHAR(120) NOT NULL,
+    `events`           JSON NULL,
+    `is_active`        TINYINT(1) NOT NULL DEFAULT 1,
+    `description`      VARCHAR(500) NULL,
+    `headers`          JSON NULL,
+    `last_delivery_at` DATETIME NULL,
+    `last_status`      SMALLINT UNSIGNED NULL,
+    `last_error`       VARCHAR(500) NULL,
+    `success_count`    INT UNSIGNED NOT NULL DEFAULT 0,
+    `failure_count`    INT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY `idx_tenant_active` (`tenant_id`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `webhook_deliveries` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid`            CHAR(36) NOT NULL,
+    `endpoint_id`     BIGINT UNSIGNED NOT NULL,
+    `tenant_id`       INT UNSIGNED NOT NULL,
+    `event`           VARCHAR(80) NOT NULL,
+    `payload`         MEDIUMTEXT NOT NULL,
+    `signature`       VARCHAR(255) NULL,
+    `status`          ENUM('pending','delivered','failed','dead') NOT NULL DEFAULT 'pending',
+    `attempts`        TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `next_retry_at`   DATETIME NULL,
+    `response_code`   SMALLINT UNSIGNED NULL,
+    `response_body`   TEXT NULL,
+    `latency_ms`      INT UNSIGNED NULL,
+    `error`           VARCHAR(500) NULL,
+    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `delivered_at`    DATETIME NULL,
+    UNIQUE KEY `uniq_uuid` (`uuid`),
+    KEY `idx_endpoint_status` (`endpoint_id`, `status`),
+    KEY `idx_tenant_time` (`tenant_id`, `created_at`),
+    KEY `idx_retry` (`status`, `next_retry_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // ---------------------------------------------------------------
+        // Workflow engine OS-style v2 (migration 010)
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `workflows` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`       INT UNSIGNED NOT NULL,
+    `name`            VARCHAR(120) NOT NULL,
+    `description`     VARCHAR(500) NULL,
+    `trigger_type`    ENUM('event','schedule','webhook','manual') NOT NULL DEFAULT 'event',
+    `trigger_config`  JSON NULL,
+    `webhook_token`   VARCHAR(48) NULL,
+    `is_active`       TINYINT(1) NOT NULL DEFAULT 1,
+    `runs_count`      INT UNSIGNED NOT NULL DEFAULT 0,
+    `last_run_at`     DATETIME NULL,
+    `next_run_at`     DATETIME NULL,
+    `created_by`      INT UNSIGNED NULL,
+    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_webhook_token` (`webhook_token`),
+    KEY `idx_tenant_active` (`tenant_id`, `is_active`),
+    KEY `idx_trigger_type`  (`trigger_type`, `is_active`),
+    KEY `idx_next_run`      (`is_active`, `next_run_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `workflow_steps` (
+    `id`             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `workflow_id`    BIGINT UNSIGNED NOT NULL,
+    `tenant_id`      INT UNSIGNED NOT NULL,
+    `step_key`       VARCHAR(40) NOT NULL,
+    `type`           ENUM('action','branch','delay','set_var','end') NOT NULL DEFAULT 'action',
+    `order_index`    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `config`         JSON NULL,
+    `next_step_key`  VARCHAR(40) NULL,
+    `branch_yes`     VARCHAR(40) NULL,
+    `branch_no`      VARCHAR(40) NULL,
+    `created_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_wf_key` (`workflow_id`, `step_key`),
+    KEY `idx_workflow_order` (`workflow_id`, `order_index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `workflow_runs` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid`            CHAR(36) NOT NULL,
+    `tenant_id`       INT UNSIGNED NOT NULL,
+    `workflow_id`     BIGINT UNSIGNED NOT NULL,
+    `trigger_type`    VARCHAR(20) NOT NULL,
+    `status`          ENUM('queued','running','waiting','succeeded','failed','cancelled') NOT NULL DEFAULT 'queued',
+    `current_step_key` VARCHAR(40) NULL,
+    `wait_until`      DATETIME NULL,
+    `context`         JSON NULL,
+    `error`           TEXT NULL,
+    `started_at`      DATETIME NULL,
+    `finished_at`     DATETIME NULL,
+    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_uuid` (`uuid`),
+    KEY `idx_workflow` (`workflow_id`),
+    KEY `idx_tenant_status` (`tenant_id`, `status`),
+    KEY `idx_resume` (`status`, `wait_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `workflow_run_steps` (
+    `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `run_id`       BIGINT UNSIGNED NOT NULL,
+    `tenant_id`    INT UNSIGNED NOT NULL,
+    `step_key`     VARCHAR(40) NOT NULL,
+    `step_type`    VARCHAR(20) NOT NULL,
+    `status`       ENUM('running','succeeded','failed','skipped') NOT NULL DEFAULT 'running',
+    `input`        JSON NULL,
+    `output`       JSON NULL,
+    `error`        TEXT NULL,
+    `latency_ms`   INT UNSIGNED NULL,
+    `started_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `finished_at`  DATETIME NULL,
+    KEY `idx_run` (`run_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // ---------------------------------------------------------------
+        // Capa de seguridad (migration 011): 2FA, lockout, sessions, events
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `user_2fa` (
+    `id`              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id`         BIGINT UNSIGNED NOT NULL,
+    `secret`          VARCHAR(64) NOT NULL,
+    `enabled`         TINYINT(1) NOT NULL DEFAULT 0,
+    `enabled_at`      DATETIME NULL,
+    `last_used_code`  VARCHAR(8) NULL,
+    `last_used_at`    DATETIME NULL,
+    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `user_recovery_codes` (
+    `id`         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id`    BIGINT UNSIGNED NOT NULL,
+    `code_hash`  CHAR(64) NOT NULL,
+    `used_at`    DATETIME NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_user` (`user_id`, `used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `login_attempts` (
+    `id`         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `email`      VARCHAR(160) NOT NULL,
+    `ip`         VARCHAR(64) NOT NULL,
+    `user_id`    BIGINT UNSIGNED NULL,
+    `success`    TINYINT(1) NOT NULL DEFAULT 0,
+    `reason`     VARCHAR(60) NULL,
+    `user_agent` VARCHAR(255) NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_email_time` (`email`, `created_at`),
+    KEY `idx_ip_time`    (`ip`, `created_at`),
+    KEY `idx_user_time`  (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id`       BIGINT UNSIGNED NOT NULL,
+    `tenant_id`     INT UNSIGNED NULL,
+    `session_id`    CHAR(64) NOT NULL,
+    `ip`            VARCHAR(64) NULL,
+    `user_agent`    VARCHAR(255) NULL,
+    `last_seen_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `revoked_at`    DATETIME NULL,
+    UNIQUE KEY `uniq_session` (`session_id`),
+    KEY `idx_user_active` (`user_id`, `revoked_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `security_events` (
+    `id`         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`  INT UNSIGNED NULL,
+    `user_id`    BIGINT UNSIGNED NULL,
+    `event`      VARCHAR(60) NOT NULL,
+    `severity`   ENUM('info','warning','critical') NOT NULL DEFAULT 'info',
+    `ip`         VARCHAR(64) NULL,
+    `user_agent` VARCHAR(255) NULL,
+    `metadata`   JSON NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_tenant_time` (`tenant_id`, `created_at`),
+    KEY `idx_user_time`   (`user_id`, `created_at`),
+    KEY `idx_event`       (`event`, `created_at`),
+    KEY `idx_severity`    (`severity`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // ---------------------------------------------------------------
+        // Workflow templates marketplace (migration 012)
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `workflow_templates` (
+    `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`    INT UNSIGNED NULL,
+    `slug`         VARCHAR(64) NOT NULL,
+    `name`         VARCHAR(120) NOT NULL,
+    `description`  VARCHAR(500) NULL,
+    `category`     VARCHAR(40) NOT NULL DEFAULT 'general',
+    `icon`         VARCHAR(8) NOT NULL DEFAULT '🪄',
+    `definition`   MEDIUMTEXT NOT NULL,
+    `requires`     JSON NULL,
+    `clone_count`  INT UNSIGNED NOT NULL DEFAULT 0,
+    `is_active`    TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_tenant_slug` (`tenant_id`, `slug`),
+    KEY `idx_active_category` (`is_active`, `category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        self::seedGlobalWorkflowTemplates($pdo);
+
+        // ---------------------------------------------------------------
+        // Onboarding wizard (migration 013): columnas en tenants
+        // ---------------------------------------------------------------
+        if (!self::columnExists($pdo, 'tenants', 'onboarding_step')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `onboarding_step` TINYINT UNSIGNED NOT NULL DEFAULT 0");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'onboarding_completed_at')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `onboarding_completed_at` DATETIME NULL");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'onboarding_skipped')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `onboarding_skipped` TINYINT(1) NOT NULL DEFAULT 0");
+        }
+
+        // Marcar tenants existentes (con datos) como "ya completados" para que
+        // el wizard solo se dispare con tenants nuevos.
+        $pdo->exec(
+            "UPDATE `tenants` SET `onboarding_completed_at` = NOW(), `onboarding_step` = 5
+             WHERE `onboarding_completed_at` IS NULL
+               AND `created_at` < DATE_SUB(NOW(), INTERVAL 1 DAY)"
+        );
+
+        // ---------------------------------------------------------------
+        // API quotas por plan + tracking mensual (migration 014)
+        // ---------------------------------------------------------------
+        if (!self::columnExists($pdo, 'plans', 'api_quota_monthly')) {
+            $pdo->exec("ALTER TABLE `plans` ADD COLUMN `api_quota_monthly` INT NOT NULL DEFAULT 1000");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'api_quota_override')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `api_quota_override` INT NULL");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'api_calls_period')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `api_calls_period` INT UNSIGNED NOT NULL DEFAULT 0");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'api_period_starts_at')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `api_period_starts_at` DATETIME NULL");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'api_quota_alerted_at')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `api_quota_alerted_at` DATETIME NULL");
+        }
+
+        // Seed razonable por slug si los planes existen
+        $pdo->exec("UPDATE `plans` SET `api_quota_monthly` = 1000   WHERE `slug` = 'free'       AND `api_quota_monthly` = 0");
+        $pdo->exec("UPDATE `plans` SET `api_quota_monthly` = 50000  WHERE `slug` = 'basic'      AND `api_quota_monthly` IN (0, 1000)");
+        $pdo->exec("UPDATE `plans` SET `api_quota_monthly` = 250000 WHERE `slug` = 'pro'        AND `api_quota_monthly` IN (0, 1000)");
+        $pdo->exec("UPDATE `plans` SET `api_quota_monthly` = -1     WHERE `slug` = 'enterprise' AND `api_quota_monthly` IN (0, 1000)");
+
+        // ---------------------------------------------------------------
+        // Alert rules + history (migration 015)
+        // ---------------------------------------------------------------
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `alert_rules` (
+    `id`               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`        INT UNSIGNED NULL,
+    `slug`             VARCHAR(64) NOT NULL,
+    `name`             VARCHAR(120) NOT NULL,
+    `description`      VARCHAR(500) NULL,
+    `rule_type`        VARCHAR(40) NOT NULL,
+    `config`           JSON NULL,
+    `severity`         ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',
+    `cooldown_minutes` SMALLINT UNSIGNED NOT NULL DEFAULT 60,
+    `is_active`        TINYINT(1) NOT NULL DEFAULT 1,
+    `last_triggered_at` DATETIME NULL,
+    `trigger_count`    INT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_tenant_slug` (`tenant_id`, `slug`),
+    KEY `idx_active_type` (`is_active`, `rule_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `alert_history` (
+    `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`     INT UNSIGNED NOT NULL,
+    `rule_id`       BIGINT UNSIGNED NULL,
+    `rule_slug`     VARCHAR(64) NOT NULL,
+    `severity`      ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',
+    `title`         VARCHAR(255) NOT NULL,
+    `body`          MEDIUMTEXT NULL,
+    `metadata`      JSON NULL,
+    `destinations_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `delivered_count`    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_tenant_time` (`tenant_id`, `created_at`),
+    KEY `idx_rule_slug`   (`rule_slug`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Seed reglas builtin (tenant_id NULL = template global que cada tenant clona)
+        $pdo->exec(<<<SQL
+INSERT IGNORE INTO `alert_rules` (`tenant_id`, `slug`, `name`, `description`, `rule_type`, `config`, `severity`, `cooldown_minutes`) VALUES
+    (NULL, 'api.quota.80',      'API: cuota al 80%',          'Te avisa cuando consumiste el 80% de tu cuota mensual de API.',                   'api.quota.threshold', JSON_OBJECT('pct', 80),  'warning',  720),
+    (NULL, 'api.quota.100',     'API: cuota agotada',         'Te avisa cuando llegaste al 100% de tu cuota mensual. Requests siguientes seran 429.', 'api.quota.threshold', JSON_OBJECT('pct', 100), 'critical', 120),
+    (NULL, 'webhook.dead',      'Webhooks: entregas muertas', '>=5 deliveries marcadas como dead en las ultimas 24h en algun endpoint.',         'webhook.dead.count',  JSON_OBJECT('threshold', 5, 'window_hours', 24), 'warning', 360),
+    (NULL, 'agent.error_rate',  'Agentes IA: alta tasa de error', 'Mas del 20% de los runs de agentes IA fallaron en las ultimas 24h.',           'agent.error_rate',    JSON_OBJECT('pct', 20, 'min_runs', 10),       'warning', 360),
+    (NULL, 'security.critical', 'Seguridad: evento critico',  'Cualquier security_event con severidad=critical.',                                  'security.critical',   JSON_OBJECT(),                                'critical', 30),
+    (NULL, 'workflow.failed',   'Workflow: ejecucion fallida', 'Avisa cuando un workflow termina con status=failed.',                              'workflow.failed',     JSON_OBJECT('window_minutes', 60),            'warning', 60)
+SQL);
+
         Logger::info('Schema multichannel aplicado correctamente');
+    }
+
+    /** Devuelve true si ya hay al menos 1 template global activo. */
+    private static function hasGlobalWorkflowTemplates(\PDO $pdo): bool
+    {
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM `workflow_templates` WHERE `tenant_id` IS NULL AND `is_active` = 1");
+            return (int) $stmt->fetchColumn() > 0;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Seed de templates globales del marketplace.
+     * Idempotente via INSERT IGNORE + uniq (tenant_id, slug).
+     */
+    private static function seedGlobalWorkflowTemplates(\PDO $pdo): void
+    {
+        $templates = self::globalTemplateCatalog();
+        $stmt = $pdo->prepare(
+            "INSERT IGNORE INTO `workflow_templates`
+             (`tenant_id`, `slug`, `name`, `description`, `category`, `icon`, `definition`, `requires`, `is_active`)
+             VALUES (NULL, :slug, :name, :description, :category, :icon, :definition, :requires, 1)"
+        );
+        foreach ($templates as $t) {
+            $stmt->execute([
+                'slug'        => $t['slug'],
+                'name'        => $t['name'],
+                'description' => $t['description'],
+                'category'    => $t['category'],
+                'icon'        => $t['icon'],
+                'definition'  => json_encode($t['definition'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'requires'    => isset($t['requires']) ? json_encode($t['requires'], JSON_UNESCAPED_UNICODE) : null,
+            ]);
+        }
+    }
+
+    /** Catalogo declarativo de templates del marketplace global. */
+    private static function globalTemplateCatalog(): array
+    {
+        return [
+            // ---------- Ventas ----------
+            [
+                'slug' => 'welcome-new-lead',
+                'name' => 'Bienvenida automatica a lead nuevo',
+                'description' => 'Cuando entra un contacto nuevo, le envia un mensaje de bienvenida por WhatsApp y espera 2 dias para hacer follow-up si no respondio.',
+                'category' => 'sales',
+                'icon' => '👋',
+                'definition' => [
+                    'trigger_type' => 'event',
+                    'trigger_config' => ['event' => 'contact.created'],
+                    'steps' => [
+                        [
+                            'step_key' => 'send_welcome',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ payload.phone }}',
+                                    'text' => 'Hola {{ payload.first_name }}, gracias por contactarnos! Estoy disponible para resolver cualquier duda. En que te puedo ayudar?',
+                                ],
+                            ],
+                            'next_step_key' => 'wait_2d',
+                        ],
+                        [
+                            'step_key' => 'wait_2d',
+                            'type'     => 'delay',
+                            'config'   => ['seconds' => 172800],
+                            'next_step_key' => 'followup',
+                        ],
+                        [
+                            'step_key' => 'followup',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ payload.phone }}',
+                                    'text' => 'Hola {{ payload.first_name }}, queria hacer un follow-up. Tienes alguna pregunta antes de avanzar?',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Ventas: agente IA califica ----------
+            [
+                'slug' => 'ai-qualify-lead',
+                'name' => 'IA califica lead automaticamente',
+                'description' => 'Cuando entra un mensaje nuevo, un agente IA evalua si el lead es hot/warm/cold y aplica el tag correspondiente al contacto.',
+                'category' => 'ai',
+                'icon' => '🧠',
+                'requires' => ['ai_enabled'],
+                'definition' => [
+                    'trigger_type' => 'event',
+                    'trigger_config' => ['event' => 'message.received'],
+                    'steps' => [
+                        [
+                            'step_key' => 'qualify',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'run_agent',
+                                'params' => [
+                                    'agent_id' => null,
+                                    'input'    => "Califica esta intencion de compra del cliente: \"{{ payload.content }}\".\nResponde SOLO con una palabra: hot, warm o cold.",
+                                ],
+                            ],
+                            'next_step_key' => 'check_hot',
+                        ],
+                        [
+                            'step_key' => 'check_hot',
+                            'type'     => 'branch',
+                            'config'   => ['expr' => 'last.output', 'op' => 'contains', 'value' => 'hot'],
+                            'branch_yes' => 'tag_hot',
+                            'branch_no'  => 'check_warm',
+                        ],
+                        [
+                            'step_key' => 'tag_hot',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'add_tag',
+                                'params' => ['contact_id' => '{{ payload.contact_id }}', 'tag' => 'lead_hot'],
+                            ],
+                        ],
+                        [
+                            'step_key' => 'check_warm',
+                            'type'     => 'branch',
+                            'config'   => ['expr' => 'last.output', 'op' => 'contains', 'value' => 'warm'],
+                            'branch_yes' => 'tag_warm',
+                            'branch_no'  => 'tag_cold',
+                        ],
+                        [
+                            'step_key' => 'tag_warm',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'add_tag',
+                                'params' => ['contact_id' => '{{ payload.contact_id }}', 'tag' => 'lead_warm'],
+                            ],
+                        ],
+                        [
+                            'step_key' => 'tag_cold',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'add_tag',
+                                'params' => ['contact_id' => '{{ payload.contact_id }}', 'tag' => 'lead_cold'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Restaurante: confirmar pedido ----------
+            [
+                'slug' => 'order-confirmation',
+                'name' => 'Confirmacion automatica de orden',
+                'description' => 'Apenas se crea una orden, envia un WhatsApp al cliente con codigo y tiempo estimado, y espera 30 min para confirmar entrega.',
+                'category' => 'restaurant',
+                'icon' => '🍽',
+                'requires' => ['is_restaurant'],
+                'definition' => [
+                    'trigger_type' => 'event',
+                    'trigger_config' => ['event' => 'order.created'],
+                    'steps' => [
+                        [
+                            'step_key' => 'send_confirmation',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ payload.contact_phone }}',
+                                    'text' => 'Tu pedido {{ payload.code }} fue recibido! Total: {{ payload.currency }} {{ payload.total }}. Tiempo estimado: 25-35 min. Te avisamos cuando este listo.',
+                                ],
+                            ],
+                            'next_step_key' => 'wait_30m',
+                        ],
+                        [
+                            'step_key' => 'wait_30m',
+                            'type'     => 'delay',
+                            'config'   => ['seconds' => 1800],
+                            'next_step_key' => 'ready_ping',
+                        ],
+                        [
+                            'step_key' => 'ready_ping',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ payload.contact_phone }}',
+                                    'text' => 'Hola! Solo confirmando que recibiste tu pedido {{ payload.code }}. Si hay cualquier detalle, respondenos aqui.',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Recuperacion carrito ----------
+            [
+                'slug' => 'cart-recovery',
+                'name' => 'Recuperacion de carrito abandonado',
+                'description' => 'Cuando una conversacion lleva 4 horas sin actividad y tiene carrito armado, envia un mensaje de recuperacion automatico.',
+                'category' => 'sales',
+                'icon' => '🛒',
+                'definition' => [
+                    'trigger_type' => 'schedule',
+                    'trigger_config' => ['cron' => '*/30 * * * *'],
+                    'steps' => [
+                        [
+                            'step_key' => 'log',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'log',
+                                'params' => ['message' => 'Cart recovery sweep triggered'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Soporte: ticket urgente ----------
+            [
+                'slug' => 'urgent-ticket-escalation',
+                'name' => 'Escalamiento de ticket critico',
+                'description' => 'Cuando se crea un ticket con prioridad critical, envia un webhook a Slack/Teams y un WhatsApp interno al admin de turno.',
+                'category' => 'support',
+                'icon' => '🚨',
+                'definition' => [
+                    'trigger_type' => 'event',
+                    'trigger_config' => ['event' => 'ticket.created'],
+                    'steps' => [
+                        [
+                            'step_key' => 'check_critical',
+                            'type'     => 'branch',
+                            'config'   => ['expr' => 'payload.priority', 'op' => 'eq', 'value' => 'critical'],
+                            'branch_yes' => 'notify',
+                            'branch_no'  => 'end_quiet',
+                        ],
+                        [
+                            'step_key' => 'notify',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'webhook_out',
+                                'params' => [
+                                    'url'     => 'https://hooks.slack.com/services/REEMPLAZAR',
+                                    'payload' => [
+                                        'text' => '🚨 Ticket critico abierto: {{ payload.title }} (ID {{ payload.ticket_id }})',
+                                    ],
+                                ],
+                            ],
+                            'next_step_key' => 'end_ok',
+                        ],
+                        [
+                            'step_key' => 'end_ok',
+                            'type'     => 'end',
+                            'config'   => ['status' => 'succeeded'],
+                        ],
+                        [
+                            'step_key' => 'end_quiet',
+                            'type'     => 'end',
+                            'config'   => ['status' => 'succeeded'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Marketing: agradecimiento post-compra ----------
+            [
+                'slug' => 'post-purchase-thanks',
+                'name' => 'Agradecimiento post-compra',
+                'description' => 'Cuando una orden pasa a delivered, espera 1 dia y envia un mensaje de agradecimiento con pedido de feedback.',
+                'category' => 'marketing',
+                'icon' => '💌',
+                'definition' => [
+                    'trigger_type' => 'event',
+                    'trigger_config' => ['event' => 'order.delivered'],
+                    'steps' => [
+                        [
+                            'step_key' => 'wait_1d',
+                            'type'     => 'delay',
+                            'config'   => ['seconds' => 86400],
+                            'next_step_key' => 'thank',
+                        ],
+                        [
+                            'step_key' => 'thank',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ payload.contact_phone }}',
+                                    'text' => 'Hola {{ payload.first_name }}! Esperamos que hayas disfrutado tu pedido {{ payload.code }}. Nos contarias como te fue? Tu opinion nos ayuda a mejorar.',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Ops: daily digest ----------
+            [
+                'slug' => 'daily-ops-digest',
+                'name' => 'Reporte diario de operaciones',
+                'description' => 'Todos los dias a las 9:00 envia un webhook con metricas del dia anterior (ordenes, ingresos, ruta de IA, tickets) a Slack/Discord.',
+                'category' => 'ops',
+                'icon' => '📊',
+                'definition' => [
+                    'trigger_type' => 'schedule',
+                    'trigger_config' => ['cron' => '0 9 * * *'],
+                    'steps' => [
+                        [
+                            'step_key' => 'notify',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'webhook_out',
+                                'params' => [
+                                    'url'     => 'https://hooks.slack.com/services/REEMPLAZAR',
+                                    'payload' => [
+                                        'text' => 'Daily digest · {{ scheduled_at }}',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ---------- Webhook entrante: integracion custom ----------
+            [
+                'slug' => 'incoming-webhook-relay',
+                'name' => 'Relay de webhook entrante a WhatsApp',
+                'description' => 'URL publica unica que cuando recibe un POST, dispara un WhatsApp con el contenido al numero indicado. Ideal para integrar formularios externos.',
+                'category' => 'general',
+                'icon' => '🔗',
+                'definition' => [
+                    'trigger_type' => 'webhook',
+                    'trigger_config' => [],
+                    'steps' => [
+                        [
+                            'step_key' => 'forward',
+                            'type'     => 'action',
+                            'config'   => [
+                                'action' => 'send_whatsapp',
+                                'params' => [
+                                    'to'   => '{{ webhook_payload.to }}',
+                                    'text' => '{{ webhook_payload.message }}',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
     }
 
     private static function indexExists(\PDO $pdo, string $table, string $idx): bool

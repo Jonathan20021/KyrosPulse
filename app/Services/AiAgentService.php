@@ -74,9 +74,12 @@ final class AiAgentService
         $provider = new AiProviderService($this->tenantId, (int) $agent['id']);
         // Atribuir esta llamada a la conversacion + mensaje entrante para ROI
         // (asi el dashboard puede correlacionar costo IA -> orden generada).
+        // user_message va al hub de skills: el router heuristico decide que
+        // skill (sales/support/cobranza/...) es mas relevante para el turno.
         $provider->withContext([
             'conversation_id' => $conversationId,
             'message_id'      => $inboundMessageId,
+            'user_message'    => $incomingText,
         ]);
 
         // 1er intento (con prompt completo: menu + KB + productos)

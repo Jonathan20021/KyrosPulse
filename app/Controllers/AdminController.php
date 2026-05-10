@@ -15,12 +15,69 @@ use App\Models\Role;
 use App\Models\SaasSetting;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\AdminAnalyticsService;
 use App\Services\AiProviderService;
+use App\Services\ApiQuotaService;
 use App\Services\HttpClient;
 use App\Services\LicenseService;
 
 final class AdminController extends Controller
 {
+    /** GET /admin/analytics — Dashboard cross-tenant para el super admin. */
+    public function analytics(Request $request): void
+    {
+        $bypass = (bool) $request->query('refresh', false);
+        $data = AdminAnalyticsService::snapshot($bypass);
+        $this->view('admin.analytics', [
+            'page' => 'admin',
+            'data' => $data,
+        ], 'layouts.admin');
+    }
+
+    /** GET /admin/tenants/{id}/analytics — Detalle de uso de un tenant. */
+    public function tenantAnalytics(Request $request, array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $detail = AdminAnalyticsService::tenantDetail($id);
+        if (empty($detail['tenant'])) {
+            Session::flash('error', 'Tenant no encontrado.');
+            $this->redirect('/admin/tenants');
+            return;
+        }
+        $this->view('admin.tenant_analytics', [
+            'page'   => 'admin',
+            'tenant' => $detail['tenant'],
+            'quota'  => $detail['quota']  ?? [],
+            'stats'  => $detail['stats']  ?? [],
+        ], 'layouts.admin');
+    }
+
+    /** POST /admin/tenants/{id}/quota — set override de cuota mensual. */
+    public function tenantQuotaUpdate(Request $request, array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $raw = trim((string) $request->input('api_quota_override', ''));
+        $override = null;
+        if ($raw !== '') {
+            $override = (int) $raw;
+            if ($override < -1) $override = -1;
+        }
+        ApiQuotaService::setOverride($id, $override);
+        Audit::log('admin.tenant.quota_override', 'tenant', $id, [], ['override' => $override]);
+        Session::flash('success', $override === null ? 'Override removido — vuelve a la cuota del plan.' : ('Cuota override actualizada a ' . ($override === -1 ? 'ilimitado' : number_format($override))));
+        $this->redirect('/admin/tenants/' . $id . '/analytics');
+    }
+
+    /** POST /admin/tenants/{id}/quota/reset — reset del periodo. */
+    public function tenantQuotaReset(Request $request, array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        ApiQuotaService::resetPeriod($id);
+        Audit::log('admin.tenant.quota_reset', 'tenant', $id);
+        Session::flash('success', 'Periodo de cuota reseteado.');
+        $this->redirect('/admin/tenants/' . $id . '/analytics');
+    }
+
     public function dashboard(Request $request): void
     {
         $stats = [

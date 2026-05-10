@@ -88,6 +88,78 @@ final class CronController extends Controller
         ]);
     }
 
+    /**
+     * GET|POST /cron/webhooks-retry
+     * Reintenta entregas de webhooks salientes pendientes.
+     * Cron sugerido: cada minuto.
+     */
+    public function webhooksRetry(Request $request): void
+    {
+        if (!$this->authorized($request)) {
+            $this->json(['success' => false, 'error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $start  = microtime(true);
+        $result = \App\Services\WebhookDispatcher::processRetries(200);
+        $this->json([
+            'success'    => true,
+            'processed'  => $result['processed'],
+            'delivered'  => $result['delivered'],
+            'failed'     => $result['failed'],
+            'duration_ms'=> (int) round((microtime(true) - $start) * 1000),
+            'ran_at'     => date('c'),
+        ]);
+    }
+
+    /**
+     * GET|POST /cron/evaluate-alerts
+     * Evalua reglas pasivas (webhook.dead, agent.error_rate, workflow.failed).
+     * Cron sugerido: cada 10 min.
+     */
+    public function evaluateAlerts(Request $request): void
+    {
+        if (!$this->authorized($request)) {
+            $this->json(['success' => false, 'error' => 'Unauthorized'], 401);
+            return;
+        }
+        $start = microtime(true);
+        $stats = \App\Services\AlertService::evaluateAll(200);
+        $this->json([
+            'success'    => true,
+            'tenants'    => $stats['tenants'],
+            'rules_eval' => $stats['evaluated'],
+            'fired'      => $stats['fired'],
+            'duration_ms'=> (int) round((microtime(true) - $start) * 1000),
+            'ran_at'     => date('c'),
+        ]);
+    }
+
+    /**
+     * GET|POST /cron/workflow-tick
+     * Tick del workflow engine: reanuda waiters + dispara schedule triggers.
+     * Cron sugerido: cada minuto.
+     */
+    public function workflowTick(Request $request): void
+    {
+        if (!$this->authorized($request)) {
+            $this->json(['success' => false, 'error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $start  = microtime(true);
+        $resume = \App\Services\WorkflowEngine::processWaitingRuns(200);
+        $sched  = \App\Services\WorkflowEngine::processScheduledTriggers(50);
+        $this->json([
+            'success'           => true,
+            'resumed'           => $resume['resumed'],
+            'resume_failed'     => $resume['failed'],
+            'scheduled_started' => $sched['started'],
+            'duration_ms'       => (int) round((microtime(true) - $start) * 1000),
+            'ran_at'            => date('c'),
+        ]);
+    }
+
     private function authorized(Request $request): bool
     {
         $expected = (string) (\App\Core\Config::get('app.cron_token', '') ?: env('CRON_TOKEN', ''));

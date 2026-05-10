@@ -147,6 +147,9 @@ final class Router
             'rate'      => \App\Middlewares\RateLimitMiddleware::class,
             'super'     => \App\Middlewares\SuperAdminMiddleware::class,
             'verified'  => \App\Middlewares\VerifiedMiddleware::class,
+            'apikey'    => \App\Middlewares\ApiAuthMiddleware::class,
+            'security_headers' => \App\Middlewares\SecurityHeadersMiddleware::class,
+            'onboarding' => \App\Middlewares\OnboardingMiddleware::class,
         ];
 
         if (str_contains($alias, ':')) {

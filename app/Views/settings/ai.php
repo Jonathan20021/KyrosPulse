@@ -468,6 +468,9 @@ $autopilotOn = !empty($tenant['ai_force_all']);
             </div>
 
             <div class="flex flex-wrap items-center justify-end gap-2 pt-3 border-t dark:border-white/10 border-slate-200">
+                <a href="<?= url('/settings/ai/agents/' . $a['id'] . '/skills') ?>" class="px-3 py-1.5 rounded-lg text-xs glass dark:text-slate-300 text-slate-600 inline-flex items-center gap-1.5">
+                    🧠 Skills
+                </a>
                 <form action="<?= url('/settings/ai/agents/' . $a['id'] . '/duplicate') ?>" method="POST" class="inline">
                     <?= csrf_field() ?>
                     <button class="px-3 py-1.5 rounded-lg text-xs glass dark:text-slate-300 text-slate-600">Duplicar</button>

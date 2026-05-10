@@ -42,6 +42,10 @@ $router->group(['middleware' => ['guest']], function ($r) {
     $r->get('/login', [AuthController::class, 'showLogin']);
     $r->post('/login', [AuthController::class, 'login'])->middleware(['csrf', 'rate:login']);
 
+    // 2FA challenge (despues de password ok cuando el user tiene 2FA habilitado)
+    $r->get ('/login/2fa', [AuthController::class, 'show2faChallenge']);
+    $r->post('/login/2fa', [AuthController::class, 'verify2faChallenge'])->middleware(['csrf', 'rate:login']);
+
     $r->get('/register', [AuthController::class, 'showRegister']);
     $r->post('/register', [AuthController::class, 'register'])->middleware(['csrf', 'rate:login']);
 
@@ -63,7 +67,19 @@ $router->post('/logout', [AuthController::class, 'logout'])->middleware(['auth',
 // ------------------- App (autenticado + tenant) -------------------
 $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     // Dashboard
-    $r->get('/dashboard', [DashboardController::class, 'index']);
+    // /dashboard = vista ejecutiva unificada (legacy disponible via ?view=legacy)
+    // OnboardingMiddleware redirige a /onboarding si el tenant no ha completado el setup.
+    $r->get('/dashboard', [DashboardController::class, 'executive'])->middleware('onboarding');
+
+    // Onboarding wizard (5 pasos)
+    $r->get ('/onboarding',                 [\App\Controllers\OnboardingController::class, 'index']);
+    $r->post('/onboarding/welcome',         [\App\Controllers\OnboardingController::class, 'advanceWelcome'])->middleware('csrf');
+    $r->post('/onboarding/business',        [\App\Controllers\OnboardingController::class, 'saveBusiness'])->middleware('csrf');
+    $r->post('/onboarding/channel',         [\App\Controllers\OnboardingController::class, 'saveChannel'])->middleware('csrf');
+    $r->post('/onboarding/agent',           [\App\Controllers\OnboardingController::class, 'saveAgent'])->middleware('csrf');
+    $r->post('/onboarding/workflow',        [\App\Controllers\OnboardingController::class, 'saveWorkflow'])->middleware('csrf');
+    $r->post('/onboarding/skip-all',        [\App\Controllers\OnboardingController::class, 'skipAll'])->middleware('csrf');
+    $r->post('/onboarding/resume',          [\App\Controllers\OnboardingController::class, 'resume'])->middleware('csrf');
 
     // Contactos
     $r->get   ('/contacts',         [ContactController::class, 'index']);
@@ -171,6 +187,31 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/automations/{id}/toggle', [AutomationController::class, 'toggle'])->middleware('csrf');
     $r->delete('/automations/{id}',    [AutomationController::class, 'destroy'])->middleware('csrf');
 
+    // Workflow engine v2 (steps tipados, branching, delays, runs persistidas)
+    $r->get   ('/workflows',                                       [\App\Controllers\WorkflowController::class, 'index']);
+    $r->post  ('/workflows',                                       [\App\Controllers\WorkflowController::class, 'store'])->middleware('csrf');
+
+    // Marketplace de templates
+    $r->get   ('/workflows/templates',                             [\App\Controllers\WorkflowController::class, 'templatesGallery']);
+    $r->get   ('/workflows/templates/{id}',                        [\App\Controllers\WorkflowController::class, 'templateShow']);
+    $r->post  ('/workflows/templates/{id}/use',                    [\App\Controllers\WorkflowController::class, 'templateUse'])->middleware('csrf');
+    $r->get   ('/workflows/{id}',                                  [\App\Controllers\WorkflowController::class, 'edit']);
+    $r->post  ('/workflows/{id}',                                  [\App\Controllers\WorkflowController::class, 'update'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/toggle',                           [\App\Controllers\WorkflowController::class, 'toggle'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/delete',                           [\App\Controllers\WorkflowController::class, 'delete'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/run-now',                          [\App\Controllers\WorkflowController::class, 'runNow'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/steps',                            [\App\Controllers\WorkflowController::class, 'addStep'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/steps/{step_id}/update',           [\App\Controllers\WorkflowController::class, 'updateStep'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/steps/{step_id}/delete',           [\App\Controllers\WorkflowController::class, 'deleteStep'])->middleware('csrf');
+    $r->get   ('/workflows/{id}/runs/{run_id}',                    [\App\Controllers\WorkflowController::class, 'showRun']);
+    // AJAX endpoints para el editor visual (drag-drop)
+    $r->get   ('/workflows/{id}/catalog.json',                     [\App\Controllers\WorkflowController::class, 'catalogJson']);
+    $r->get   ('/workflows/{id}/steps.json',                       [\App\Controllers\WorkflowController::class, 'stepsJson']);
+    $r->post  ('/workflows/{id}/steps.json',                       [\App\Controllers\WorkflowController::class, 'stepCreateJson'])->middleware('csrf');
+    $r->patch ('/workflows/{id}/steps/{step_id}.json',             [\App\Controllers\WorkflowController::class, 'stepUpdateJson'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/steps/{step_id}/delete.json',      [\App\Controllers\WorkflowController::class, 'stepDeleteJson'])->middleware('csrf');
+    $r->post  ('/workflows/{id}/steps/reorder.json',               [\App\Controllers\WorkflowController::class, 'stepsReorderJson'])->middleware('csrf');
+
     // Reportes
     $r->get   ('/reports',         [ReportController::class, 'index']);
     $r->get   ('/reports/export',  [ReportController::class, 'exportCsv']);
@@ -200,6 +241,37 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/settings/routing/{id}/toggle',      [RoutingController::class, 'toggle'])->middleware('csrf');
     $r->delete('/settings/routing/{id}',             [RoutingController::class, 'destroy'])->middleware('csrf');
 
+    // Settings · Alertas inteligentes
+    $r->get  ('/settings/alerts',                                  [\App\Controllers\AlertController::class, 'index']);
+    $r->post ('/settings/alerts/test',                             [\App\Controllers\AlertController::class, 'test'])->middleware('csrf');
+    $r->post ('/settings/alerts/{slug}/toggle',                    [\App\Controllers\AlertController::class, 'toggle'])->middleware('csrf');
+    $r->post ('/settings/alerts/{slug}/cooldown',                  [\App\Controllers\AlertController::class, 'cooldown'])->middleware('csrf');
+
+    // Settings · Seguridad (2FA, sesiones, eventos, cambio password)
+    $r->get  ('/settings/security',                                [\App\Controllers\SecurityController::class, 'index']);
+    $r->post ('/settings/security/2fa/setup',                      [\App\Controllers\SecurityController::class, 'setup2fa'])->middleware('csrf');
+    $r->post ('/settings/security/2fa/confirm',                    [\App\Controllers\SecurityController::class, 'confirm2fa'])->middleware('csrf');
+    $r->post ('/settings/security/2fa/disable',                    [\App\Controllers\SecurityController::class, 'disable2fa'])->middleware('csrf');
+    $r->post ('/settings/security/2fa/recovery/regen',             [\App\Controllers\SecurityController::class, 'regenRecoveryCodes'])->middleware('csrf');
+    $r->post ('/settings/security/sessions/{id}/revoke',           [\App\Controllers\SecurityController::class, 'revokeSession'])->middleware('csrf');
+    $r->post ('/settings/security/sessions/revoke-others',         [\App\Controllers\SecurityController::class, 'revokeOtherSessions'])->middleware('csrf');
+    $r->post ('/settings/security/password',                       [\App\Controllers\SecurityController::class, 'changePassword'])->middleware('csrf');
+
+    // Settings · API keys (Agent-as-a-Service / API publica v1)
+    $r->get   ('/settings/api-keys',                  [\App\Controllers\ApiKeyController::class, 'index']);
+    $r->post  ('/settings/api-keys',                  [\App\Controllers\ApiKeyController::class, 'store'])->middleware('csrf');
+    $r->post  ('/settings/api-keys/{id}/revoke',      [\App\Controllers\ApiKeyController::class, 'revoke'])->middleware('csrf');
+    $r->post  ('/settings/api-keys/{id}/rename',      [\App\Controllers\ApiKeyController::class, 'rename'])->middleware('csrf');
+
+    // Settings · Webhooks salientes con HMAC
+    $r->get   ('/settings/webhooks',                              [\App\Controllers\WebhookEndpointController::class, 'index']);
+    $r->post  ('/settings/webhooks',                              [\App\Controllers\WebhookEndpointController::class, 'store'])->middleware('csrf');
+    $r->post  ('/settings/webhooks/{id}/update',                  [\App\Controllers\WebhookEndpointController::class, 'update'])->middleware('csrf');
+    $r->post  ('/settings/webhooks/{id}/toggle',                  [\App\Controllers\WebhookEndpointController::class, 'toggle'])->middleware('csrf');
+    $r->post  ('/settings/webhooks/{id}/rotate',                  [\App\Controllers\WebhookEndpointController::class, 'rotate'])->middleware('csrf');
+    $r->post  ('/settings/webhooks/{id}/delete',                  [\App\Controllers\WebhookEndpointController::class, 'delete'])->middleware('csrf');
+    $r->post  ('/settings/webhooks/deliveries/{uuid}/replay',     [\App\Controllers\WebhookEndpointController::class, 'replayDelivery'])->middleware('csrf');
+
     // Settings · Notificaciones (multi-canal: email/slack/discord/teams/telegram/webhook/whatsapp)
     $r->get   ('/settings/notifications',                  [\App\Controllers\NotificationDestinationController::class, 'index']);
     $r->post  ('/settings/notifications',                  [\App\Controllers\NotificationDestinationController::class, 'store'])->middleware('csrf');
@@ -227,6 +299,16 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/duplicate', [SettingsController::class, 'aiAgentDuplicate'])->middleware('csrf');
     $r->delete('/settings/ai/agents/{id}', [SettingsController::class, 'aiAgentDelete'])->middleware('csrf');
+
+    // Hub de Skills componibles por agente (sales+support+cobranza+...)
+    $r->get   ('/settings/ai/agents/{id}/skills',                       [\App\Controllers\AgentSkillController::class, 'index']);
+    $r->post  ('/settings/ai/agents/{id}/skills/attach',                [\App\Controllers\AgentSkillController::class, 'attach'])->middleware('csrf');
+    $r->post  ('/settings/ai/agents/{id}/skills/{skill_id}/detach',     [\App\Controllers\AgentSkillController::class, 'detach'])->middleware('csrf');
+    $r->post  ('/settings/ai/agents/{id}/skills/{skill_id}/toggle',     [\App\Controllers\AgentSkillController::class, 'toggle'])->middleware('csrf');
+    $r->post  ('/settings/ai/agents/{id}/skills/{skill_id}/priority',   [\App\Controllers\AgentSkillController::class, 'priority'])->middleware('csrf');
+    // Skills custom del tenant
+    $r->post  ('/settings/ai/skills',                                   [\App\Controllers\AgentSkillController::class, 'storeCustom'])->middleware('csrf');
+    $r->post  ('/settings/ai/skills/{id}/delete',                       [\App\Controllers\AgentSkillController::class, 'deleteCustom'])->middleware('csrf');
     $r->post('/settings/ai/knowledge',           [SettingsController::class, 'knowledgeStore'])->middleware('csrf');
     $r->post('/settings/ai/knowledge/upload',    [SettingsController::class, 'knowledgeUpload'])->middleware('csrf');
     $r->delete('/settings/ai/knowledge/{id}',    [SettingsController::class, 'knowledgeDelete'])->middleware('csrf');
@@ -242,6 +324,12 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
 // ------------------- Super Admin -------------------
 $router->group(['middleware' => ['auth', 'super']], function ($r) {
     $r->get('/admin',                       [AdminController::class, 'dashboard']);
+
+    // Analytics globales + detalle por tenant
+    $r->get ('/admin/analytics',                          [AdminController::class, 'analytics']);
+    $r->get ('/admin/tenants/{id}/analytics',             [AdminController::class, 'tenantAnalytics']);
+    $r->post('/admin/tenants/{id}/quota',                 [AdminController::class, 'tenantQuotaUpdate'])->middleware('csrf');
+    $r->post('/admin/tenants/{id}/quota/reset',           [AdminController::class, 'tenantQuotaReset'])->middleware('csrf');
 
     // Empresas / licencias
     $r->get ('/admin/tenants',                       [AdminController::class, 'tenants']);

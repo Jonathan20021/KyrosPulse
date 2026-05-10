@@ -14,6 +14,8 @@ use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\ResendService;
+use App\Services\SecurityService;
+use App\Services\TotpService;
 
 final class AuthController extends Controller
 {
@@ -29,13 +31,52 @@ final class AuthController extends Controller
             'password' => 'required|min:6',
         ]);
 
-        $user = Auth::attempt((string) $data['email'], (string) $data['password']);
+        $email = (string) $data['email'];
+        $ip    = $request->ip();
+        $ua    = $request->userAgent();
+
+        // Lockout check: si el email + IP acumularon N fallos recientes,
+        // bloquear independientemente de si la password es correcta.
+        $lockout = SecurityService::lockoutSeconds($email, $ip);
+        if ($lockout > 0) {
+            $mins = (int) ceil($lockout / 60);
+            SecurityService::recordLoginAttempt($email, $ip, null, false, 'locked', $ua);
+            SecurityService::logEvent('login_locked', null, null, 'warning', ['email' => $email, 'remaining_s' => $lockout]);
+            Session::flash('error', "Demasiados intentos fallidos. Intenta de nuevo en ~$mins min.");
+            $this->withErrors(['email' => ['Cuenta bloqueada temporalmente.']], $request->only(['email']));
+            $this->redirect('/login');
+            return;
+        }
+
+        $user = Auth::attempt($email, (string) $data['password']);
         if (!$user) {
+            SecurityService::recordLoginAttempt($email, $ip, null, false, 'bad_password', $ua);
+            SecurityService::logEvent('login_fail', null, null, 'warning', ['email' => $email]);
             Session::flash('error', 'Correo o contrasena incorrectos.');
             $this->withErrors(['email' => ['Correo o contrasena incorrectos.']], $request->only(['email']));
             $this->redirect('/login');
             return;
         }
+
+        // 2FA gate: si el user tiene 2FA habilitado, NO login aun.
+        // Auth::attempt ya hizo login(); deshacemos y guardamos pending.
+        if (SecurityService::user2faEnabled((int) $user['id'])) {
+            // Auth::attempt llamo a Auth::login() ya: lo revertimos a un estado pending.
+            $userId = (int) $user['id'];
+            Auth::logout();
+            Session::start(); // re-iniciar sesion limpia
+            Session::set('_2fa_pending_user_id', $userId);
+            Session::set('_2fa_pending_at',      time());
+            SecurityService::logEvent('login_2fa_required', $userId, $user['tenant_id'] ? (int) $user['tenant_id'] : null, 'info', ['email' => $email]);
+            $this->redirect('/login/2fa');
+            return;
+        }
+
+        // Login exitoso sin 2FA
+        SecurityService::clearLockout($email);
+        SecurityService::recordLoginAttempt($email, $ip, (int) $user['id'], true, 'ok', $ua);
+        SecurityService::logEvent('login_ok', (int) $user['id'], $user['tenant_id'] ? (int) $user['tenant_id'] : null, 'info', ['email' => $email]);
+        SecurityService::recordSession((int) $user['id'], $user['tenant_id'] ? (int) $user['tenant_id'] : null, session_id(), $ip, $ua);
 
         Csrf::rotate();
         Session::clearOldInput();
@@ -47,8 +88,102 @@ final class AuthController extends Controller
         $this->redirect('/dashboard');
     }
 
+    /**
+     * GET /login/2fa — challenge tras password ok cuando el user tiene 2FA.
+     * El user_id pendiente vive en sesion durante 5 min.
+     */
+    public function show2faChallenge(Request $request): void
+    {
+        $pending = (int) Session::get('_2fa_pending_user_id', 0);
+        $at = (int) Session::get('_2fa_pending_at', 0);
+        if ($pending === 0 || (time() - $at) > 300) {
+            Session::forget('_2fa_pending_user_id');
+            Session::forget('_2fa_pending_at');
+            $this->redirect('/login');
+            return;
+        }
+        $this->view('auth.two_factor', ['errors' => errors()], 'layouts.auth');
+    }
+
+    /**
+     * POST /login/2fa — verifica codigo TOTP o recovery code.
+     */
+    public function verify2faChallenge(Request $request): void
+    {
+        $pending = (int) Session::get('_2fa_pending_user_id', 0);
+        $at = (int) Session::get('_2fa_pending_at', 0);
+        if ($pending === 0 || (time() - $at) > 300) {
+            Session::flash('error', 'Sesion expirada. Vuelve a iniciar sesion.');
+            $this->redirect('/login');
+            return;
+        }
+
+        $user = User::findById($pending);
+        if (!$user) {
+            Session::forget('_2fa_pending_user_id');
+            $this->redirect('/login');
+            return;
+        }
+
+        $code = trim((string) $request->input('code', ''));
+        $ip   = $request->ip();
+        $ua   = $request->userAgent();
+        $row  = SecurityService::get2faRow($pending);
+
+        $verified = false;
+        $method = 'totp';
+
+        if ($code !== '' && $row && !empty($row['secret'])) {
+            // TOTP code (6 digitos)
+            if (preg_match('/^\d{6}$/', preg_replace('/\s+/', '', $code) ?? '')) {
+                $clean = preg_replace('/\s+/', '', $code);
+                $lastCode = (string) ($row['last_used_code'] ?? '');
+                $lastTs   = $row['last_used_at'] ? strtotime((string) $row['last_used_at']) : 0;
+                // Anti-replay: si el mismo codigo se uso hace < 30s, rechazar.
+                if ($lastCode === $clean && (time() - $lastTs) < 30) {
+                    $verified = false;
+                } else {
+                    $verified = TotpService::verify((string) $row['secret'], $clean);
+                    if ($verified) SecurityService::record2faCodeUsed($pending, $clean);
+                }
+            }
+            // Recovery code (formato XXXX-XXXX)
+            if (!$verified && preg_match('/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/i', $code)) {
+                $verified = SecurityService::consumeRecoveryCode($pending, $code);
+                if ($verified) $method = 'recovery';
+            }
+        }
+
+        if (!$verified) {
+            SecurityService::recordLoginAttempt((string) $user['email'], $ip, $pending, false, '2fa_bad_code', $ua);
+            SecurityService::logEvent('login_2fa_fail', $pending, $user['tenant_id'] ? (int) $user['tenant_id'] : null, 'warning');
+            Session::flash('error', 'Codigo invalido.');
+            $this->withErrors(['code' => ['Codigo invalido.']]);
+            $this->redirect('/login/2fa');
+            return;
+        }
+
+        // Login final
+        Session::forget('_2fa_pending_user_id');
+        Session::forget('_2fa_pending_at');
+        Auth::login($user);
+        Csrf::rotate();
+
+        SecurityService::clearLockout((string) $user['email']);
+        SecurityService::recordLoginAttempt((string) $user['email'], $ip, $pending, true, '2fa_ok', $ua);
+        SecurityService::logEvent('login_ok', $pending, $user['tenant_id'] ? (int) $user['tenant_id'] : null, 'info', ['method' => $method]);
+        SecurityService::recordSession($pending, $user['tenant_id'] ? (int) $user['tenant_id'] : null, session_id(), $ip, $ua);
+
+        if ($user['is_super_admin']) { $this->redirect('/admin'); return; }
+        $this->redirect('/dashboard');
+    }
+
     public function logout(Request $request): void
     {
+        $userId = Auth::id();
+        $tenantId = Auth::tenantId();
+        SecurityService::markSessionRevokedByHash(session_id());
+        SecurityService::logEvent('logout', $userId, $tenantId, 'info');
         Auth::logout();
         Session::flash('success', 'Sesion cerrada correctamente.');
         $this->redirect('/login');

@@ -31,6 +31,9 @@ final class AiProviderService
             'conversation_id' => isset($ctx['conversation_id']) ? (int) $ctx['conversation_id'] : null,
             'message_id'      => isset($ctx['message_id'])      ? (int) $ctx['message_id']      : null,
             'order_id'        => isset($ctx['order_id'])        ? (int) $ctx['order_id']        : null,
+            // user_message: mensaje del cliente actual. Lo usa el hub de skills
+            // para rankear cual skill aplica (ventas/soporte/cobranza/etc).
+            'user_message'    => isset($ctx['user_message'])    ? (string) $ctx['user_message'] : null,
         ];
         return $this;
     }
@@ -427,6 +430,24 @@ ACTIONS;
             $restaurantBlock = $this->buildRestaurantBlock();
         }
 
+        // Hub de skills componibles: si el agente tiene skills enlazadas
+        // (sales+support+cobranza+...), inyecta su catalogo + instrucciones
+        // como bloque adicional. El router heuristico marca la skill mas
+        // relevante segun el ultimo mensaje del cliente.
+        $skillsBlock = '';
+        if ($agent && !empty($agent['id'])) {
+            try {
+                $userMsg = (string) ($this->callContext['user_message'] ?? '');
+                $block = (new \App\Services\AgentSkillService($this->tenantId))
+                    ->buildSkillsBlock((int) $agent['id'], $userMsg !== '' ? $userMsg : null);
+                if ($block !== '') {
+                    $skillsBlock = "\n\n" . $block . "\n";
+                }
+            } catch (\Throwable $e) {
+                Logger::warning('AgentSkillService::buildSkillsBlock fallo', ['msg' => $e->getMessage()]);
+            }
+        }
+
         return <<<PROMPT
 Eres "$assistant", representante de $brand. Hablas DIRECTAMENTE con un cliente por WhatsApp.
 
@@ -462,6 +483,7 @@ Tarea actual: $feature
 
 Instrucciones especificas del agente:
 $instructions
+$skillsBlock
 $actionsBlock
 
 Base de conocimiento de $brand:

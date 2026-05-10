@@ -27,6 +27,19 @@ final class AutomationEngine
     {
         // Suscribir a todos los eventos relevantes con un solo listener wildcard.
         Events::listen('*', [self::class, 'onEvent']);
+
+        // Webhooks salientes: por cada evento publico del sistema, despachamos
+        // a los endpoints externos del tenant suscritos. El dispatcher filtra
+        // que el evento sea publico (no interno) y que haya endpoints activos.
+        Events::listen('*', function (array $payload): void {
+            $event = (string) ($payload['_event'] ?? '');
+            if ($event === '' || str_starts_with($event, '_')) return;
+            try {
+                \App\Services\WebhookDispatcher::dispatch($event, $payload);
+            } catch (\Throwable $e) {
+                Logger::warning('WebhookDispatcher fallo', ['event' => $event, 'msg' => $e->getMessage()]);
+            }
+        });
     }
 
     public static function onEvent(array $payload): void
