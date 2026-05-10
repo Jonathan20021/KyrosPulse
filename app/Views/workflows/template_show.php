@@ -6,6 +6,16 @@
 \App\Core\View::extend('layouts.app');
 \App\Core\View::start('content');
 
+if (!function_exists('self_format_delay')) {
+    function self_format_delay(int|string $seconds): string {
+        $seconds = (int) $seconds;
+        if ($seconds >= 86400) return 'esperar ' . round($seconds / 86400, 1) . ' dias';
+        if ($seconds >= 3600)  return 'esperar ' . round($seconds / 3600, 1)  . ' horas';
+        if ($seconds >= 60)    return 'esperar ' . round($seconds / 60)        . ' minutos';
+        return 'esperar ' . $seconds . ' segundos';
+    }
+}
+
 $cfg   = is_array($definition['trigger_config'] ?? null) ? $definition['trigger_config'] : [];
 $steps = is_array($definition['steps'] ?? null) ? $definition['steps'] : [];
 $meets = !empty($template['_meets']);
@@ -151,13 +161,4 @@ $actionIcons = [
     <?php endif; ?>
 </div>
 
-<?php
-function self_format_delay(int|string $seconds): string {
-    $seconds = (int) $seconds;
-    if ($seconds >= 86400) return 'esperar ' . round($seconds / 86400, 1) . ' dias';
-    if ($seconds >= 3600)  return 'esperar ' . round($seconds / 3600, 1)  . ' horas';
-    if ($seconds >= 60)    return 'esperar ' . round($seconds / 60)        . ' minutos';
-    return 'esperar ' . $seconds . ' segundos';
-}
-?>
 <?php \App\Core\View::end(); ?>

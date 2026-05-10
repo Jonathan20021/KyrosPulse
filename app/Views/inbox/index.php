@@ -108,6 +108,8 @@ if (localStorage.getItem('kp_collapse_info')  === '1') document.body.classList.a
                 <div class="flex items-center gap-2">
                     <h2 class="font-bold text-[15px]" style="color: var(--color-text-primary);">Bandeja</h2>
                     <span id="inboxCount" class="badge badge-primary badge-dot"><?= count($conversations) ?></span>
+                    <span id="inboxLiveDot" title="Conectando..."
+                          style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.15);animation:livePulse 2s ease-in-out infinite;"></span>
                 </div>
                 <div class="flex items-center gap-0.5">
                     <button id="onlyUnreadBtn" class="btn btn-ghost btn-icon" title="Solo no leídas">
@@ -1499,6 +1501,7 @@ form#composer > div:has(> span.text-emerald-400) {
 .composer-icon-btn:hover { background: rgba(16,185,129,.10); color: var(--color-primary); }
 .composer-icon-btn.recording { background: rgba(239,68,68,.15); color: #FB7185; animation: pulseRec 1.4s ease-in-out infinite; }
 @keyframes pulseRec { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes livePulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .5; } }
 
 .composer-send {
     width: 40px; height: 40px;
@@ -2342,12 +2345,129 @@ async function pollInboxState() {
 
 pollMessages(false);
 pollInboxState();
-setInterval(() => {
-    if (!document.hidden) {
-        pollMessages(false);
-        pollInboxState();
+
+// ============================================================
+// SSE real-time: cliente intenta server-sent events primero.
+// Si SSE recibe "message" o "status_change", refresca inmediato
+// (no duplicamos renderizado en JS — reusamos pollMessages que ya
+// trae HTML pre-renderizado del servidor).
+//
+// Polling sigue activo como backup: si SSE muere repetidas veces,
+// el setInterval normal mantiene el inbox actualizado.
+// El intervalo de polling se ralentiza a 10s cuando SSE esta vivo,
+// volviendo a 3s si SSE se cae.
+// ============================================================
+let __sseConn = null;
+let __sseCursor = 0;
+let __sseFailures = 0;
+let __sseAlive = false;
+let __pollIntervalMs = 3000;
+
+function setLiveIndicator(state) {
+    const dot = document.getElementById('inboxLiveDot');
+    if (!dot) return;
+    if (state === 'live') {
+        dot.style.background = '#10B981';
+        dot.title = 'En vivo (SSE)';
+    } else if (state === 'connecting') {
+        dot.style.background = '#F59E0B';
+        dot.title = 'Conectando...';
+    } else {
+        dot.style.background = '#94A3B8';
+        dot.title = 'Polling (SSE no disponible)';
     }
-}, 3000);
+}
+
+function startSSE() {
+    if (typeof window.EventSource === 'undefined') return; // no soportado
+    if (__sseConn) try { __sseConn.close(); } catch (_) {}
+
+    const params = new URLSearchParams();
+    if (__sseCursor > 0) params.set('since_message_id', __sseCursor);
+    if (typeof convId !== 'undefined' && convId) params.set('conversation_id', convId);
+    const url = '<?= url('/inbox/stream') ?>' + (params.toString() ? '?' + params.toString() : '');
+
+    setLiveIndicator('connecting');
+    __sseConn = new EventSource(url, { withCredentials: true });
+
+    __sseConn.addEventListener('open', () => {
+        __sseAlive = true;
+        __sseFailures = 0;
+        __pollIntervalMs = 10000; // SSE alive: polling se relaja
+        setLiveIndicator('live');
+    });
+
+    // Cuando el servidor abre la sesion confirma el cursor
+    __sseConn.addEventListener('open', (e) => {});
+    __sseConn.addEventListener('message', (e) => {
+        try {
+            const m = JSON.parse(e.data);
+            if (m.id) __sseCursor = Math.max(__sseCursor, m.id);
+            // Si el mensaje es de la conversacion abierta, refrescar inmediato
+            if (typeof convId !== 'undefined' && convId && m.conversation_id == convId) {
+                if (!document.hidden) pollMessages(false);
+            }
+            // Refresh de la lista lateral (badges unread, last message)
+            if (!document.hidden) pollInboxState();
+        } catch (_) {}
+    });
+    __sseConn.addEventListener('status_change', (e) => {
+        try {
+            const sc = JSON.parse(e.data);
+            // Si afecta la conversacion abierta, refrescamos (server renderiza ticks delivered/read)
+            if (typeof convId !== 'undefined' && convId && sc.conversation_id == convId) {
+                if (!document.hidden) pollMessages(false);
+            }
+        } catch (_) {}
+    });
+    __sseConn.addEventListener('heartbeat', (e) => {
+        __sseAlive = true;
+        setLiveIndicator('live');
+    });
+    __sseConn.addEventListener('close', () => {
+        // Server pide reconectar: limpiamos y dejamos que EventSource intente solo
+        try { __sseConn.close(); } catch (_) {}
+        __sseConn = null;
+        // Reintento explicito tras pequeno backoff
+        setTimeout(startSSE, 1000);
+    });
+
+    __sseConn.onerror = () => {
+        __sseFailures++;
+        __sseAlive = false;
+        setLiveIndicator('offline');
+        // EventSource intenta solo, pero si falla mucho cerramos y dejamos polling fallback
+        if (__sseFailures >= 3) {
+            __pollIntervalMs = 3000; // polling rapido
+            try { __sseConn.close(); } catch (_) {}
+            __sseConn = null;
+            // Reintento periodico cada 30s
+            setTimeout(() => { __sseFailures = 0; startSSE(); }, 30000);
+        }
+    };
+}
+
+// Polling con intervalo dinamico (se relaja cuando SSE esta vivo)
+let __pollTimer = null;
+function schedulePolling() {
+    if (__pollTimer) clearTimeout(__pollTimer);
+    __pollTimer = setTimeout(() => {
+        if (!document.hidden) {
+            pollMessages(false);
+            pollInboxState();
+        }
+        schedulePolling();
+    }, __pollIntervalMs);
+}
+schedulePolling();
+
+// Reconectar SSE al volver de background (tabs minimizadas)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !__sseAlive) startSSE();
+});
+
+// Arrancar SSE
+startSSE();
 
 // ====== AI Transform: aplica IA al texto del composer ======
 async function aiTransform(mode) {

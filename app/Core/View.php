@@ -92,6 +92,12 @@ final class View
         self::$sections[$name] = (string) ob_get_clean();
     }
 
+    /** Alias de stop() para vistas que usan View::end(). */
+    public static function end(): void
+    {
+        self::stop();
+    }
+
     public static function section(string $name, string $default = ''): string
     {
         return self::$sections[$name] ?? $default;

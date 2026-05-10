@@ -18,6 +18,7 @@ $tr = $snapshot['trends']     ?? [];
 $ac = $snapshot['activity']   ?? [];
 
 /** Helper sparkline SVG: $values numericos, devuelve <svg> minimalista. */
+if (!function_exists('exec_sparkline')) {
 function exec_sparkline(array $values, string $color = '#06B6D4', int $w = 100, int $h = 28): string {
     if (empty($values)) return '';
     $max = max($values); $min = min($values);
@@ -58,6 +59,7 @@ function exec_delta(float $now, float $prev): string {
 function exec_format_money(float $n, string $cur): string {
     return $cur . ' ' . number_format($n, 2);
 }
+} // end if (!function_exists('exec_sparkline'))
 ?>
 <?php \App\Core\View::include('components.page_header', [
     'title'    => 'Dashboard ejecutivo',

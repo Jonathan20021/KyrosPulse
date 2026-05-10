@@ -12,6 +12,7 @@ $top= $data['top_tenants']   ?? [];
 $ar = $data['at_risk']       ?? [];
 
 // sparkline helper (reusamos firma del dashboard ejecutivo, inline aqui)
+if (!function_exists('adm_sparkline')) {
 function adm_sparkline(array $values, string $color = '#06B6D4', int $w = 280, int $h = 64): string {
     if (empty($values)) return '';
     $max = max($values); $min = min($values);
@@ -36,6 +37,7 @@ function adm_sparkline(array $values, string $color = '#06B6D4', int $w = 280, i
         . '<circle cx="' . $lastX . '" cy="' . $lastY . '" r="3" fill="' . $color . '"/>'
         . '</svg>';
 }
+} // end if (!function_exists('adm_sparkline'))
 ?>
 <?php \App\Core\View::include('components.page_header', [
     'title'    => 'Analytics globales',
