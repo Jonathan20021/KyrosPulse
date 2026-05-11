@@ -152,6 +152,11 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->post  ('/orders/{id}/cancel',         [OrderController::class, 'cancel'])->middleware('csrf');
     $r->post  ('/orders/{id}/notes',          [OrderController::class, 'notes'])->middleware('csrf');
 
+    // ===== Kitchen Display System (KDS) — solo tenants restaurante =====
+    $r->get ('/kitchen',                     [\App\Controllers\KitchenController::class, 'index']);
+    $r->get ('/kitchen/feed',                [\App\Controllers\KitchenController::class, 'feed']);
+    $r->post('/kitchen/{id}/status',         [\App\Controllers\KitchenController::class, 'transition'])->middleware('csrf');
+
     // ===== Restaurante: settings + zonas =====
     $r->get   ('/settings/restaurant',                  [RestaurantController::class, 'index']);
     $r->put   ('/settings/restaurant',                  [RestaurantController::class, 'update'])->middleware('csrf');
