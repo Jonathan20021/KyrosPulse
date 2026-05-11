@@ -178,20 +178,8 @@ final class OrderController extends Controller
             return;
         }
 
-        // Notificar al cliente por WhatsApp si tenemos telefono
-        $order = Order::findById($tenantId, $orderId);
-        if ($order && !empty($order['customer_phone'])) {
-            $msg = $this->statusMessage($order, $newStatus);
-            if ($msg !== '') {
-                try {
-                    (new ChannelDispatcher($tenantId))->sendText(
-                        (string) $order['customer_phone'],
-                        $msg,
-                        $order['channel_id'] ? (int) $order['channel_id'] : null
-                    );
-                } catch (\Throwable) { /* silent */ }
-            }
-        }
+        // WhatsApp al cliente lo manda Order::transitionStatus internamente,
+        // asi que cualquier flujo (KDS, REST, automations) avisa al cliente.
 
         Audit::log('order.status_changed', 'order', $orderId, [], ['status' => $newStatus]);
         if ($request->expectsJson()) {
@@ -279,17 +267,4 @@ final class OrderController extends Controller
         ]);
     }
 
-    private function statusMessage(array $order, string $status): string
-    {
-        $name = $order['customer_name'] ?: 'cliente';
-        return match ($status) {
-            'confirmed'        => "Hola $name! Tu orden #{$order['code']} fue confirmada. La estamos preparando 🍽",
-            'preparing'        => "Tu orden #{$order['code']} esta en cocina 👨‍🍳",
-            'ready'            => "Tu orden #{$order['code']} esta lista 🛎",
-            'out_for_delivery' => "Tu orden #{$order['code']} salio a entrega 🛵 — llega pronto.",
-            'delivered'        => "Entregamos tu orden #{$order['code']} ✅. Buen provecho!",
-            'cancelled'        => "Lamentamos informar que tu orden #{$order['code']} fue cancelada. Motivo: " . ($order['cancelled_reason'] ?? 'sin especificar') . '. Cualquier duda, escribenos.',
-            default => '',
-        };
-    }
 }

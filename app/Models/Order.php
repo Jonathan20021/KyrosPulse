@@ -177,7 +177,44 @@ final class Order extends Model
             \App\Core\Logger::warning('NotificationDispatcher fallo', ['msg' => $e->getMessage()]);
         }
 
+        // Mensaje WhatsApp al cliente con el cambio de estado.
+        // Centralizado aqui para que cualquier flujo (REST, KDS, automation)
+        // lo dispare igual sin duplicar logica.
+        try {
+            $fresh = self::findById($tenantId, $orderId);
+            if ($fresh && !empty($fresh['customer_phone'])) {
+                $msg = self::customerStatusMessage($fresh, $newStatus);
+                if ($msg !== '') {
+                    (new \App\Services\ChannelDispatcher($tenantId))->sendText(
+                        (string) $fresh['customer_phone'],
+                        $msg,
+                        !empty($fresh['channel_id']) ? (int) $fresh['channel_id'] : null
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('ChannelDispatcher customer-notify fallo', ['msg' => $e->getMessage()]);
+        }
+
         return true;
+    }
+
+    /**
+     * Mensaje al cliente segun nuevo estado. Centralizado para reuso.
+     */
+    private static function customerStatusMessage(array $order, string $status): string
+    {
+        $name = trim((string) ($order['customer_name'] ?? '')) ?: 'cliente';
+        $code = (string) ($order['code'] ?? '');
+        return match ($status) {
+            'confirmed'        => "Hola $name! Tu orden #$code fue confirmada. La estamos preparando 🍽",
+            'preparing'        => "Tu orden #$code esta en cocina 👨‍🍳",
+            'ready'            => "Tu orden #$code esta lista 🛎",
+            'out_for_delivery' => "Tu orden #$code salio a entrega 🛵 — llega pronto.",
+            'delivered'        => "Entregamos tu orden #$code ✅. Buen provecho!",
+            'cancelled'        => "Lamentamos informar que tu orden #$code fue cancelada. Motivo: " . ($order['cancelled_reason'] ?? 'sin especificar') . '. Cualquier duda, escribenos.',
+            default => '',
+        };
     }
 
     public static function recalcTotals(int $tenantId, int $orderId): void
