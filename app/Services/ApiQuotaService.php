@@ -24,47 +24,87 @@ use App\Core\Logger;
  */
 final class ApiQuotaService
 {
-    /** Snapshot completo de cuota + uso para un tenant. */
+    /** Snapshot completo de cuota + uso para un tenant. Bulletproof. */
     public static function snapshot(int $tenantId): array
     {
         try {
-            $tenant = Database::fetch(
-                "SELECT t.id, t.plan_id, t.api_quota_override, t.api_calls_period, t.api_period_starts_at,
-                        p.api_quota_monthly AS plan_quota, p.name AS plan_name, p.slug AS plan_slug
-                 FROM `tenants` t
-                 LEFT JOIN `plans` p ON p.id = t.plan_id
-                 WHERE t.id = :i LIMIT 1",
-                ['i' => $tenantId]
-            );
+            // Si las columnas nuevas no existen aun (migration 014 no aplicada
+            // todavia), hacemos una query degradada que NO referencia columnas
+            // nuevas. Asi la pagina sigue funcionando.
+            $hasNewCols = self::hasQuotaColumns();
+            if ($hasNewCols) {
+                $tenant = Database::fetch(
+                    "SELECT t.id, t.plan_id, t.api_quota_override, t.api_calls_period, t.api_period_starts_at,
+                            p.api_quota_monthly AS plan_quota, p.name AS plan_name, p.slug AS plan_slug
+                     FROM `tenants` t
+                     LEFT JOIN `plans` p ON p.id = t.plan_id
+                     WHERE t.id = :i LIMIT 1",
+                    ['i' => $tenantId]
+                );
+            } else {
+                $tenant = Database::fetch(
+                    "SELECT t.id, t.plan_id, p.name AS plan_name, p.slug AS plan_slug
+                     FROM `tenants` t
+                     LEFT JOIN `plans` p ON p.id = t.plan_id
+                     WHERE t.id = :i LIMIT 1",
+                    ['i' => $tenantId]
+                );
+            }
+            if (!$tenant) return self::empty($tenantId);
+
+            $quota = self::resolveQuota($tenant);
+
+            // Si no hay columnas de tracking, devolvemos uso 0 sin tocar DB
+            if (!$hasNewCols) {
+                return self::empty($tenantId, $quota, $tenant);
+            }
+
+            [$used, $periodStart] = self::resolveCurrentUsage($tenant);
+
+            $remaining = $quota === -1 ? -1 : max(0, $quota - $used);
+            $usedPct   = ($quota > 0) ? min(100, (int) round(($used / $quota) * 100)) : 0;
+            $resetAt = $periodStart ? strtotime($periodStart) + (30 * 86400) : (time() + 30 * 86400);
+
+            return [
+                'tenant_id'        => $tenantId,
+                'plan_name'        => $tenant['plan_name'] ?? null,
+                'plan_slug'        => $tenant['plan_slug'] ?? null,
+                'quota'            => $quota,
+                'used'             => $used,
+                'remaining'        => $remaining,
+                'used_pct'         => $usedPct,
+                'unlimited'        => $quota === -1,
+                'no_access'        => $quota === 0,
+                'period_starts_at' => $periodStart,
+                'period_resets_at' => date('Y-m-d H:i:s', $resetAt),
+                'is_overridden'    => isset($tenant['api_quota_override']) && $tenant['api_quota_override'] !== null,
+            ];
         } catch (\Throwable $e) {
             Logger::warning('ApiQuotaService snapshot fallo', ['msg' => $e->getMessage()]);
             return self::empty($tenantId);
         }
-        if (!$tenant) return self::empty($tenantId);
+    }
 
-        $quota = self::resolveQuota($tenant);
-        [$used, $periodStart] = self::resolveCurrentUsage($tenant);
-
-        $remaining = $quota === -1 ? -1 : max(0, $quota - $used);
-        $usedPct   = ($quota > 0) ? min(100, (int) round(($used / $quota) * 100)) : 0;
-
-        // Calcular renovacion: 30 dias desde periodStart
-        $resetAt = $periodStart ? strtotime($periodStart) + (30 * 86400) : (time() + 30 * 86400);
-
-        return [
-            'tenant_id'        => $tenantId,
-            'plan_name'        => $tenant['plan_name'] ?? null,
-            'plan_slug'        => $tenant['plan_slug'] ?? null,
-            'quota'            => $quota,                          // -1 unlimited, 0 no access, >0 limit
-            'used'             => $used,
-            'remaining'        => $remaining,
-            'used_pct'         => $usedPct,
-            'unlimited'        => $quota === -1,
-            'no_access'        => $quota === 0,
-            'period_starts_at' => $periodStart,
-            'period_resets_at' => date('Y-m-d H:i:s', $resetAt),
-            'is_overridden'    => isset($tenant['api_quota_override']) && $tenant['api_quota_override'] !== null,
-        ];
+    /**
+     * Detecta si la migracion 014 corrio (columnas de quota presentes).
+     * Cacheado en memoria por request.
+     */
+    private static ?bool $hasQuotaColumnsCache = null;
+    private static function hasQuotaColumns(): bool
+    {
+        if (self::$hasQuotaColumnsCache !== null) return self::$hasQuotaColumnsCache;
+        try {
+            $n = (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'tenants'
+                   AND COLUMN_NAME IN ('api_quota_override','api_calls_period','api_period_starts_at')"
+            );
+            self::$hasQuotaColumnsCache = $n >= 3;
+        } catch (\Throwable) {
+            self::$hasQuotaColumnsCache = false;
+        }
+        return self::$hasQuotaColumnsCache;
     }
 
     /**
@@ -75,6 +115,11 @@ final class ApiQuotaService
     public static function consume(int $tenantId): array
     {
         try {
+            // Si columnas de quota no existen, dejamos pasar (no bloqueamos API)
+            if (!self::hasQuotaColumns()) {
+                return ['ok' => true, 'reason' => 'no_quota_tracking'];
+            }
+
             $tenant = Database::fetch(
                 "SELECT t.id, t.plan_id, t.api_quota_override, t.api_calls_period, t.api_period_starts_at,
                         p.api_quota_monthly AS plan_quota
@@ -221,16 +266,22 @@ final class ApiQuotaService
         );
     }
 
-    private static function empty(int $tenantId): array
+    private static function empty(int $tenantId, ?int $quota = null, ?array $tenant = null): array
     {
+        $q = $quota ?? 1000;
         return [
             'tenant_id' => $tenantId,
-            'plan_name' => null, 'plan_slug' => null,
-            'quota' => 1000, 'used' => 0, 'remaining' => 1000, 'used_pct' => 0,
-            'unlimited' => false, 'no_access' => false,
+            'plan_name' => $tenant['plan_name'] ?? null,
+            'plan_slug' => $tenant['plan_slug'] ?? null,
+            'quota'     => $q,
+            'used'      => 0,
+            'remaining' => $q === -1 ? -1 : $q,
+            'used_pct'  => 0,
+            'unlimited' => $q === -1,
+            'no_access' => $q === 0,
             'period_starts_at' => null,
             'period_resets_at' => date('Y-m-d H:i:s', time() + 30 * 86400),
-            'is_overridden' => false,
+            'is_overridden'    => false,
         ];
     }
 }

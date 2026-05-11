@@ -32,13 +32,30 @@ final class SecurityController extends Controller
         $tenantId = Tenant::id();
         $user = User::findById($userId);
 
-        $row2fa  = SecurityService::get2faRow($userId);
-        $enabled = $row2fa && !empty($row2fa['enabled']);
-        $recoveryCount = SecurityService::recoveryCodesUnusedCount($userId);
-        $sessions = SecurityService::activeSessionsForUser($userId);
-        $events   = SecurityService::recentEventsForUser($userId, 30);
+        // Cada query envuelta: si migration 011 no aplico aun, la pagina sigue funcionando
+        $row2fa = null;
+        try { $row2fa = SecurityService::get2faRow($userId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('get2faRow fallo', ['msg' => $e->getMessage()]); }
 
-        $tenantEvents = $tenantId ? SecurityService::recentEventsForTenant($tenantId, 30) : [];
+        $enabled = $row2fa && !empty($row2fa['enabled']);
+
+        $recoveryCount = 0;
+        try { $recoveryCount = SecurityService::recoveryCodesUnusedCount($userId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('recovery count fallo', ['msg' => $e->getMessage()]); }
+
+        $sessions = [];
+        try { $sessions = SecurityService::activeSessionsForUser($userId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('sessions fallo', ['msg' => $e->getMessage()]); }
+
+        $events = [];
+        try { $events = SecurityService::recentEventsForUser($userId, 30); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('events user fallo', ['msg' => $e->getMessage()]); }
+
+        $tenantEvents = [];
+        if ($tenantId) {
+            try { $tenantEvents = SecurityService::recentEventsForTenant($tenantId, 30); }
+            catch (\Throwable $e) { \App\Core\Logger::warning('events tenant fallo', ['msg' => $e->getMessage()]); }
+        }
 
         $currentSessionHash = hash('sha256', session_id() ?: '');
 
@@ -46,13 +63,20 @@ final class SecurityController extends Controller
         $newRecoveryCodes = Session::get('__new_recovery_codes');
         Session::forget('__new_recovery_codes');
 
+        $qrUrl = null;
+        if ($row2fa && empty($row2fa['enabled']) && !empty($row2fa['secret']) && !empty($user['email'])) {
+            try {
+                $qrUrl = TotpService::qrImageUrl(TotpService::provisioningUri((string) $row2fa['secret'], (string) $user['email']));
+            } catch (\Throwable) { $qrUrl = null; }
+        }
+
         $this->view('settings.security', [
             'page'                => 'configuracion',
             'tab'                 => 'security',
             'user'                => $user,
             'twofa_enabled'       => $enabled,
             'twofa_secret'        => $enabled ? null : ($row2fa['secret'] ?? null), // exponemos solo si NO esta enabled todavia
-            'qr_url'              => ($row2fa && empty($row2fa['enabled'])) ? TotpService::qrImageUrl(TotpService::provisioningUri((string) $row2fa['secret'], (string) $user['email'])) : null,
+            'qr_url'              => $qrUrl,
             'recovery_count'      => $recoveryCount,
             'new_recovery_codes'  => $newRecoveryCodes,
             'sessions'            => $sessions,

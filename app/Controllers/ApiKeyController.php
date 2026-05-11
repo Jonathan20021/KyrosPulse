@@ -27,23 +27,38 @@ final class ApiKeyController extends Controller
     public function index(Request $request): void
     {
         $tenantId = Tenant::id();
-        $keys     = ApiKey::listForTenant($tenantId);
-        $stats    = ApiKey::statsForTenant($tenantId, 7);
 
-        $logs = Database::fetchAll(
-            "SELECT l.*, k.name AS key_name, k.prefix
-             FROM `api_request_logs` l
-             LEFT JOIN `api_keys` k ON k.id = l.api_key_id
-             WHERE l.tenant_id = :t
-             ORDER BY l.id DESC
-             LIMIT 50",
-            ['t' => $tenantId]
-        );
+        // Cada query envuelta en try/catch: si la tabla no existe (migration 008
+        // no aplicada todavia), la pagina sigue cargando con datos vacios en lugar
+        // de devolver 500.
+        $keys = [];
+        try { $keys = ApiKey::listForTenant($tenantId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('ApiKey::listForTenant fallo', ['msg' => $e->getMessage()]); }
+
+        $stats = ['total' => 0, 'ok' => 0, 'errors' => 0, 'avg_latency' => 0];
+        try { $stats = ApiKey::statsForTenant($tenantId, 7); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('ApiKey::statsForTenant fallo', ['msg' => $e->getMessage()]); }
+
+        $logs = [];
+        try {
+            $logs = Database::fetchAll(
+                "SELECT l.*, k.name AS key_name, k.prefix
+                 FROM `api_request_logs` l
+                 LEFT JOIN `api_keys` k ON k.id = l.api_key_id
+                 WHERE l.tenant_id = :t
+                 ORDER BY l.id DESC
+                 LIMIT 50",
+                ['t' => $tenantId]
+            );
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('api_request_logs fallo', ['msg' => $e->getMessage()]);
+        }
 
         // Si acabamos de generar una key en este flow, la pasamos one-shot
         $newKey = Session::get('__new_api_key');
         Session::forget('__new_api_key');
 
+        // ApiQuotaService ya es bulletproof (try/catch interno + detect columnas)
         $quota = \App\Services\ApiQuotaService::snapshot($tenantId);
 
         $this->view('settings.api_keys', [

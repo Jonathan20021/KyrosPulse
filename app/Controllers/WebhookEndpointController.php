@@ -48,8 +48,14 @@ final class WebhookEndpointController extends Controller
     public function index(Request $request): void
     {
         $tenantId = Tenant::id();
-        $endpoints = WebhookEndpoint::listForTenant($tenantId);
-        $deliveries = WebhookEndpoint::deliveriesForTenant($tenantId, 50);
+
+        $endpoints = [];
+        try { $endpoints = WebhookEndpoint::listForTenant($tenantId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('WebhookEndpoint list fallo', ['msg' => $e->getMessage()]); }
+
+        $deliveries = [];
+        try { $deliveries = WebhookEndpoint::deliveriesForTenant($tenantId, 50); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('WebhookEndpoint deliveries fallo', ['msg' => $e->getMessage()]); }
 
         // Pasamos el secret one-shot solo si el flow recien creo uno
         $newSecret = Session::get('__new_webhook_secret');

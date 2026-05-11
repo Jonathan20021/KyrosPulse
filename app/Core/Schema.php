@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v19_ok';
+    private const CACHE_FILE = '/cache/.schema_v20_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -885,15 +885,22 @@ CREATE TABLE IF NOT EXISTS `agent_skill_links` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 
-        // Seed de skills globales (idempotente con INSERT IGNORE)
+        // Seed de skills globales. INSERT IGNORE NO funciona con tenant_id NULL
+        // (NULL != NULL en UNIQUE constraints de MySQL). Usamos INSERT...SELECT
+        // WHERE NOT EXISTS para garantizar idempotencia real.
         $pdo->exec(<<<SQL
-INSERT IGNORE INTO `agent_skills` (`tenant_id`, `slug`, `name`, `description`, `tools`, `is_active`)
-VALUES
-    (NULL, 'sales',        'Ventas',                'Calificacion de leads, recomendacion y cierre.',  JSON_ARRAY('query_catalog','create_order','escalate'), 1),
-    (NULL, 'support',      'Soporte al cliente',    'Resuelve dudas, abre tickets y escala humanos.',  JSON_ARRAY('query_kb','create_ticket','escalate'),     1),
-    (NULL, 'cart_recover', 'Recuperacion carrito',  'Re-engagement de clientes con carrito abandonado.', JSON_ARRAY('send_message','apply_discount','escalate'), 1),
-    (NULL, 'scheduling',   'Agendamiento',          'Reserva citas y bloques de tiempo.',              JSON_ARRAY('check_availability','book_slot','escalate'),1),
-    (NULL, 'collections',  'Cobranza',              'Recordatorios de pago y reconciliacion.',         JSON_ARRAY('query_invoice','send_reminder','escalate'), 1)
+INSERT INTO `agent_skills` (`tenant_id`, `slug`, `name`, `description`, `tools`, `is_active`)
+SELECT * FROM (
+    SELECT NULL AS tenant_id, 'sales'        AS slug, 'Ventas'                AS name, 'Calificacion de leads, recomendacion y cierre.'    AS description, JSON_ARRAY('query_catalog','create_order','escalate')   AS tools, 1 AS is_active UNION ALL
+    SELECT NULL, 'support',      'Soporte al cliente',    'Resuelve dudas, abre tickets y escala humanos.',      JSON_ARRAY('query_kb','create_ticket','escalate'),       1 UNION ALL
+    SELECT NULL, 'cart_recover', 'Recuperacion carrito',  'Re-engagement de clientes con carrito abandonado.',   JSON_ARRAY('send_message','apply_discount','escalate'),  1 UNION ALL
+    SELECT NULL, 'scheduling',   'Agendamiento',          'Reserva citas y bloques de tiempo.',                  JSON_ARRAY('check_availability','book_slot','escalate'), 1 UNION ALL
+    SELECT NULL, 'collections',  'Cobranza',              'Recordatorios de pago y reconciliacion.',             JSON_ARRAY('query_invoice','send_reminder','escalate'),  1
+) AS seed
+WHERE NOT EXISTS (
+    SELECT 1 FROM `agent_skills` s
+    WHERE s.`tenant_id` IS NULL AND s.`slug` = seed.slug
+)
 SQL);
 
         // ---------------------------------------------------------------
@@ -1224,15 +1231,21 @@ CREATE TABLE IF NOT EXISTS `alert_history` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 
-        // Seed reglas builtin (tenant_id NULL = template global que cada tenant clona)
+        // Seed reglas builtin. INSERT...SELECT WHERE NOT EXISTS para idempotencia
+        // real (INSERT IGNORE NO funciona con tenant_id NULL en MySQL).
         $pdo->exec(<<<SQL
-INSERT IGNORE INTO `alert_rules` (`tenant_id`, `slug`, `name`, `description`, `rule_type`, `config`, `severity`, `cooldown_minutes`) VALUES
-    (NULL, 'api.quota.80',      'API: cuota al 80%',          'Te avisa cuando consumiste el 80% de tu cuota mensual de API.',                   'api.quota.threshold', JSON_OBJECT('pct', 80),  'warning',  720),
-    (NULL, 'api.quota.100',     'API: cuota agotada',         'Te avisa cuando llegaste al 100% de tu cuota mensual. Requests siguientes seran 429.', 'api.quota.threshold', JSON_OBJECT('pct', 100), 'critical', 120),
-    (NULL, 'webhook.dead',      'Webhooks: entregas muertas', '>=5 deliveries marcadas como dead en las ultimas 24h en algun endpoint.',         'webhook.dead.count',  JSON_OBJECT('threshold', 5, 'window_hours', 24), 'warning', 360),
-    (NULL, 'agent.error_rate',  'Agentes IA: alta tasa de error', 'Mas del 20% de los runs de agentes IA fallaron en las ultimas 24h.',           'agent.error_rate',    JSON_OBJECT('pct', 20, 'min_runs', 10),       'warning', 360),
-    (NULL, 'security.critical', 'Seguridad: evento critico',  'Cualquier security_event con severidad=critical.',                                  'security.critical',   JSON_OBJECT(),                                'critical', 30),
-    (NULL, 'workflow.failed',   'Workflow: ejecucion fallida', 'Avisa cuando un workflow termina con status=failed.',                              'workflow.failed',     JSON_OBJECT('window_minutes', 60),            'warning', 60)
+INSERT INTO `alert_rules` (`tenant_id`, `slug`, `name`, `description`, `rule_type`, `config`, `severity`, `cooldown_minutes`)
+SELECT * FROM (
+    SELECT NULL AS tenant_id, 'api.quota.80'      AS slug, 'API: cuota al 80%'             AS name, 'Te avisa cuando consumiste el 80% de tu cuota mensual de API.'    AS description, 'api.quota.threshold' AS rule_type, JSON_OBJECT('pct', 80)  AS config, 'warning'  AS severity, 720 AS cooldown_minutes UNION ALL
+    SELECT NULL, 'api.quota.100',     'API: cuota agotada',             'Te avisa cuando llegaste al 100% de tu cuota mensual. Requests siguientes seran 429.', 'api.quota.threshold', JSON_OBJECT('pct', 100), 'critical', 120 UNION ALL
+    SELECT NULL, 'webhook.dead',      'Webhooks: entregas muertas',     '>=5 deliveries marcadas como dead en las ultimas 24h en algun endpoint.',               'webhook.dead.count',  JSON_OBJECT('threshold', 5, 'window_hours', 24), 'warning', 360 UNION ALL
+    SELECT NULL, 'agent.error_rate',  'Agentes IA: alta tasa de error', 'Mas del 20% de los runs de agentes IA fallaron en las ultimas 24h.',                    'agent.error_rate',    JSON_OBJECT('pct', 20, 'min_runs', 10),          'warning', 360 UNION ALL
+    SELECT NULL, 'security.critical', 'Seguridad: evento critico',      'Cualquier security_event con severidad=critical.',                                      'security.critical',   JSON_OBJECT(),                                   'critical', 30 UNION ALL
+    SELECT NULL, 'workflow.failed',   'Workflow: ejecucion fallida',    'Avisa cuando un workflow termina con status=failed.',                                   'workflow.failed',     JSON_OBJECT('window_minutes', 60),               'warning', 60
+) AS seed
+WHERE NOT EXISTS (
+    SELECT 1 FROM `alert_rules` r WHERE r.`tenant_id` IS NULL AND r.`slug` = seed.slug
+)
 SQL);
 
         Logger::info('Schema multichannel aplicado correctamente');

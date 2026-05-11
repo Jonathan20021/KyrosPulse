@@ -74,7 +74,7 @@ final class ApiMetaController extends ApiController
 
         // Schema healed flag
         try {
-            $checks['schema_ok'] = ['ok' => is_file(((string) \App\Core\Config::get('app.paths.storage')) . '/cache/.schema_v18_ok')];
+            $checks['schema_ok'] = ['ok' => is_file(((string) \App\Core\Config::get('app.paths.storage')) . '/cache/.schema_v20_ok')];
         } catch (\Throwable) {
             $checks['schema_ok'] = ['ok' => false];
         }

@@ -27,7 +27,17 @@ final class AdminController extends Controller
     public function analytics(Request $request): void
     {
         $bypass = (bool) $request->query('refresh', false);
-        $data = AdminAnalyticsService::snapshot($bypass);
+        $data = [
+            'generated_at'   => date('c'),
+            'kpis'           => ['total_tenants'=>0,'active_tenants'=>0,'trial_tenants'=>0,'suspended_tenants'=>0,'new_this_month'=>0,'mrr_usd'=>0,'arr_usd'=>0,'orders_30d'=>0,'ai_cost_30d'=>0],
+            'plan_breakdown' => [],
+            'growth'         => ['months'=>[],'labels'=>[],'series'=>[]],
+            'top_tenants'    => [],
+            'at_risk'        => [],
+        ];
+        try { $data = AdminAnalyticsService::snapshot($bypass); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('AdminAnalytics::snapshot fallo', ['msg' => $e->getMessage()]); }
+
         $this->view('admin.analytics', [
             'page' => 'admin',
             'data' => $data,
@@ -38,7 +48,10 @@ final class AdminController extends Controller
     public function tenantAnalytics(Request $request, array $params): void
     {
         $id = (int) ($params['id'] ?? 0);
-        $detail = AdminAnalyticsService::tenantDetail($id);
+        $detail = ['tenant' => null, 'quota' => [], 'stats' => []];
+        try { $detail = AdminAnalyticsService::tenantDetail($id); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('AdminAnalytics::tenantDetail fallo', ['msg' => $e->getMessage()]); }
+
         if (empty($detail['tenant'])) {
             Session::flash('error', 'Tenant no encontrado.');
             $this->redirect('/admin/tenants');

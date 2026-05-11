@@ -24,18 +24,28 @@ final class AlertController extends Controller
     public function index(Request $request): void
     {
         $tenantId = Tenant::id();
-        $rules    = AlertService::listForTenant($tenantId);
-        $history  = AlertService::historyForTenant($tenantId, 50);
 
-        // Cuenta de destinations configurados para event=alert.fired
-        $destCount = (int) Database::fetchColumn(
-            "SELECT COUNT(*) FROM `notification_destinations` nd
-             WHERE nd.tenant_id = :t AND nd.is_active = 1
-               AND (nd.events IS NULL
-                    OR JSON_CONTAINS(nd.events, JSON_QUOTE('alert.fired'))
-                    OR JSON_CONTAINS(nd.events, JSON_QUOTE('*')))",
-            ['t' => $tenantId]
-        );
+        $rules = [];
+        try { $rules = AlertService::listForTenant($tenantId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('AlertService::listForTenant fallo', ['msg' => $e->getMessage()]); }
+
+        $history = [];
+        try { $history = AlertService::historyForTenant($tenantId, 50); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('AlertService::historyForTenant fallo', ['msg' => $e->getMessage()]); }
+
+        $destCount = 0;
+        try {
+            $destCount = (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM `notification_destinations` nd
+                 WHERE nd.tenant_id = :t AND nd.is_active = 1
+                   AND (nd.events IS NULL
+                        OR JSON_CONTAINS(nd.events, JSON_QUOTE('alert.fired'))
+                        OR JSON_CONTAINS(nd.events, JSON_QUOTE('*')))",
+                ['t' => $tenantId]
+            );
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('destCount fallo', ['msg' => $e->getMessage()]);
+        }
 
         $this->view('settings.alerts', [
             'page'     => 'configuracion',

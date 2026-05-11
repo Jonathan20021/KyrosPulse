@@ -139,12 +139,20 @@ CREATE TABLE IF NOT EXISTS `agent_skill_links` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
--- Seed: skills globales basicas (idempotente)
+-- Seed: skills globales basicas (idempotente).
+-- NOTA: UNIQUE KEY (tenant_id, slug) NO previene duplicacion cuando tenant_id
+-- es NULL porque MySQL trata NULL != NULL en comparaciones de constraint.
+-- Por eso usamos INSERT ... SELECT WHERE NOT EXISTS, que SI es safe.
 -- ---------------------------------------------------------------------------
-INSERT IGNORE INTO `agent_skills` (`tenant_id`, `slug`, `name`, `description`, `tools`, `is_active`)
-VALUES
-    (NULL, 'sales',        'Ventas',                'Calificacion de leads, recomendacion y cierre.',  JSON_ARRAY('query_catalog','create_order','escalate'), 1),
-    (NULL, 'support',      'Soporte al cliente',    'Resuelve dudas, abre tickets y escala humanos.',  JSON_ARRAY('query_kb','create_ticket','escalate'),     1),
-    (NULL, 'cart_recover', 'Recuperacion carrito',  'Re-engagement de clientes con carrito abandonado.', JSON_ARRAY('send_message','apply_discount','escalate'), 1),
-    (NULL, 'scheduling',   'Agendamiento',          'Reserva citas y bloques de tiempo.',              JSON_ARRAY('check_availability','book_slot','escalate'),1),
-    (NULL, 'collections',  'Cobranza',              'Recordatorios de pago y reconciliacion.',         JSON_ARRAY('query_invoice','send_reminder','escalate'), 1);
+INSERT INTO `agent_skills` (`tenant_id`, `slug`, `name`, `description`, `tools`, `is_active`)
+SELECT * FROM (
+    SELECT NULL AS tenant_id, 'sales'        AS slug, 'Ventas'                AS name, 'Calificacion de leads, recomendacion y cierre.'    AS description, JSON_ARRAY('query_catalog','create_order','escalate')   AS tools, 1 AS is_active UNION ALL
+    SELECT NULL, 'support',      'Soporte al cliente',    'Resuelve dudas, abre tickets y escala humanos.',      JSON_ARRAY('query_kb','create_ticket','escalate'),       1 UNION ALL
+    SELECT NULL, 'cart_recover', 'Recuperacion carrito',  'Re-engagement de clientes con carrito abandonado.',   JSON_ARRAY('send_message','apply_discount','escalate'),  1 UNION ALL
+    SELECT NULL, 'scheduling',   'Agendamiento',          'Reserva citas y bloques de tiempo.',                  JSON_ARRAY('check_availability','book_slot','escalate'), 1 UNION ALL
+    SELECT NULL, 'collections',  'Cobranza',              'Recordatorios de pago y reconciliacion.',             JSON_ARRAY('query_invoice','send_reminder','escalate'),  1
+) AS seed
+WHERE NOT EXISTS (
+    SELECT 1 FROM `agent_skills` s
+    WHERE s.`tenant_id` IS NULL AND s.`slug` = seed.slug
+);

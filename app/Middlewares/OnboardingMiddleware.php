@@ -49,12 +49,16 @@ final class OnboardingMiddleware implements Middleware
 
         try {
             $tenant = Tenant::current();
-            $needsOnboarding = $tenant
-                && empty($tenant['onboarding_completed_at'])
-                && empty($tenant['onboarding_skipped']);
-            if ($needsOnboarding) {
-                Response::redirect(url('/onboarding'));
-                return;
+            // Solo redirigir si las columnas existen Y el flag indica pending.
+            // Si las columnas no existen (migration 013 no aplico), tratamos al
+            // tenant como completado para no romper /dashboard.
+            if ($tenant && array_key_exists('onboarding_completed_at', $tenant)) {
+                $needsOnboarding = empty($tenant['onboarding_completed_at'])
+                    && empty($tenant['onboarding_skipped']);
+                if ($needsOnboarding) {
+                    Response::redirect(url('/onboarding'));
+                    return;
+                }
             }
         } catch (\Throwable) {
             // Si DB esta intermitente, no bloqueamos la app

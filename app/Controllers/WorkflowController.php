@@ -36,8 +36,14 @@ final class WorkflowController extends Controller
     public function index(Request $request): void
     {
         $tenantId = Tenant::id();
-        $rows = Workflow::listForTenant($tenantId);
-        $featuredTemplates = array_slice(WorkflowTemplate::listAvailable($tenantId), 0, 3);
+        $rows = [];
+        try { $rows = Workflow::listForTenant($tenantId); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('Workflow list fallo', ['msg' => $e->getMessage()]); }
+
+        $featuredTemplates = [];
+        try { $featuredTemplates = array_slice(WorkflowTemplate::listAvailable($tenantId), 0, 3); }
+        catch (\Throwable $e) { \App\Core\Logger::warning('WorkflowTemplate list fallo', ['msg' => $e->getMessage()]); }
+
         $this->view('workflows.index', [
             'page'              => 'automations',
             'workflows'         => $rows,
@@ -50,8 +56,15 @@ final class WorkflowController extends Controller
     {
         $tenantId = Tenant::id();
         $category = (string) $request->query('category', '');
-        $templates = WorkflowTemplate::listAvailable($tenantId, $category !== '' ? $category : null);
-        $categories = WorkflowTemplate::listCategories($tenantId);
+
+        $templates = [];
+        $categories = [];
+        try {
+            $templates = WorkflowTemplate::listAvailable($tenantId, $category !== '' ? $category : null);
+            $categories = WorkflowTemplate::listCategories($tenantId);
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('WorkflowTemplate listing fallo', ['msg' => $e->getMessage()]);
+        }
 
         // Marca cuales templates cumplen requires
         foreach ($templates as &$t) {
