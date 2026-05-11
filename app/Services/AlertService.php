@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 declare(strict_types=1);
 
 namespace App\Services;
@@ -277,7 +277,7 @@ final class AlertService
                 return [
                     'workflow' => (string) ($row['wf_name'] ?? '?'),
                     'run_uuid' => (string) $row['uuid'],
-                    'error'    => mb_substr((string) ($row['error'] ?? 'â€”'), 0, 200),
+                    'error'    => mb_substr((string) ($row['error'] ?? '—'), 0, 200),
                 ];
         }
         return null;
@@ -298,30 +298,30 @@ final class AlertService
             case 'api.quota.80':
                 $pct = (int) ($ctx['pct'] ?? 80);
                 return [
-                    'âš  API: ' . $pct . '% de cuota usada Â· ' . $brand,
+                    '⚠ API: ' . $pct . '% de cuota usada · ' . $brand,
                     sprintf("Tu cuenta uso %d%% (%s de %s requests) de la cuota mensual de API.\nPlan: %s. Renueva el %s.",
                         $pct, number_format((int) ($ctx['used'] ?? 0)), number_format((int) ($ctx['quota'] ?? 0)),
-                        (string) ($ctx['plan'] ?? 'â€”'), (string) ($ctx['resets_at'] ?? 'â€”')
+                        (string) ($ctx['plan'] ?? '—'), (string) ($ctx['resets_at'] ?? '—')
                     ),
                     [
                         ['label' => 'Usado',     'value' => number_format((int) ($ctx['used'] ?? 0))],
                         ['label' => 'Cuota',     'value' => number_format((int) ($ctx['quota'] ?? 0))],
-                        ['label' => 'Plan',      'value' => (string) ($ctx['plan'] ?? 'â€”')],
-                        ['label' => 'Renueva',   'value' => (string) ($ctx['resets_at'] ?? 'â€”')],
+                        ['label' => 'Plan',      'value' => (string) ($ctx['plan'] ?? '—')],
+                        ['label' => 'Renueva',   'value' => (string) ($ctx['resets_at'] ?? '—')],
                     ],
                 ];
             case 'api.quota.100':
                 return [
-                    'ðŸš¨ API: cuota agotada Â· ' . $brand,
+                    '🚨 API: cuota agotada · ' . $brand,
                     "Agotaste el 100% de tu cuota mensual de API. Las requests siguientes se rechazan con HTTP 429 hasta el reset.\n\nPara desbloquear: upgrade tu plan o ajusta la cuota desde admin.",
                     [
                         ['label' => 'Cuota', 'value' => number_format((int) ($ctx['quota'] ?? 0))],
-                        ['label' => 'Plan',  'value' => (string) ($ctx['plan'] ?? 'â€”')],
+                        ['label' => 'Plan',  'value' => (string) ($ctx['plan'] ?? '—')],
                     ],
                 ];
             case 'webhook.dead':
                 return [
-                    'âš  Webhook con entregas muertas Â· ' . $brand,
+                    '⚠ Webhook con entregas muertas · ' . $brand,
                     sprintf("El endpoint \"%s\" tiene %d entregas marcadas como dead en las ultimas %dh.\nURL: %s\n\nReintenta manualmente o revisa la URL/secret.",
                         (string) ($ctx['endpoint'] ?? '?'),
                         (int) ($ctx['dead_count'] ?? 0),
@@ -336,7 +336,7 @@ final class AlertService
                 ];
             case 'agent.error_rate':
                 return [
-                    'âš  Agentes IA: tasa de error alta Â· ' . $brand,
+                    '⚠ Agentes IA: tasa de error alta · ' . $brand,
                     sprintf("Los agentes IA tienen %d%% de fallos en las ultimas 24h (%d de %d runs).\nUmbral configurado: %d%%.\nRevisa logs en Configuracion > IA.",
                         (int) ($ctx['error_rate'] ?? 0),
                         (int) ($ctx['failed'] ?? 0),
@@ -350,7 +350,7 @@ final class AlertService
                 ];
             case 'security.critical':
                 return [
-                    'ðŸš¨ Evento de seguridad critico Â· ' . $brand,
+                    '🚨 Evento de seguridad critico · ' . $brand,
                     sprintf("Se detecto un evento de seguridad critico: %s.\nIP: %s.\nRevisa el log en Configuracion > Seguridad.",
                         (string) ($ctx['event'] ?? '?'),
                         (string) ($ctx['ip'] ?? '?')
@@ -362,11 +362,11 @@ final class AlertService
                 ];
             case 'workflow.failed':
                 return [
-                    'âš  Workflow fallo Â· ' . $brand,
+                    '⚠ Workflow fallo · ' . $brand,
                     sprintf("El workflow \"%s\" termino con status=failed.\nRun: %s\nError: %s",
                         (string) ($ctx['workflow'] ?? '?'),
                         (string) ($ctx['run_uuid'] ?? '?'),
-                        (string) ($ctx['error'] ?? 'â€”')
+                        (string) ($ctx['error'] ?? '—')
                     ),
                     [
                         ['label' => 'Workflow', 'value' => (string) ($ctx['workflow'] ?? '?')],
@@ -375,7 +375,7 @@ final class AlertService
                 ];
         }
         return [
-            ($rule['name'] ?? 'Alerta') . ' Â· ' . $brand,
+            ($rule['name'] ?? 'Alerta') . ' · ' . $brand,
             (string) ($rule['description'] ?? ''),
             [],
         ];
@@ -402,7 +402,7 @@ final class AlertService
         }
 
         $payload = [
-            'subject' => '[Evallish Pulse] ' . $title,
+            'subject' => '[Kyros Pulse] ' . $title,
             'title'   => $title,
             'text'    => $body,
             'html'    => $html,

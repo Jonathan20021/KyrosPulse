@@ -1,10 +1,10 @@
-﻿<?php /** @var array $data */ ?>
+<?php /** @var array $data */ ?>
 <!DOCTYPE html>
 <html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Â· <?= e((string) config('app.name', 'Evallish Pulse')) ?></title>
+    <title>Acceso · <?= e((string) config('app.name', 'Kyros Pulse')) ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,10 +36,10 @@
     <div class="flex flex-col px-6 sm:px-10 lg:px-12 py-8 lg:py-10 relative">
         <header class="flex items-center justify-between mb-10">
             <a href="<?= url('/') ?>" class="inline-flex items-center gap-2.5 group">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-white p-1 group-hover:scale-110 transition" style="box-shadow: 0 8px 24px rgba(37,99,235,0.35);">
-                    <img src="<?= asset('css/logo.png') ?>" alt="Evallish Pulse" class="w-full h-full object-contain">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/40 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#10B981,#0EA572);">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
-                <span class="font-bold text-white tracking-tight text-lg"><?= e((string) config('app.name', 'Evallish Pulse')) ?></span>
+                <span class="font-bold text-white tracking-tight"><?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
             </a>
             <a href="<?= url('/') ?>" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1 group">
                 <svg class="w-4 h-4 group-hover:-translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
@@ -54,7 +54,7 @@
         </div>
 
         <footer class="mt-10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <span>&copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Evallish Pulse')) ?></span>
+            <span>&copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
             <div class="flex items-center gap-4">
                 <a href="#" class="hover:text-slate-300 transition">Privacidad</a>
                 <a href="#" class="hover:text-slate-300 transition">Terminos</a>
@@ -75,7 +75,7 @@
             <!-- Pill -->
             <div class="inline-flex items-center gap-2 self-start px-3 py-1.5 mb-6 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
                 <span class="live-dot"></span>
-                <span class="text-xs font-medium text-slate-300">CRM Â· Multi-Channel Â· IA</span>
+                <span class="text-xs font-medium text-slate-300">CRM · Multi-Channel · IA</span>
             </div>
 
             <h2 class="text-4xl xl:text-5xl font-black text-white mb-5 leading-[1.1] tracking-tight">
@@ -94,14 +94,14 @@
                         <span class="browser-dot bg-rose-500/70"></span>
                         <span class="browser-dot bg-amber-500/70"></span>
                         <span class="browser-dot bg-emerald-500/70"></span>
-                        <div class="ml-3 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-slate-500 font-mono">app.evallishpulse.com/inbox</div>
+                        <div class="ml-3 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-slate-500 font-mono">app.kyrospulse.com/inbox</div>
                     </div>
                     <div class="bg-[#0B1220] p-4 space-y-3">
                         <!-- Channels switcher -->
                         <div class="flex gap-1.5 flex-wrap">
-                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] font-bold border" style="background: rgba(16,185,129,.15); color:#10B981; border-color: rgba(16,185,129,.4);">â— DO Â· +1809</span>
-                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] text-slate-400" style="background: rgba(255,255,255,.04);">MX Â· +52</span>
-                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] text-slate-400" style="background: rgba(255,255,255,.04);">VIP US Â· +1305</span>
+                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] font-bold border" style="background: rgba(16,185,129,.15); color:#10B981; border-color: rgba(16,185,129,.4);">● DO · +1809</span>
+                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] text-slate-400" style="background: rgba(255,255,255,.04);">MX · +52</span>
+                            <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] text-slate-400" style="background: rgba(255,255,255,.04);">VIP US · +1305</span>
                             <span class="channel-pill px-2 py-0.5 rounded-full text-[9px] text-slate-400" style="background: rgba(255,255,255,.04);">+ Cloud API</span>
                         </div>
 
@@ -124,19 +124,19 @@
                                     <div class="text-xs font-semibold text-white">Maria Lopez</div>
                                     <div class="text-[9px] text-emerald-400 flex items-center gap-1">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                        Ventas DO Â· WhatsApp Cloud
+                                        Ventas DO · WhatsApp Cloud
                                     </div>
                                 </div>
                                 <span class="badge badge-emerald badge-dot text-[8px]">Live</span>
                             </div>
                             <div class="px-2 py-1.5 rounded-md bg-white/5 text-xs text-slate-300 mb-1">"Estoy interesada en el plan Pro"</div>
-                            <div class="px-2 py-1.5 rounded-md text-white text-xs ml-6" style="background: var(--gradient-primary);">"Te envio cotizacion + link de pago ðŸš€"</div>
+                            <div class="px-2 py-1.5 rounded-md text-white text-xs ml-6" style="background: var(--gradient-primary);">"Te envio cotizacion + link de pago 🚀"</div>
                         </div>
 
                         <!-- AI suggestion -->
                         <div class="rounded-lg p-2.5 border border-emerald-500/30" style="background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.15));">
                             <div class="flex items-center gap-2">
-                                <span class="text-base">ðŸ¤–</span>
+                                <span class="text-base">🤖</span>
                                 <div>
                                     <div class="text-[10px] font-semibold text-cyan-300">IA Vendedor</div>
                                     <div class="text-[10px] text-slate-300">"Cliente con score 92. Generando link Stripe..."</div>
@@ -148,10 +148,10 @@
 
                 <!-- Floating cards -->
                 <div class="absolute -left-20 top-12 p-3 rounded-xl flex items-center gap-2 float-1 shadow-xl backdrop-blur-xl bg-white/5 border border-white/10">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-500/30 flex items-center justify-center">âœ“</div>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/30 flex items-center justify-center">✓</div>
                     <div>
                         <div class="text-[11px] font-semibold text-white">Venta cerrada</div>
-                        <div class="text-[9px] text-slate-400">$1,500 Â· IA</div>
+                        <div class="text-[9px] text-slate-400">$1,500 · IA</div>
                     </div>
                 </div>
                 <div class="absolute -right-12 top-1/2 p-3 rounded-xl flex items-center gap-2 float-2 shadow-xl backdrop-blur-xl bg-white/5 border border-white/10">
@@ -160,11 +160,11 @@
                     </div>
                     <div>
                         <div class="text-[11px] font-semibold text-white">Cloud API</div>
-                        <div class="text-[9px] text-slate-400">Verified Â· â—</div>
+                        <div class="text-[9px] text-slate-400">Verified · ●</div>
                     </div>
                 </div>
                 <div class="absolute -left-10 -bottom-4 p-3 rounded-xl flex items-center gap-2 float-3 shadow-xl backdrop-blur-xl bg-white/5 border border-white/10">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#10B981,#06B6D4);">âš¡</div>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg,#10B981,#06B6D4);">⚡</div>
                     <div>
                         <div class="text-[11px] font-semibold text-white">3 numeros</div>
                         <div class="text-[9px] text-slate-400">Operando</div>

@@ -1,8 +1,8 @@
-﻿<?php
+<?php
 $user = auth() ?? [];
 $page = $page ?? 'admin';
 $current = $_SERVER['REQUEST_URI'] ?? '';
-$brand   = (string) (\App\Models\SaasSetting::get('brand_name', config('app.name', 'Evallish Pulse')));
+$brand   = (string) (\App\Models\SaasSetting::get('brand_name', config('app.name', 'Kyros Pulse')));
 
 $navSections = [
     [
@@ -50,7 +50,7 @@ $navSections = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= csrf_token() ?>">
-    <title>Super Admin Â· <?= e($brand) ?></title>
+    <title>Super Admin · <?= e($brand) ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -86,8 +86,8 @@ $navSections = [
            class="hidden lg:flex flex-col border-r border-white/5 bg-[#070D17]/85 backdrop-blur-xl sticky top-0 h-screen transition-all duration-200">
         <div class="p-4 flex items-center justify-between gap-2 border-b border-white/5">
             <a href="<?= url('/admin') ?>" class="flex items-center gap-2 min-w-0">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white p-1" style="box-shadow: 0 6px 20px rgba(37,99,235,0.35);">
-                    <img src="<?= asset('css/logo.png') ?>" alt="<?= e($brand) ?>" class="w-full h-full object-contain">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/40" style="background: linear-gradient(135deg,#10B981,#0EA572);">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <div x-show="!sidebarCollapsed" x-cloak class="min-w-0">
                     <div class="font-bold text-white text-sm leading-tight truncate"><?= e($brand) ?></div>
@@ -141,8 +141,8 @@ $navSections = [
     <div x-show="open" x-transition.opacity class="lg:hidden fixed inset-0 z-30 bg-black/70 backdrop-blur-sm" @click="open=false" x-cloak></div>
     <aside x-show="open" x-transition class="lg:hidden fixed left-0 top-0 bottom-0 z-40 w-72 bg-[#070C20] border-r border-white/10 overflow-y-auto" x-cloak>
         <div class="p-4 flex items-center justify-between border-b border-white/5">
-            <span class="font-bold text-white"><?= e($brand) ?> Â· <span class="text-rose-400 text-xs">ADMIN</span></span>
-            <button @click="open=false" class="p-1 text-slate-400">âœ•</button>
+            <span class="font-bold text-white"><?= e($brand) ?> · <span class="text-rose-400 text-xs">ADMIN</span></span>
+            <button @click="open=false" class="p-1 text-slate-400">✕</button>
         </div>
         <nav class="p-3 space-y-1">
             <?php foreach ($navSections as $section): ?>

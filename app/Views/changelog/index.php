@@ -1,11 +1,11 @@
-﻿<?php
+<?php
 /** @var array $entries */
 /** @var array $grouped */
 /** @var array $categories */
 \App\Core\View::extend('layouts.landing');
 \App\Core\View::start('content');
 
-$brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'));
+$brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Kyros Pulse'));
 ?>
 
 <!-- Nav -->
@@ -18,7 +18,7 @@ $brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'))
             <span class="text-lg"><?= e($brand) ?></span>
         </a>
         <div class="flex items-center gap-2">
-            <a href="<?= url('/') ?>" class="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition">â† Inicio</a>
+            <a href="<?= url('/') ?>" class="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition">← Inicio</a>
             <a href="<?= url('/login') ?>" class="text-sm text-slate-300 hover:text-white px-3 py-1.5 transition">Iniciar sesion</a>
             <a href="<?= url('/register') ?>" class="text-sm font-semibold text-white px-4 py-1.5 rounded-lg" style="background:linear-gradient(135deg,#10B981,#06B6D4);">Empezar gratis</a>
         </div>
@@ -41,7 +41,7 @@ $brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'))
 
         <?php if (empty($entries)): ?>
         <div class="text-center py-20">
-            <div class="text-6xl mb-4 opacity-50">ðŸ“°</div>
+            <div class="text-6xl mb-4 opacity-50">📰</div>
             <p class="text-slate-400">Pronto compartiremos novedades aqui.</p>
         </div>
         <?php else: ?>
@@ -72,7 +72,7 @@ $brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'))
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400">v<?= e($e['version']) ?></span>
                         <?php endif; ?>
                         <?php if (!empty($e['is_featured'])): ?>
-                        <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">â˜… Destacado</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold">★ Destacado</span>
                         <?php endif; ?>
                         <span class="text-xs text-slate-500 ml-auto"><?= date('d M Y', $when) ?></span>
                     </div>
@@ -116,7 +116,7 @@ $brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'))
 
         <!-- CTA al final -->
         <div class="mt-12 text-center reveal">
-            <p class="text-slate-400 mb-4">Â¿Tienes una idea o pedido?</p>
+            <p class="text-slate-400 mb-4">¿Tienes una idea o pedido?</p>
             <a href="<?= url('/register') ?>" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold shadow-xl shadow-emerald-500/30" style="background:linear-gradient(135deg,#10B981,#06B6D4);">
                 Empezar gratis y ser parte
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>

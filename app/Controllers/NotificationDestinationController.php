@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 declare(strict_types=1);
 
 namespace App\Controllers;
@@ -169,16 +169,16 @@ final class NotificationDestinationController extends Controller
             'config' => $row['config'] ?? [],
         ]);
         if ($preErr !== null) {
-            Session::flash('error', 'âš  Configuracion incompleta: ' . $preErr . ' Edita el destino, completa el campo y guarda antes de probar.');
+            Session::flash('error', '⚠ Configuracion incompleta: ' . $preErr . ' Edita el destino, completa el campo y guarda antes de probar.');
             $this->redirect('/settings/notifications');
             return;
         }
 
         $res = (new NotificationDispatcher($tenantId))->testDestination($row);
         if (!empty($res['success'])) {
-            Session::flash('success', 'âœ“ Prueba enviada con exito al destino "' . $row['label'] . '".');
+            Session::flash('success', '✓ Prueba enviada con exito al destino "' . $row['label'] . '".');
         } else {
-            Session::flash('error', 'âœ— Fallo la prueba: ' . ($res['error'] ?? 'desconocido'));
+            Session::flash('error', '✗ Fallo la prueba: ' . ($res['error'] ?? 'desconocido'));
         }
         $this->redirect('/settings/notifications');
     }
@@ -217,7 +217,7 @@ final class NotificationDestinationController extends Controller
             case 'teams':
                 $config = ['webhook_url' => trim((string) $request->input('webhook_url', ''))];
                 if ($type === 'discord') {
-                    $config['username'] = trim((string) $request->input('username', 'Evallish Pulse'));
+                    $config['username'] = trim((string) $request->input('username', 'Kyros Pulse'));
                 }
                 break;
             case 'telegram':

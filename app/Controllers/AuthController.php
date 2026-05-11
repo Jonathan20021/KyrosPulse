@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 declare(strict_types=1);
 
 namespace App\Controllers;
@@ -89,7 +89,7 @@ final class AuthController extends Controller
     }
 
     /**
-     * GET /login/2fa â€” challenge tras password ok cuando el user tiene 2FA.
+     * GET /login/2fa — challenge tras password ok cuando el user tiene 2FA.
      * El user_id pendiente vive en sesion durante 5 min.
      */
     public function show2faChallenge(Request $request): void
@@ -106,7 +106,7 @@ final class AuthController extends Controller
     }
 
     /**
-     * POST /login/2fa â€” verifica codigo TOTP o recovery code.
+     * POST /login/2fa — verifica codigo TOTP o recovery code.
      */
     public function verify2faChallenge(Request $request): void
     {
@@ -366,7 +366,7 @@ final class AuthController extends Controller
         User::markEmailVerified((int) $row['user_id']);
         Database::run("UPDATE email_verifications SET verified_at = NOW() WHERE id = :id", ['id' => $row['id']]);
 
-        Session::flash('success', 'Correo verificado. Bienvenido a Evallish Pulse.');
+        Session::flash('success', 'Correo verificado. Bienvenido a Kyros Pulse.');
         $this->redirect(Auth::check() ? '/dashboard' : '/login');
     }
 
