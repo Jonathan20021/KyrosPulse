@@ -21,11 +21,11 @@ final class Order extends Model
     ];
 
     public const STATUS_FLOW = [
-        'new'              => ['confirmed', 'cancelled'],
-        'confirmed'        => ['preparing', 'cancelled'],
-        'preparing'        => ['ready', 'cancelled'],
-        'ready'            => ['out_for_delivery', 'delivered'],
-        'out_for_delivery' => ['delivered'],
+        'new'              => ['confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'],
+        'confirmed'        => ['preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'],
+        'preparing'        => ['ready', 'out_for_delivery', 'delivered', 'cancelled'],
+        'ready'            => ['out_for_delivery', 'delivered', 'cancelled'],
+        'out_for_delivery' => ['delivered', 'cancelled'],
     ];
 
     public static function generateCode(int $tenantId): string
