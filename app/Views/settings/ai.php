@@ -3,6 +3,7 @@
 \App\Core\View::start('content');
 $agents = $agents ?? [];
 $kpi    = $kpi    ?? ['handled'=>0,'sent_messages'=>0,'transferred'=>0,'sales_closed'=>0,'tokens_in'=>0,'tokens_out'=>0];
+$isAdvanced = \App\Core\Auth::hasAnyRole(['owner','admin']);
 
 $categories = [
     'generic'     => ['Generico',     '🤖'],
@@ -254,7 +255,7 @@ $autopilotOn = !empty($tenant['ai_force_all']);
 
 <div class="set-actions-bar" style="display: flex; justify-content: space-between; align-items: center;">
     <h2 class="set-h2">Equipo de agentes IA</h2>
-    <button onclick="document.getElementById('newAgentForm').scrollIntoView({behavior:'smooth'})" class="set-btn set-btn-primary">+ Nuevo agente</button>
+    <a href="<?= url('/settings/ai/wizard') ?>" class="set-btn set-btn-primary">✨ Crear con plantilla</a>
 </div>
 
 <?php if (empty($agents)): ?>
@@ -436,11 +437,16 @@ $autopilotOn = !empty($tenant['ai_force_all']);
 </div>
 <?php endif; ?>
 
-<form id="newAgentForm" action="<?= url('/settings/ai/agents') ?>" method="POST" class="set-section">
+<?php if ($isAdvanced): ?>
+<details class="set-section set-advanced-block">
+    <summary class="set-advanced-summary">
+        <span class="set-advanced-badge">Modo avanzado</span>
+        <span class="set-advanced-title">Crear agente desde cero (sin plantilla)</span>
+        <span class="set-advanced-hint">Para Owner / Admin. Edita prompts, palabras clave y modelo manualmente.</span>
+    </summary>
+
+<form id="newAgentForm" action="<?= url('/settings/ai/agents') ?>" method="POST" class="set-advanced-form">
     <?= csrf_field() ?>
-    <div class="set-section-head">
-        <h2 class="set-section-title"><span>➕</span> Crear nuevo agente IA</h2>
-    </div>
     <div class="set-field-row cols-2 set-field">
         <div>
             <label class="set-label">Nombre</label>
@@ -499,6 +505,8 @@ $autopilotOn = !empty($tenant['ai_force_all']);
         <button type="submit" class="set-btn set-btn-primary">Crear agente</button>
     </div>
 </form>
+</details>
+<?php endif; ?>
 
 <section class="set-section">
     <div class="set-section-head">

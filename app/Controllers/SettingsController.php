@@ -447,6 +447,95 @@ final class SettingsController extends Controller
         $this->redirect('/settings/ai');
     }
 
+    /**
+     * Wizard: galeria de plantillas builtin (Vendedor / Soporte / Agendador /
+     * Cobrador / Recepcionista). Para usuarios no tecnicos: en vez de pedir
+     * "instructions", "trigger_keywords", "max_retries" etc, elegis plantilla
+     * y respondes 3-4 preguntas en lenguaje plano.
+     */
+    public function aiWizardGallery(): void
+    {
+        $templates = \App\Models\AiAgentTemplate::listActive();
+        $this->view('settings.ai_wizard_gallery', [
+            'page'      => 'ai',
+            'templates' => $templates,
+        ]);
+    }
+
+    public function aiWizardForm(Request $request, array $params): void
+    {
+        $slug = (string) ($params['slug'] ?? '');
+        $template = \App\Models\AiAgentTemplate::findBySlug($slug);
+        if (!$template) {
+            Session::flash('error', 'Plantilla no encontrada.');
+            $this->redirect('/settings/ai/wizard');
+            return;
+        }
+        $this->view('settings.ai_wizard_form', [
+            'page'     => 'ai',
+            'template' => $template,
+        ]);
+    }
+
+    public function aiWizardCreate(Request $request, array $params): void
+    {
+        $tenantId = Tenant::id();
+        $slug = (string) ($params['slug'] ?? '');
+        $template = \App\Models\AiAgentTemplate::findBySlug($slug);
+        if (!$template) {
+            Session::flash('error', 'Plantilla no encontrada.');
+            $this->redirect('/settings/ai/wizard');
+            return;
+        }
+
+        // Recoge respuestas a las preguntas del template (form usa name="answers[key]")
+        $rawAnswers = (array) $request->input('answers', []);
+        $answers = [];
+        $missing = [];
+        foreach ((array) ($template['questions'] ?? []) as $q) {
+            $key = (string) ($q['key'] ?? '');
+            if ($key === '') continue;
+            $val = trim((string) ($rawAnswers[$key] ?? ''));
+            if ($val === '' && !empty($q['required'])) {
+                $missing[] = (string) ($q['label'] ?? $key);
+            }
+            $answers[$key] = $val;
+        }
+        if ($missing) {
+            Session::flash('error', 'Faltan respuestas: ' . implode(' · ', $missing));
+            $this->redirect('/settings/ai/wizard/' . $slug);
+            return;
+        }
+
+        $agentName = trim((string) $request->input('name', ''));
+        if ($agentName === '') {
+            $agentName = (string) $template['name'];
+        }
+
+        $payload = \App\Models\AiAgentTemplate::buildAgentPayload($template, $answers);
+        $autoReply = !empty($request->input('auto_reply_enabled')) ? 1 : 0;
+
+        AiAgent::create(array_merge(
+            ['tenant_id' => $tenantId, 'name' => $agentName],
+            $payload,
+            [
+                'auto_reply_enabled' => $autoReply,
+                'is_default'         => !empty($request->input('is_default')) ? 1 : 0,
+                'handoff_keywords'   => json_encode(['humano','agente','asesor','soporte'], JSON_UNESCAPED_UNICODE),
+                'allowed_actions'    => json_encode(['send_whatsapp','create_ticket','assign_agent','add_tag','close_sale','schedule'], JSON_UNESCAPED_UNICODE),
+                'status'             => 'active',
+                'working_hours'      => json_encode([], JSON_UNESCAPED_UNICODE),
+            ]
+        ));
+
+        if ($autoReply) {
+            Database::update('tenants', ['ai_enabled' => 1], ['id' => $tenantId]);
+        }
+
+        Session::flash('success', 'Agente "' . $agentName . '" creado desde plantilla.');
+        $this->redirect('/settings/ai');
+    }
+
     public function aiAgentStore(Request $request): void
     {
         $tenantId = Tenant::id();

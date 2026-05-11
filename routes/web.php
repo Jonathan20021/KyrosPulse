@@ -295,6 +295,10 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->get('/ai/usage',                  [\App\Controllers\AiUsageController::class, 'index']);
     $r->put('/ai/usage/budget',           [\App\Controllers\AiUsageController::class, 'updateBudget'])->middleware('csrf');
     $r->post('/settings/ai/autopilot',    [SettingsController::class, 'aiAutopilotToggle'])->middleware('csrf');
+    // Wizard de creacion de agentes (template-driven, no-tecnico)
+    $r->get ('/settings/ai/wizard',           [SettingsController::class, 'aiWizardGallery']);
+    $r->get ('/settings/ai/wizard/{slug}',    [SettingsController::class, 'aiWizardForm']);
+    $r->post('/settings/ai/wizard/{slug}',    [SettingsController::class, 'aiWizardCreate'])->middleware('csrf');
     $r->post('/settings/ai/agents',       [SettingsController::class, 'aiAgentStore'])->middleware('csrf');
     $r->put ('/settings/ai/agents/{id}',  [SettingsController::class, 'aiAgentUpdate'])->middleware('csrf');
     $r->post('/settings/ai/agents/{id}/toggle', [SettingsController::class, 'aiAgentToggle'])->middleware('csrf');
