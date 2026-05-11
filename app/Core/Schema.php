@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v21_ok';
+    private const CACHE_FILE = '/cache/.schema_v22_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -74,7 +74,10 @@ final class Schema
                     && self::tableExists($pdo, 'alert_rules')
                     && self::tableExists($pdo, 'alert_history')
                     && self::tableExists($pdo, 'ai_agent_templates')
-                    && self::hasSeededAgentTemplates($pdo);
+                    && self::hasSeededAgentTemplates($pdo)
+                    && self::columnExists($pdo, 'tenants', 'max_contacts_override')
+                    && self::columnExists($pdo, 'tenants', 'client_limit_locked')
+                    && self::columnExists($pdo, 'tenants', 'clients_count_cached');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -1249,6 +1252,29 @@ WHERE NOT EXISTS (
     SELECT 1 FROM `alert_rules` r WHERE r.`tenant_id` IS NULL AND r.`slug` = seed.slug
 )
 SQL);
+
+        // ---------------------------------------------------------------
+        // License: limites de clientes por tenant (migration 007 idempotente)
+        // ---------------------------------------------------------------
+        if (!self::columnExists($pdo, 'tenants', 'max_contacts_override')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `max_contacts_override` INT UNSIGNED NULL DEFAULT NULL AFTER `plan_id`");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'client_limit_locked')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `client_limit_locked` TINYINT(1) NOT NULL DEFAULT 1 AFTER `max_contacts_override`");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'clients_count_cached')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `clients_count_cached` INT UNSIGNED NULL DEFAULT NULL AFTER `client_limit_locked`");
+        }
+        if (!self::columnExists($pdo, 'tenants', 'client_limit_hit_at')) {
+            $pdo->exec("ALTER TABLE `tenants` ADD COLUMN `client_limit_hit_at` DATETIME NULL DEFAULT NULL AFTER `clients_count_cached`");
+        }
+        if (!self::indexExists($pdo, 'tenants', 'idx_tenants_clients_count')) {
+            try { $pdo->exec("ALTER TABLE `tenants` ADD KEY `idx_tenants_clients_count` (`clients_count_cached`)"); }
+            catch (\Throwable) { /* ya existe o no se puede crear, no es critico */ }
+        }
+        if (self::tableExists($pdo, 'plans') && !self::columnExists($pdo, 'plans', 'max_contacts')) {
+            $pdo->exec("ALTER TABLE `plans` ADD COLUMN `max_contacts` INT UNSIGNED NULL DEFAULT NULL");
+        }
 
         // ---------------------------------------------------------------
         // AI Agent Templates (migration 016) - wizard de creacion no-tecnica

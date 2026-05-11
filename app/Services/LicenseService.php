@@ -39,14 +39,30 @@ final class LicenseService
      */
     public static function clientsSnapshot(int $tenantId): array
     {
-        $row = Database::fetch(
-            "SELECT t.id, t.plan_id, t.max_contacts_override, t.client_limit_locked,
-                    t.clients_count_cached, p.max_contacts AS plan_max_contacts
-               FROM tenants t
-               LEFT JOIN plans p ON p.id = t.plan_id
-              WHERE t.id = :id",
-            ['id' => $tenantId]
-        );
+        try {
+            $row = Database::fetch(
+                "SELECT t.id, t.plan_id, t.max_contacts_override, t.client_limit_locked,
+                        t.clients_count_cached, p.max_contacts AS plan_max_contacts
+                   FROM tenants t
+                   LEFT JOIN plans p ON p.id = t.plan_id
+                  WHERE t.id = :id",
+                ['id' => $tenantId]
+            );
+        } catch (\Throwable $e) {
+            // Columnas aun no aplicadas (migration 007 + plans.max_contacts).
+            // Devolvemos un snapshot degradado para que /contacts no caiga 500.
+            return [
+                'limit'     => self::DEFAULT_FALLBACK,
+                'used'      => 0,
+                'remaining' => self::DEFAULT_FALLBACK,
+                'percent'   => 0,
+                'locked'    => false,
+                'source'    => 'default',
+                'warn'      => false,
+                'near_full' => false,
+                'full'      => false,
+            ];
+        }
 
         $override = $row['max_contacts_override'] ?? null;
         $planMax  = $row['plan_max_contacts'] ?? null;
@@ -88,14 +104,22 @@ final class LicenseService
      */
     public static function countClients(int $tenantId): int
     {
-        $cached = Database::fetchColumn(
-            "SELECT clients_count_cached FROM tenants WHERE id = :id",
-            ['id' => $tenantId]
-        );
-        if ($cached !== null && $cached !== false) {
-            return (int) $cached;
+        try {
+            $cached = Database::fetchColumn(
+                "SELECT clients_count_cached FROM tenants WHERE id = :id",
+                ['id' => $tenantId]
+            );
+            if ($cached !== null && $cached !== false) {
+                return (int) $cached;
+            }
+            return self::recountAndCache($tenantId);
+        } catch (\Throwable) {
+            // Columna no existe aun. Recuento directo sin cache.
+            return (int) Database::fetchColumn(
+                "SELECT COUNT(*) FROM contacts WHERE tenant_id = :t AND deleted_at IS NULL",
+                ['t' => $tenantId]
+            );
         }
-        return self::recountAndCache($tenantId);
     }
 
     /**
@@ -108,7 +132,11 @@ final class LicenseService
             "SELECT COUNT(*) FROM contacts WHERE tenant_id = :t AND deleted_at IS NULL",
             ['t' => $tenantId]
         );
-        Database::update('tenants', ['clients_count_cached' => $count], ['id' => $tenantId]);
+        try {
+            Database::update('tenants', ['clients_count_cached' => $count], ['id' => $tenantId]);
+        } catch (\Throwable) {
+            // Columna no existe aun; el recuento se devuelve igual.
+        }
         return $count;
     }
 
@@ -131,7 +159,11 @@ final class LicenseService
      */
     public static function markLimitHit(int $tenantId): void
     {
-        Database::update('tenants', ['client_limit_hit_at' => date('Y-m-d H:i:s')], ['id' => $tenantId]);
+        try {
+            Database::update('tenants', ['client_limit_hit_at' => date('Y-m-d H:i:s')], ['id' => $tenantId]);
+        } catch (\Throwable) {
+            // Columna no existe aun, ignoramos (no es critico).
+        }
     }
 
     /**
@@ -154,18 +186,22 @@ final class LicenseService
      */
     public static function tenantsOverview(): array
     {
-        $rows = Database::fetchAll(
-            "SELECT t.id, t.uuid, t.name, t.email, t.status, t.plan_id,
-                    t.max_contacts_override, t.client_limit_locked,
-                    t.clients_count_cached, t.client_limit_hit_at,
-                    p.name AS plan_name, p.max_contacts AS plan_max_contacts,
-                    p.price_monthly,
-                    (SELECT COUNT(*) FROM contacts c WHERE c.tenant_id = t.id AND c.deleted_at IS NULL) AS clients_real
-               FROM tenants t
-               LEFT JOIN plans p ON p.id = t.plan_id
-              WHERE t.deleted_at IS NULL
-              ORDER BY clients_real DESC, t.created_at DESC"
-        );
+        try {
+            $rows = Database::fetchAll(
+                "SELECT t.id, t.uuid, t.name, t.email, t.status, t.plan_id,
+                        t.max_contacts_override, t.client_limit_locked,
+                        t.clients_count_cached, t.client_limit_hit_at,
+                        p.name AS plan_name, p.max_contacts AS plan_max_contacts,
+                        p.price_monthly,
+                        (SELECT COUNT(*) FROM contacts c WHERE c.tenant_id = t.id AND c.deleted_at IS NULL) AS clients_real
+                   FROM tenants t
+                   LEFT JOIN plans p ON p.id = t.plan_id
+                  WHERE t.deleted_at IS NULL
+                  ORDER BY clients_real DESC, t.created_at DESC"
+            );
+        } catch (\Throwable) {
+            return [];
+        }
 
         $out = [];
         foreach ($rows as $r) {
