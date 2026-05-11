@@ -20,51 +20,52 @@ $ruleTypeIcon = [
     'workflow.failed'     => '🪄',
 ];
 ?>
-<?php \App\Core\View::include('components.page_header', [
+<?php \App\Core\View::include('settings._tabs', ['tab' => 'alerts']); ?>
+
+<?php \App\Core\View::include('settings._partials.header', [
+    'crumb'    => 'Plataforma',
     'title'    => 'Alertas inteligentes',
     'subtitle' => 'Te avisamos cuando algo importante pasa: cuota API, webhooks muertos, errores de IA, eventos de seguridad. Reusa tus notification destinations.',
 ]); ?>
-<?php \App\Core\View::include('settings._tabs', ['tab' => 'alerts']); ?>
 
 <?php if ($flash = flash('success')): ?>
-<div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.3); color:#0B7C56;"><?= e((string) $flash) ?></div>
+<div class="set-flash set-flash-success"><span>✓</span><?= e((string) $flash) ?></div>
 <?php endif; ?>
 <?php if ($flashErr = flash('error')): ?>
-<div class="mb-4 p-3 rounded-xl border text-sm" style="background: rgba(244,63,94,.08); border-color: rgba(244,63,94,.3); color:#BE123C;"><?= e((string) $flashErr) ?></div>
+<div class="set-flash set-flash-error"><span>⚠</span><?= e((string) $flashErr) ?></div>
 <?php endif; ?>
 
-<!-- Destinations check -->
 <?php if ($destCount === 0): ?>
-<div class="surface p-4 mb-5" style="background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);">
-    <div class="flex items-start gap-3">
-        <span class="text-2xl flex-shrink-0">⚠</span>
-        <div class="flex-1">
-            <div class="font-semibold mb-0.5" style="color: var(--color-text-primary);">No tienes destinations configurados</div>
-            <p class="text-sm" style="color: var(--color-text-secondary);">Las alertas se registran en el history pero <strong>no llegan a ningun lado</strong>. Configura email, Slack, Discord o Telegram para recibirlas.</p>
-        </div>
-        <a href="<?= url('/settings/notifications?prefill=email') ?>" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-white flex-shrink-0" style="background: linear-gradient(135deg,#F59E0B,#EF4444);">Configurar →</a>
+<div class="set-notice set-notice-warning">
+    <div class="set-notice-icon">⚠</div>
+    <div class="set-notice-body">
+        <div class="set-notice-title">No tienes destinations configurados</div>
+        <p class="set-notice-desc">Las alertas se registran en el history pero <strong>no llegan a ningun lado</strong>. Configura email, Slack, Discord o Telegram para recibirlas.</p>
     </div>
+    <a href="<?= url('/settings/notifications?prefill=email') ?>" class="set-btn set-btn-primary set-btn-sm">Configurar →</a>
 </div>
 <?php else: ?>
-<div class="surface p-3 mb-5" style="background: rgba(16,185,129,.05); border-color: rgba(16,185,129,.2);">
-    <div class="flex items-center gap-2 text-sm" style="color: var(--color-text-secondary);">
-        <span>✓</span>
-        <span><?= $destCount ?> destination(s) recibiran las alertas activas.</span>
-        <a href="<?= url('/settings/notifications') ?>" class="ml-auto text-xs underline" style="color: var(--color-text-primary);">Gestionar destinations</a>
+<div class="set-notice set-notice-success">
+    <div class="set-notice-icon">✓</div>
+    <div class="set-notice-body">
+        <p class="set-notice-desc"><?= $destCount ?> destination(s) recibiran las alertas activas.</p>
     </div>
+    <a href="<?= url('/settings/notifications') ?>" class="set-link">Gestionar destinations</a>
 </div>
 <?php endif; ?>
 
-<!-- Reglas -->
-<div class="surface mb-5 overflow-hidden">
-    <div class="px-5 py-3.5 border-b flex items-center justify-between" style="border-color: var(--color-border);">
-        <h3 class="font-bold" style="color: var(--color-text-primary);">Reglas configuradas <span class="ml-2 text-xs font-normal" style="color: var(--color-text-tertiary);">(<?= count($rules) ?>)</span></h3>
-        <form action="<?= url('/settings/alerts/test') ?>" method="POST" class="inline">
+<section class="set-section">
+    <div class="set-section-head">
+        <div>
+            <h2 class="set-section-title"><span>🔔</span> Reglas configuradas <span class="set-count">(<?= count($rules) ?>)</span></h2>
+        </div>
+        <form action="<?= url('/settings/alerts/test') ?>" method="POST" style="display:inline;">
             <?= csrf_field() ?>
-            <button class="text-xs px-3 py-1.5 rounded-lg border" style="border-color: var(--color-border); color: var(--color-text-primary);">Probar alerta de cuota</button>
+            <button class="set-btn set-btn-ghost set-btn-sm">Probar alerta de cuota</button>
         </form>
     </div>
-    <ul class="divide-y" style="border-color: var(--color-border);">
+
+    <ul class="set-rule-list">
         <?php foreach ($rules as $r):
             $isActive = !empty($r['is_active']);
             $sev = (string) ($r['severity'] ?? 'warning');
@@ -75,82 +76,83 @@ $ruleTypeIcon = [
             $lastTrig = $r['last_triggered_at'] ?? null;
             $triggerCount = (int) ($r['trigger_count'] ?? 0);
         ?>
-        <li class="px-5 py-4 <?= $isActive ? '' : 'opacity-60' ?>">
-            <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style="background: <?= $sevCol ?>22; color: <?= $sevCol ?>;">
-                    <?= $icon ?>
+        <li class="set-rule-item <?= $isActive ? '' : 'is-paused' ?>">
+            <div class="set-rule-icon" style="background: <?= $sevCol ?>22; color: <?= $sevCol ?>;"><?= $icon ?></div>
+            <div class="set-rule-body">
+                <div class="set-rule-head">
+                    <span class="set-rule-name"><?= e((string) $r['name']) ?></span>
+                    <span class="set-badge" style="background: <?= $sevCol ?>22; color: <?= $sevCol ?>;"><?= e($sev) ?></span>
+                    <code class="set-badge set-badge-mono"><?= e((string) $r['slug']) ?></code>
+                    <?php if ($isBuiltin): ?>
+                    <span class="set-badge" style="background: rgba(99,102,241,.12); color:#6366F1;">Builtin</span>
+                    <?php else: ?>
+                    <span class="set-badge" style="background: rgba(16,185,129,.1); color:#059669;">Custom</span>
+                    <?php endif; ?>
+                    <?php if (!$isActive): ?>
+                    <span class="set-badge" style="background: rgba(148,163,184,.15); color:#475569;">Pausada</span>
+                    <?php endif; ?>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap mb-0.5">
-                        <span class="font-semibold" style="color: var(--color-text-primary);"><?= e((string) $r['name']) ?></span>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase" style="background: <?= $sevCol ?>22; color: <?= $sevCol ?>;"><?= e($sev) ?></span>
-                        <code class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-bg-secondary); color: var(--color-text-secondary);"><?= e((string) $r['slug']) ?></code>
-                        <?php if ($isBuiltin): ?>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold" style="background: rgba(99,102,241,.12); color:#6366F1;">Builtin</span>
-                        <?php else: ?>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold" style="background: rgba(16,185,129,.1); color:#059669;">Customizada</span>
-                        <?php endif; ?>
-                        <?php if (!$isActive): ?>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold" style="background: rgba(148,163,184,.15); color:#475569;">Pausada</span>
-                        <?php endif; ?>
-                    </div>
-                    <p class="text-sm" style="color: var(--color-text-secondary);"><?= e((string) ($r['description'] ?? '')) ?></p>
-                    <div class="text-[11px] mt-1.5 flex items-center gap-3 flex-wrap" style="color: var(--color-text-tertiary);">
-                        <span>Cooldown: <strong><?= (int) ($r['cooldown_minutes'] ?? 60) ?> min</strong></span>
-                        <span>·</span>
-                        <span>Disparos: <strong><?= $triggerCount ?></strong></span>
-                        <?php if ($lastTrig): ?>
-                        <span>·</span>
-                        <span>Ultima: <?= e((string) $lastTrig) ?></span>
-                        <?php endif; ?>
-                    </div>
+                <p class="set-rule-desc"><?= e((string) ($r['description'] ?? '')) ?></p>
+                <div class="set-rule-meta">
+                    <span>Cooldown: <strong><?= (int) ($r['cooldown_minutes'] ?? 60) ?> min</strong></span>
+                    <span class="set-sep">·</span>
+                    <span>Disparos: <strong><?= $triggerCount ?></strong></span>
+                    <?php if ($lastTrig): ?>
+                    <span class="set-sep">·</span>
+                    <span>Ultima: <?= e((string) $lastTrig) ?></span>
+                    <?php endif; ?>
                 </div>
-                <div class="flex-shrink-0 flex items-start gap-1.5">
-                    <form action="<?= url('/settings/alerts/' . e((string) $r['slug']) . '/cooldown') ?>" method="POST" class="flex items-center gap-1.5">
-                        <?= csrf_field() ?>
-                        <input type="number" name="minutes" value="<?= (int) ($r['cooldown_minutes'] ?? 60) ?>" min="5" max="10080" class="w-16 px-2 py-1 rounded text-xs" style="background: var(--color-bg-secondary); border:1px solid var(--color-border); color: var(--color-text-primary);">
-                        <button class="px-2 py-1 rounded text-xs font-semibold" style="background: var(--color-bg-secondary); color: var(--color-text-primary);" title="Guardar cooldown">↑</button>
-                    </form>
-                    <form action="<?= url('/settings/alerts/' . e((string) $r['slug']) . '/toggle') ?>" method="POST" class="inline">
-                        <?= csrf_field() ?>
-                        <?php if ($isActive): ?>
-                        <button class="px-2.5 py-1 rounded text-xs font-semibold" style="background: var(--color-bg-secondary); color: var(--color-text-primary);">⏸ Pausar</button>
-                        <?php else: ?>
-                        <input type="hidden" name="active" value="1">
-                        <button class="px-2.5 py-1 rounded text-xs font-semibold text-white" style="background: linear-gradient(135deg,#10B981,#0EA572);">▶ Activar</button>
-                        <?php endif; ?>
-                    </form>
-                </div>
+            </div>
+            <div class="set-rule-actions">
+                <form action="<?= url('/settings/alerts/' . e((string) $r['slug']) . '/cooldown') ?>" method="POST" class="set-inline-form">
+                    <?= csrf_field() ?>
+                    <input type="number" name="minutes" value="<?= (int) ($r['cooldown_minutes'] ?? 60) ?>" min="5" max="10080" class="set-input set-input-xs">
+                    <button class="set-btn set-btn-ghost set-btn-sm" title="Guardar cooldown">↑</button>
+                </form>
+                <form action="<?= url('/settings/alerts/' . e((string) $r['slug']) . '/toggle') ?>" method="POST" style="display:inline;">
+                    <?= csrf_field() ?>
+                    <?php if ($isActive): ?>
+                    <button class="set-btn set-btn-ghost set-btn-sm">⏸ Pausar</button>
+                    <?php else: ?>
+                    <input type="hidden" name="active" value="1">
+                    <button class="set-btn set-btn-success set-btn-sm">▶ Activar</button>
+                    <?php endif; ?>
+                </form>
             </div>
         </li>
         <?php endforeach; ?>
     </ul>
-</div>
+</section>
 
-<!-- Historial -->
-<div class="surface overflow-hidden">
-    <div class="px-5 py-3.5 border-b" style="border-color: var(--color-border);">
-        <h3 class="font-bold" style="color: var(--color-text-primary);">Historial reciente <span class="ml-2 text-xs font-normal" style="color: var(--color-text-tertiary);">(<?= count($history) ?>)</span></h3>
-        <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">Cada alerta disparada queda registrada aqui, incluso si no hay destinations para recibirla.</p>
+<section class="set-section">
+    <div class="set-section-head">
+        <div>
+            <h2 class="set-section-title"><span>📜</span> Historial reciente <span class="set-count">(<?= count($history) ?>)</span></h2>
+            <p class="set-section-desc">Cada alerta disparada queda registrada aqui, incluso si no hay destinations para recibirla.</p>
+        </div>
     </div>
+
     <?php if (empty($history)): ?>
-    <div class="p-6 text-center text-sm" style="color: var(--color-text-secondary);">Sin alertas disparadas aun.</div>
+    <div class="set-empty">
+        <div class="set-empty-icon">📭</div>
+        <p class="set-empty-text">Sin alertas disparadas aun.</p>
+    </div>
     <?php else: ?>
-    <ul class="divide-y" style="border-color: var(--color-border);">
+    <ul class="set-history-list">
         <?php foreach ($history as $h):
             $sev = (string) ($h['severity'] ?? 'warning');
             $sevCol = $severityColor[$sev] ?? '#64748B';
             $deliv = (int) ($h['delivered_count'] ?? 0);
             $dest = (int) ($h['destinations_count'] ?? 0);
         ?>
-        <li class="px-5 py-3 flex items-start gap-3">
-            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style="background: <?= $sevCol ?>;"></div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-semibold text-sm" style="color: var(--color-text-primary);"><?= e(mb_substr((string) $h['title'], 0, 100)) ?></span>
-                    <code class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--color-bg-secondary); color: var(--color-text-tertiary);"><?= e((string) $h['rule_slug']) ?></code>
+        <li class="set-history-item">
+            <span class="set-history-dot" style="background: <?= $sevCol ?>;"></span>
+            <div class="set-history-body">
+                <div class="set-history-head">
+                    <span class="set-history-title"><?= e(mb_substr((string) $h['title'], 0, 100)) ?></span>
+                    <code class="set-badge set-badge-mono"><?= e((string) $h['rule_slug']) ?></code>
                 </div>
-                <div class="text-[11px] mt-0.5" style="color: var(--color-text-tertiary);">
+                <div class="set-history-meta">
                     <?= e((string) $h['created_at']) ?>
                     · entregada a <strong><?= $deliv ?></strong> de <?= $dest ?> destination<?= $dest === 1 ? '' : 's' ?>
                 </div>
@@ -159,5 +161,7 @@ $ruleTypeIcon = [
         <?php endforeach; ?>
     </ul>
     <?php endif; ?>
-</div>
-<?php \App\Core\View::end(); ?>
+</section>
+
+<?php \App\Core\View::include('settings._tabs_end'); ?>
+<?php \App\Core\View::stop(); ?>

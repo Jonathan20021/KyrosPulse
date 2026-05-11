@@ -1,31 +1,92 @@
 <?php
-/** @var string $tab */
-$tabs = [
-    'general'        => ['Empresa',         '/settings',                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>'],
-    'channels'       => ['Canales WhatsApp', '/settings/channels',      '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>'],
-    'restaurant'     => ['Restaurante',       '/settings/restaurant',     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h18l-2 9H5L3 3zm2 9v8a2 2 0 002 2h10a2 2 0 002-2v-8M9 3v9m6-9v9"/>'],
-    'routing'        => ['Routing IA',       '/settings/routing',        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 10h10m-10 4h16M4 18h10M18 14l4 4-4 4"/>'],
-    'notifications'  => ['Notificaciones',   '/settings/notifications',  '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>'],
-    'integrations'   => ['Integraciones',   '/settings/integrations',   '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"/>'],
-    'integrations_core' => ['Wasapi & IA',  '/settings/integrations/core', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>'],
-    'ai'             => ['IA',              '/settings/ai',             '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>'],
-    'users'          => ['Usuarios',        '/settings/users',          '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>'],
-    'quick_replies'  => ['Respuestas',      '/settings/quick-replies',  '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"/>'],
-    'security'       => ['Seguridad',       '/settings/security',       '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>'],
-    'alerts'         => ['Alertas',         '/settings/alerts',         '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>'],
-    'api'            => ['API keys',        '/settings/api-keys',       '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>'],
-    'webhooks'       => ['Webhooks',        '/settings/webhooks',       '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'],
-    'profile'        => ['Mi perfil',       '/settings/profile',        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>'],
+/**
+ * Settings shell START — abre el layout con sidebar lateral y comienza el
+ * area de contenido. Las subpaginas DEBEN cerrar con _tabs_end.php antes
+ * de View::stop().
+ *
+ * Diseno: sidebar agrupado por categoria (Workspace / Canales / Inteligencia /
+ * Restaurante / Plataforma), responsive (en mobile colapsa).
+ *
+ * @var string $tab  slug de la subpagina activa
+ */
+$tab = $tab ?? 'general';
+$tenant = \App\Core\Tenant::current() ?? [];
+$isRestaurant = !empty($tenant['is_restaurant']);
+
+$groups = [
+    [
+        'label' => 'Workspace',
+        'items' => [
+            ['general',  'Empresa',          '/settings',           '🏢'],
+            ['users',    'Usuarios y roles', '/settings/users',     '👥'],
+            ['profile',  'Mi perfil',        '/settings/profile',   '👤'],
+        ],
+    ],
+    [
+        'label' => 'Canales',
+        'items' => [
+            ['channels',          'WhatsApp',       '/settings/channels',          '💬'],
+            ['integrations_core', 'Wasapi & IA',    '/settings/integrations/core', '🔌'],
+            ['integrations',      'Integraciones',  '/settings/integrations',      '🧩'],
+            ['routing',           'Routing IA',     '/settings/routing',           '🧭'],
+            ['notifications',     'Notificaciones', '/settings/notifications',     '🔔'],
+        ],
+    ],
+    [
+        'label' => 'Inteligencia',
+        'items' => [
+            ['ai',            'Agentes IA',  '/settings/ai',           '🧠'],
+            ['quick_replies', 'Respuestas',  '/settings/quick-replies','⚡'],
+        ],
+    ],
+    [
+        'label' => 'Restaurante',
+        'restaurant_only' => true,
+        'items' => [
+            ['restaurant', 'Operacion', '/settings/restaurant', '🍽'],
+        ],
+    ],
+    [
+        'label' => 'Plataforma',
+        'items' => [
+            ['security', 'Seguridad', '/settings/security', '🔐'],
+            ['api',      'API keys',  '/settings/api-keys', '🔑'],
+            ['webhooks', 'Webhooks',  '/settings/webhooks', '🪝'],
+            ['alerts',   'Alertas',   '/settings/alerts',   '🚨'],
+        ],
+    ],
 ];
 ?>
-<div class="surface p-1 mb-6 inline-flex items-center gap-0.5 overflow-x-auto scrollbar-thin">
-    <?php foreach ($tabs as $key => [$label, $path, $icon]):
-        $active = $key === ($tab ?? 'general');
-    ?>
-    <a href="<?= url($path) ?>" class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition whitespace-nowrap <?= $active ? 'font-semibold' : '' ?>"
-       style="<?= $active ? 'background: var(--color-bg-active); color: var(--color-text-primary);' : 'color: var(--color-text-secondary);' ?>">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><?= $icon ?></svg>
-        <?= e($label) ?>
-    </a>
-    <?php endforeach; ?>
-</div>
+<div x-data="{ navOpen: false }" class="set-shell">
+    <!-- Mobile toggle (solo visible <1024px) -->
+    <button type="button"
+            class="set-mobile-toggle"
+            @click="navOpen = !navOpen"
+            :aria-expanded="navOpen"
+            style="grid-column: 1 / -1;">
+        <span>📂</span>
+        <span>Menu de configuracion</span>
+        <svg class="chev w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+
+    <!-- Sidebar -->
+    <aside class="set-side" :data-collapsed="!navOpen" data-collapsed="true">
+        <?php foreach ($groups as $group):
+            if (!empty($group['restaurant_only']) && !$isRestaurant) continue;
+        ?>
+        <div class="set-side-group">
+            <div class="set-side-group-label"><?= e((string) $group['label']) ?></div>
+            <?php foreach ($group['items'] as [$slug, $label, $path, $icon]):
+                $isActive = $tab === $slug;
+            ?>
+            <a href="<?= url($path) ?>" class="set-side-item<?= $isActive ? ' is-active' : '' ?>">
+                <span class="ico"><?= $icon ?></span>
+                <span class="label"><?= e($label) ?></span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <?php endforeach; ?>
+    </aside>
+
+    <!-- Content area abierta — se cierra en settings/_tabs_end.php -->
+    <main class="set-content">
