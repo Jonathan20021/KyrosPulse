@@ -138,7 +138,7 @@ $prefillLabels = [
                     </div>
                     <div>
                         <label class="set-label">Username del bot</label>
-                        <input type="text" name="username" :value="editing?.config?.username || 'Kyros Pulse'" placeholder="Kyros Pulse" class="set-input">
+                        <input type="text" name="username" :value="editing?.config?.username || 'Evallish Pulse'" placeholder="Evallish Pulse" class="set-input">
                     </div>
                 </div>
                 </template>

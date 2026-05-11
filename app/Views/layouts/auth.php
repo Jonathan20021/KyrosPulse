@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso · <?= e((string) config('app.name', 'Kyros Pulse')) ?></title>
+    <title>Acceso · <?= e((string) config('app.name', 'Evallish Pulse')) ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,10 +36,10 @@
     <div class="flex flex-col px-6 sm:px-10 lg:px-12 py-8 lg:py-10 relative">
         <header class="flex items-center justify-between mb-10">
             <a href="<?= url('/') ?>" class="inline-flex items-center gap-2.5 group">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/40 group-hover:scale-110 transition" style="background: linear-gradient(135deg,#10B981,#0EA572);">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-white p-1 group-hover:scale-110 transition" style="box-shadow: 0 8px 24px rgba(37,99,235,0.35);">
+                    <img src="<?= asset('css/logo.png') ?>" alt="Evallish Pulse" class="w-full h-full object-contain">
                 </div>
-                <span class="font-bold text-white tracking-tight"><?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
+                <span class="font-bold text-white tracking-tight text-lg"><?= e((string) config('app.name', 'Evallish Pulse')) ?></span>
             </a>
             <a href="<?= url('/') ?>" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1 group">
                 <svg class="w-4 h-4 group-hover:-translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
@@ -54,7 +54,7 @@
         </div>
 
         <footer class="mt-10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <span>&copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
+            <span>&copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Evallish Pulse')) ?></span>
             <div class="flex items-center gap-4">
                 <a href="#" class="hover:text-slate-300 transition">Privacidad</a>
                 <a href="#" class="hover:text-slate-300 transition">Terminos</a>
@@ -94,7 +94,7 @@
                         <span class="browser-dot bg-rose-500/70"></span>
                         <span class="browser-dot bg-amber-500/70"></span>
                         <span class="browser-dot bg-emerald-500/70"></span>
-                        <div class="ml-3 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-slate-500 font-mono">app.kyrospulse.com/inbox</div>
+                        <div class="ml-3 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-slate-500 font-mono">app.evallishpulse.com/inbox</div>
                     </div>
                     <div class="bg-[#0B1220] p-4 space-y-3">
                         <!-- Channels switcher -->

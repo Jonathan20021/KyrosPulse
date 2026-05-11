@@ -2,7 +2,7 @@
 $user = auth() ?? [];
 $page = $page ?? 'admin';
 $current = $_SERVER['REQUEST_URI'] ?? '';
-$brand   = (string) (\App\Models\SaasSetting::get('brand_name', config('app.name', 'Kyros Pulse')));
+$brand   = (string) (\App\Models\SaasSetting::get('brand_name', config('app.name', 'Evallish Pulse')));
 
 $navSections = [
     [
@@ -86,8 +86,8 @@ $navSections = [
            class="hidden lg:flex flex-col border-r border-white/5 bg-[#070D17]/85 backdrop-blur-xl sticky top-0 h-screen transition-all duration-200">
         <div class="p-4 flex items-center justify-between gap-2 border-b border-white/5">
             <a href="<?= url('/admin') ?>" class="flex items-center gap-2 min-w-0">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/40" style="background: linear-gradient(135deg,#10B981,#0EA572);">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white p-1" style="box-shadow: 0 6px 20px rgba(37,99,235,0.35);">
+                    <img src="<?= asset('css/logo.png') ?>" alt="<?= e($brand) ?>" class="w-full h-full object-contain">
                 </div>
                 <div x-show="!sidebarCollapsed" x-cloak class="min-w-0">
                     <div class="font-bold text-white text-sm leading-tight truncate"><?= e($brand) ?></div>

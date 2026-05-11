@@ -182,10 +182,29 @@ final class AuthController extends Controller
     {
         $userId = Auth::id();
         $tenantId = Auth::tenantId();
-        SecurityService::markSessionRevokedByHash(session_id());
-        SecurityService::logEvent('logout', $userId, $tenantId, 'info');
+        try { SecurityService::markSessionRevokedByHash(session_id()); } catch (\Throwable) {}
+        try { SecurityService::logEvent('logout', $userId, $tenantId, 'info'); } catch (\Throwable) {}
         Auth::logout();
         Session::flash('success', 'Sesion cerrada correctamente.');
+        $this->redirect('/login');
+    }
+
+    /**
+     * GET /logout — convenience cuando el usuario pega la URL en el navegador.
+     * Cierra sesion (si la habia) sin pedir CSRF (GET no acepta tokens en form)
+     * y redirige a /login. Evita 500/404 cuando alguien intenta salir tipeando
+     * la URL.
+     */
+    public function logoutGet(Request $request): void
+    {
+        if (Auth::check()) {
+            $userId   = Auth::id();
+            $tenantId = Auth::tenantId();
+            try { SecurityService::markSessionRevokedByHash(session_id()); } catch (\Throwable) {}
+            try { SecurityService::logEvent('logout', $userId, $tenantId, 'info', ['via' => 'GET']); } catch (\Throwable) {}
+            Auth::logout();
+            Session::flash('success', 'Sesion cerrada correctamente.');
+        }
         $this->redirect('/login');
     }
 
@@ -366,7 +385,7 @@ final class AuthController extends Controller
         User::markEmailVerified((int) $row['user_id']);
         Database::run("UPDATE email_verifications SET verified_at = NOW() WHERE id = :id", ['id' => $row['id']]);
 
-        Session::flash('success', 'Correo verificado. Bienvenido a Kyros Pulse.');
+        Session::flash('success', 'Correo verificado. Bienvenido a Evallish Pulse.');
         $this->redirect(Auth::check() ? '/dashboard' : '/login');
     }
 

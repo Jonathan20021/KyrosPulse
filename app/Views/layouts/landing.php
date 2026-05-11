@@ -1,21 +1,76 @@
-<?php /** @var array $data */ ?>
+<?php
+/** @var array $data */
+$brandName     = (string) config('app.name', 'Evallish Pulse');
+$pageTitle     = $brandName . ' — Contact center con WhatsApp e IA en una sola bandeja';
+$pageDesc      = 'Evallish Pulse: bandeja omnicanal, WhatsApp multiagente, agentes IA, CRM, automatizaciones y reportes en una sola plataforma. Prueba la demo 24 horas sin tarjeta.';
+$pageUrl       = url('/');
+// OG/Twitter quieren URLs absolutas y predecibles (sin cache-busting ?v=)
+// porque las imagenes se cachean del lado del crawler.
+$ogImage       = url('/assets/css/og-card.png');
+$ogImageLogo   = url('/assets/css/logo.png');
+?>
 <!DOCTYPE html>
 <html lang="es" class="dark scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title><?= e((string) config('app.name', 'Evallish Pulse')) ?> — Contact center con WhatsApp e IA en una sola bandeja</title>
-    <meta name="description" content="Evallish Pulse: bandeja omnicanal, WhatsApp multiagente, agentes IA, CRM, automatizaciones y reportes en una sola plataforma. Prueba la demo 24 horas sin tarjeta.">
+    <title><?= e($pageTitle) ?></title>
+    <meta name="description" content="<?= e($pageDesc) ?>">
+    <meta name="keywords" content="contact center, WhatsApp Business, WhatsApp Cloud API, CRM, agentes IA, automatizaciones, SaaS, multi-canal, bandeja unificada, customer support">
+    <meta name="author" content="<?= e($brandName) ?>">
+    <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="theme-color" content="#0B1B3F">
+    <link rel="canonical" href="<?= e($pageUrl) ?>">
 
     <link rel="icon" type="image/png" href="<?= asset('css/logo.png') ?>">
     <link rel="apple-touch-icon" href="<?= asset('css/logo.png') ?>">
 
-    <meta property="og:title" content="<?= e((string) config('app.name')) ?> — Contact Center · WhatsApp · IA">
-    <meta property="og:description" content="La plataforma todo-en-uno para gestionar clientes, ventas y conversaciones con inteligencia artificial.">
-    <meta property="og:image" content="<?= asset('css/logo.png') ?>">
-    <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary_large_image">
+    <!-- Open Graph (WhatsApp, Facebook, LinkedIn, Slack, Discord) -->
+    <meta property="og:site_name"      content="<?= e($brandName) ?>">
+    <meta property="og:title"          content="<?= e($brandName) ?> — Contact Center · WhatsApp · IA">
+    <meta property="og:description"    content="<?= e($pageDesc) ?>">
+    <meta property="og:url"            content="<?= e($pageUrl) ?>">
+    <meta property="og:type"           content="website">
+    <meta property="og:locale"         content="es_DO">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="es_MX">
+    <meta property="og:image"          content="<?= e($ogImage) ?>">
+    <meta property="og:image:secure_url" content="<?= e($ogImage) ?>">
+    <meta property="og:image:type"     content="image/png">
+    <meta property="og:image:width"    content="1200">
+    <meta property="og:image:height"   content="630">
+    <meta property="og:image:alt"      content="<?= e($brandName) ?> · Contact center con WhatsApp e IA">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card"          content="summary_large_image">
+    <meta name="twitter:title"         content="<?= e($brandName) ?> — Contact Center · WhatsApp · IA">
+    <meta name="twitter:description"   content="<?= e($pageDesc) ?>">
+    <meta name="twitter:image"         content="<?= e($ogImage) ?>">
+    <meta name="twitter:image:alt"     content="<?= e($brandName) ?> · Contact center con WhatsApp e IA">
+
+    <!-- Structured data (Google rich results) -->
+    <script type="application/ld+json"><?= json_encode([
+        '@context'      => 'https://schema.org',
+        '@type'         => 'SoftwareApplication',
+        'name'          => $brandName,
+        'description'   => $pageDesc,
+        'url'           => $pageUrl,
+        'image'         => $ogImage,
+        'logo'          => $ogImageLogo,
+        'applicationCategory' => 'BusinessApplication',
+        'operatingSystem'     => 'Web',
+        'offers' => [
+            '@type'         => 'Offer',
+            'price'         => '0',
+            'priceCurrency' => 'USD',
+            'description'   => 'Demo gratuita 24 horas sin tarjeta de credito.',
+        ],
+        'publisher' => [
+            '@type' => 'Organization',
+            'name'  => $brandName,
+            'logo'  => ['@type' => 'ImageObject', 'url' => $ogImageLogo],
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

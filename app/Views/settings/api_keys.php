@@ -18,7 +18,7 @@ $baseUrl = url('/api/v1');
 <?php \App\Core\View::include('settings._partials.header', [
     'crumb'    => 'Plataforma',
     'title'    => 'API & Webhooks',
-    'subtitle' => 'Genera API keys para integrar Kyros Pulse con tus sistemas. Ejecuta agentes IA, gestiona contactos y ordenes, envia mensajes WhatsApp por codigo.',
+    'subtitle' => 'Genera API keys para integrar Evallish Pulse con tus sistemas. Ejecuta agentes IA, gestiona contactos y ordenes, envia mensajes WhatsApp por codigo.',
 ]); ?>
 
 <?php if ($flash = flash('success')): ?>

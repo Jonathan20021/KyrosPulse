@@ -73,7 +73,7 @@ final class NotificationDispatcher
         $remaining  = max(0.0, $usdBudget - $usdUsed);
 
         $title    = sprintf('⚠️ Presupuesto IA al %d%% — %s', $pct, $brand);
-        $subject  = sprintf('[Kyros Pulse] Alerta presupuesto IA · %s al %d%%', $brand, $pct);
+        $subject  = sprintf('[Evallish Pulse] Alerta presupuesto IA · %s al %d%%', $brand, $pct);
         $textBody = sprintf(
             "Tu uso de IA en este periodo cruzo el umbral del %d%%.\n\n"
           . "• Gastado: $%s de $%s\n"
@@ -128,10 +128,10 @@ final class NotificationDispatcher
     public function testDestination(array $destination): array
     {
         $payload = [
-            'subject' => '[Prueba] Notificacion de Kyros Pulse',
+            'subject' => '[Prueba] Notificacion de Evallish Pulse',
             'title'   => '✅ Conexion correcta',
-            'text'    => 'Este es un mensaje de prueba enviado desde Kyros Pulse. Si lo ves, la integracion funciona.',
-            'html'    => '<p>Este es un mensaje de prueba enviado desde <strong>Kyros Pulse</strong>. Si lo ves, la integracion funciona.</p>',
+            'text'    => 'Este es un mensaje de prueba enviado desde Evallish Pulse. Si lo ves, la integracion funciona.',
+            'html'    => '<p>Este es un mensaje de prueba enviado desde <strong>Evallish Pulse</strong>. Si lo ves, la integracion funciona.</p>',
             'fields'  => [
                 ['label' => 'Tenant',    'value' => (string) $this->tenantId],
                 ['label' => 'Tipo',      'value' => (string) $destination['type']],
@@ -299,7 +299,7 @@ final class NotificationDispatcher
         $deliveryTypeLb = $deliveryTypeLabels[$deliveryType] ?? ucfirst($deliveryType);
 
         $appUrl  = $baseUrl !== '' ? $baseUrl : 'https://pulse.kyrosrd.com';
-        $brandName = htmlspecialchars((string) (\App\Core\Config::get('app.name', 'Kyros Pulse')), ENT_QUOTES);
+        $brandName = htmlspecialchars((string) (\App\Core\Config::get('app.name', 'Evallish Pulse')), ENT_QUOTES);
         $year = date('Y');
 
         // Email HTML — table-based, mobile-first, compatible Outlook/Gmail/Apple
@@ -426,7 +426,7 @@ HTML;
               &nbsp;·&nbsp;
               <a href="{$baseUrl}" style="color:#0EA572;text-decoration:none">Ir al panel</a>
             </p>
-            <p style="margin:14px 0 0;font-size:11px;color:#98A2B3">© {$year} {$brandName} · Powered by Kyros Pulse</p>
+            <p style="margin:14px 0 0;font-size:11px;color:#98A2B3">© {$year} {$brandName} · Powered by Evallish Pulse</p>
           </td>
         </tr>
 
@@ -526,7 +526,7 @@ HTML;
         }
         $blocks[] = [
             'type' => 'context',
-            'elements' => [['type' => 'mrkdwn', 'text' => '⚡ Kyros Pulse · ' . date('d M Y H:i')]],
+            'elements' => [['type' => 'mrkdwn', 'text' => '⚡ Evallish Pulse · ' . date('d M Y H:i')]],
         ];
 
         return $this->postJson($url, [
@@ -551,7 +551,7 @@ HTML;
             'description' => mb_substr((string) $p['text'], 0, 2000),
             'color'       => 0x0EA572,
             'fields'      => $fields,
-            'footer'      => ['text' => 'Kyros Pulse · ' . date('Y-m-d H:i')],
+            'footer'      => ['text' => 'Evallish Pulse · ' . date('Y-m-d H:i')],
             'timestamp'   => date('c'),
         ];
         if (!empty($p['order_url'])) {
@@ -560,7 +560,7 @@ HTML;
             $embed['description'] .= "\n\n**[Ver orden completa →](" . $p['order_url'] . ')**';
         }
         return $this->postJson($url, [
-            'username' => $config['username'] ?? 'Kyros Pulse',
+            'username' => $config['username'] ?? 'Evallish Pulse',
             'embeds'   => [$embed],
         ]);
     }
@@ -583,7 +583,7 @@ HTML;
             'summary'    => mb_substr((string) $p['title'], 0, 100),
             'title'      => mb_substr((string) $p['title'], 0, 200),
             'sections'   => [[
-                'activityTitle' => 'Kyros Pulse',
+                'activityTitle' => 'Evallish Pulse',
                 'activitySubtitle' => date('d M Y H:i'),
                 'text' => mb_substr((string) $p['text'], 0, 3000),
                 'facts' => $facts,

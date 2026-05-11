@@ -13,7 +13,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenido · <?= e((string) config('app.name', 'Kyros Pulse')) ?></title>
+    <title>Bienvenido · <?= e((string) config('app.name', 'Evallish Pulse')) ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,10 +58,10 @@
     <!-- Header con logo + skip -->
     <header class="flex items-center justify-between px-6 sm:px-10 py-5">
         <a href="<?= url('/dashboard') ?>" class="inline-flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg,#8B5CF6,#06B6D4);">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-white p-1" style="box-shadow: 0 8px 24px rgba(37,99,235,0.35);">
+                <img src="<?= asset('css/logo.png') ?>" alt="Evallish Pulse" class="w-full h-full object-contain">
             </div>
-            <span class="font-bold text-white tracking-tight"><?= e((string) config('app.name', 'Kyros Pulse')) ?></span>
+            <span class="font-bold text-white tracking-tight text-lg"><?= e((string) config('app.name', 'Evallish Pulse')) ?></span>
         </a>
         <form action="<?= url('/onboarding/skip-all') ?>" method="POST" class="inline" onsubmit="return confirm('Saltarse el setup? Puedes retomarlo despues desde el banner del dashboard.')">
             <?= csrf_field() ?>
@@ -110,7 +110,7 @@
     </main>
 
     <footer class="px-6 sm:px-10 py-5 text-center text-[10px] text-slate-600">
-        &copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Kyros Pulse')) ?> · Setup inicial
+        &copy; <?= date('Y') ?> <?= e((string) config('app.name', 'Evallish Pulse')) ?> · Setup inicial
     </footer>
 </div>
 

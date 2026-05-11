@@ -67,7 +67,10 @@ $router->get('/email/verify-notice', [AuthController::class, 'showVerifyNotice']
 $router->post('/email/verify-resend', [AuthController::class, 'resendVerification'])->middleware(['auth', 'csrf']);
 
 // ------------------- Logout -------------------
+// POST: forma "correcta" con CSRF (usado por los botones del sidebar).
+// GET: convenience cuando alguien pega la URL — cierra sesion y redirige a /login.
 $router->post('/logout', [AuthController::class, 'logout'])->middleware(['auth', 'csrf']);
+$router->get ('/logout', [AuthController::class, 'logoutGet']);
 
 // ------------------- App (autenticado + tenant) -------------------
 $router->group(['middleware' => ['auth', 'tenant']], function ($r) {

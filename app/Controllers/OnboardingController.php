@@ -235,7 +235,7 @@ final class OnboardingController extends Controller
         ], ['id' => $tenantId]);
         Audit::log('onboarding.completed', 'tenant', $tenantId);
 
-        Session::flash('success', '¡Setup completado! Bienvenido a Kyros Pulse.');
+        Session::flash('success', '¡Setup completado! Bienvenido a Evallish Pulse.');
         $this->redirect('/dashboard');
     }
 

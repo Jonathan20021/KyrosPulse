@@ -402,7 +402,7 @@ final class AlertService
         }
 
         $payload = [
-            'subject' => '[Kyros Pulse] ' . $title,
+            'subject' => '[Evallish Pulse] ' . $title,
             'title'   => $title,
             'text'    => $body,
             'html'    => $html,

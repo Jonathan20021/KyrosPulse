@@ -33,11 +33,11 @@ final class TotpService
     /**
      * Construye el URI otpauth:// para el QR.
      *
-     *   otpauth://totp/Kyros%20Pulse:user@example.com?secret=XYZ&issuer=Kyros%20Pulse
+     *   otpauth://totp/Evallish%20Pulse:user@example.com?secret=XYZ&issuer=Evallish%20Pulse
      *
      * Se renderiza como QR; Google Auth/Authy/etc lo escanean directo.
      */
-    public static function provisioningUri(string $secret, string $accountName, string $issuer = 'Kyros Pulse'): string
+    public static function provisioningUri(string $secret, string $accountName, string $issuer = 'Evallish Pulse'): string
     {
         $label = rawurlencode($issuer) . ':' . rawurlencode($accountName);
         $params = http_build_query([

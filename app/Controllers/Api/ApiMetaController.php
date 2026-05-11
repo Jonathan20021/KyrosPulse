@@ -128,10 +128,10 @@ final class ApiMetaController extends ApiController
         $spec = [
             'openapi' => '3.0.3',
             'info' => [
-                'title'       => 'Kyros Pulse API',
+                'title'       => 'Evallish Pulse API',
                 'description' => 'Agent-as-a-Service: ejecuta agentes IA, gestiona contactos, ordenes y envia mensajes WhatsApp programaticamente.',
                 'version'     => '1.0.0',
-                'contact'     => ['name' => 'Kyros Solutions'],
+                'contact'     => ['name' => 'Evallish'],
             ],
             'servers' => [['url' => $base]],
             'security' => [['bearerAuth' => []]],

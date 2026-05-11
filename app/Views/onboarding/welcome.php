@@ -8,7 +8,7 @@ $tenant = $tenant ?? [];
         <div class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto text-4xl shadow-2xl"
              style="background: linear-gradient(135deg,#8B5CF6,#06B6D4);">👋</div>
     </div>
-    <h1 class="text-3xl sm:text-4xl font-black text-white mb-3 tracking-tight">Bienvenido a <?= e((string) ($tenant['name'] ?? 'Kyros Pulse')) ?></h1>
+    <h1 class="text-3xl sm:text-4xl font-black text-white mb-3 tracking-tight">Bienvenido a <?= e((string) ($tenant['name'] ?? 'Evallish Pulse')) ?></h1>
     <p class="text-slate-400 text-base sm:text-lg max-w-xl mx-auto">En 4 pasos vas a tener una operacion completa de ventas + IA + automatizacion corriendo. Toma menos de 3 minutos.</p>
 </div>
 

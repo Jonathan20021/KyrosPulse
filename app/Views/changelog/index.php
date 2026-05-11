@@ -5,7 +5,7 @@
 \App\Core\View::extend('layouts.landing');
 \App\Core\View::start('content');
 
-$brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Kyros Pulse'));
+$brand = (string) (\App\Models\SaasSetting::get('brand_name', 'Evallish Pulse'));
 ?>
 
 <!-- Nav -->

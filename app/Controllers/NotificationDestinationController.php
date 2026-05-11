@@ -217,7 +217,7 @@ final class NotificationDestinationController extends Controller
             case 'teams':
                 $config = ['webhook_url' => trim((string) $request->input('webhook_url', ''))];
                 if ($type === 'discord') {
-                    $config['username'] = trim((string) $request->input('username', 'Kyros Pulse'));
+                    $config['username'] = trim((string) $request->input('username', 'Evallish Pulse'));
                 }
                 break;
             case 'telegram':
