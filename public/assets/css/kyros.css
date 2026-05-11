@@ -34,6 +34,8 @@
     --color-bg-base:      #F6F8FA;
     --color-bg-surface:   #FFFFFF;
     --color-bg-elevated:  #FFFFFF;
+    --color-bg-card:      #FFFFFF;
+    --color-bg-secondary: #F4F6F8;
     --color-bg-muted:     #F1F5F9;
     --color-bg-subtle:    #F4F6F8;
     --color-bg-hover:     #EDF1F5;
@@ -114,6 +116,8 @@
     --color-bg-base:      #060B16;
     --color-bg-surface:   #0B1220;
     --color-bg-elevated:  #111A2C;
+    --color-bg-card:      #111A2C;
+    --color-bg-secondary: rgba(255,255,255,0.04);
     --color-bg-muted:     #16223A;
     --color-bg-subtle:    rgba(255,255,255,0.04);
     --color-bg-hover:     rgba(255,255,255,0.07);
