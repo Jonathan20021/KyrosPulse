@@ -45,6 +45,18 @@ final class CampaignController extends Controller
     public function store(Request $request): void
     {
         $tenantId = Tenant::id();
+
+        // Limite de campanas segun licencia (plans.max_campaigns)
+        if (!\App\Services\PlanService::canAdd($tenantId, 'campaigns')) {
+            $snap = \App\Services\PlanService::snapshot($tenantId, 'campaigns');
+            Session::flash('error', sprintf(
+                'Limite de campanas alcanzado (%d/%d). Actualiza tu plan para crear mas.',
+                (int) $snap['used'], (int) $snap['limit']
+            ));
+            $this->redirect('/campaigns');
+            return;
+        }
+
         $data = $this->validate($request, [
             'name'    => 'required|min:3|max:150',
             'channel' => 'in:whatsapp,email,sms',

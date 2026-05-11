@@ -1,10 +1,10 @@
 <?php
 /**
- * Configuracion principal de la aplicacion Kyros Pulse.
+ * Configuracion principal de la aplicacion Evallish Pulse.
  */
 
 return [
-    'name'      => env('APP_NAME', 'Kyros Pulse'),
+    'name'      => env('APP_NAME', 'Evallish Pulse'),
     'env'       => env('APP_ENV', 'production'),
     'debug'     => filter_var(env('APP_DEBUG', false), FILTER_VALIDATE_BOOLEAN),
     'url'       => rtrim(env('APP_URL', 'http://localhost'), '/'),

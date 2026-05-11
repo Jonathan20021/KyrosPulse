@@ -43,6 +43,18 @@ final class AutomationController extends Controller
     public function store(Request $request): void
     {
         $tenantId = Tenant::id();
+
+        // Limite de automatizaciones segun licencia (plans.max_automations)
+        if (!\App\Services\PlanService::canAdd($tenantId, 'automations')) {
+            $snap = \App\Services\PlanService::snapshot($tenantId, 'automations');
+            Session::flash('error', sprintf(
+                'Limite de automatizaciones alcanzado (%d/%d). Actualiza tu plan para crear mas.',
+                (int) $snap['used'], (int) $snap['limit']
+            ));
+            $this->redirect('/automations');
+            return;
+        }
+
         $data = $this->validate($request, [
             'name'          => 'required|min:3|max:150',
             'trigger_event' => 'required',

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /** @var array $destinations */
 /** @var array $events */
 /** @var array $types */
@@ -7,13 +7,13 @@
 \App\Core\View::start('content');
 
 $typeMeta = [
-    'email'    => ['label' => 'Email (Resend)',     'icon' => '📧', 'color' => '#0EA572', 'desc' => 'Envia un correo formateado al destinatario via Resend.'],
-    'slack'    => ['label' => 'Slack',              'icon' => '💬', 'color' => '#4A154B', 'desc' => 'Publica en un canal via incoming webhook de Slack.'],
-    'discord'  => ['label' => 'Discord',            'icon' => '🎮', 'color' => '#5865F2', 'desc' => 'Publica en un canal via webhook de Discord.'],
-    'teams'    => ['label' => 'Microsoft Teams',    'icon' => '👥', 'color' => '#5059C9', 'desc' => 'Publica en un canal via Incoming Webhook de Teams.'],
-    'telegram' => ['label' => 'Telegram',           'icon' => '✈️', 'color' => '#0088CC', 'desc' => 'Envia mensaje a un chat via Bot API de Telegram.'],
-    'webhook'  => ['label' => 'Webhook generico',   'icon' => '🔗', 'color' => '#64748B', 'desc' => 'POST JSON a tu URL con HMAC SHA256 opcional.'],
-    'whatsapp' => ['label' => 'WhatsApp interno',   'icon' => '📱', 'color' => '#25D366', 'desc' => 'Envia un mensaje a un numero usando los canales WhatsApp del tenant.'],
+    'email'    => ['label' => 'Email (Resend)',     'icon' => 'ðŸ“§', 'color' => '#0EA572', 'desc' => 'Envia un correo formateado al destinatario via Resend.'],
+    'slack'    => ['label' => 'Slack',              'icon' => 'ðŸ’¬', 'color' => '#4A154B', 'desc' => 'Publica en un canal via incoming webhook de Slack.'],
+    'discord'  => ['label' => 'Discord',            'icon' => 'ðŸŽ®', 'color' => '#5865F2', 'desc' => 'Publica en un canal via webhook de Discord.'],
+    'teams'    => ['label' => 'Microsoft Teams',    'icon' => 'ðŸ‘¥', 'color' => '#5059C9', 'desc' => 'Publica en un canal via Incoming Webhook de Teams.'],
+    'telegram' => ['label' => 'Telegram',           'icon' => 'âœˆï¸', 'color' => '#0088CC', 'desc' => 'Envia mensaje a un chat via Bot API de Telegram.'],
+    'webhook'  => ['label' => 'Webhook generico',   'icon' => 'ðŸ”—', 'color' => '#64748B', 'desc' => 'POST JSON a tu URL con HMAC SHA256 opcional.'],
+    'whatsapp' => ['label' => 'WhatsApp interno',   'icon' => 'ðŸ“±', 'color' => '#25D366', 'desc' => 'Envia un mensaje a un numero usando los canales WhatsApp del tenant.'],
 ];
 
 $totalDest   = count($destinations);
@@ -39,18 +39,18 @@ $prefillLabels = [
 ]); ?>
 
 <?php if ($flash = flash('success')): ?>
-<div class="set-flash set-flash-success"><span>✓</span><?= e((string) $flash) ?></div>
+<div class="set-flash set-flash-success"><span>âœ“</span><?= e((string) $flash) ?></div>
 <?php endif; ?>
 <?php if ($flashErr = flash('error')): ?>
-<div class="set-flash set-flash-error"><span>⚠</span><?= e((string) $flashErr) ?></div>
+<div class="set-flash set-flash-error"><span>âš </span><?= e((string) $flashErr) ?></div>
 <?php endif; ?>
 
 <div class="set-kpi-grid">
     <?php foreach ([
-        ['🎯', 'Destinos configurados', $totalDest,  '#10B981'],
-        ['✅', 'Activos',                $activeDest, '#10B981'],
-        ['📬', 'Envios exitosos',        $successAll, '#06B6D4'],
-        ['⚠',  'Errores',                $failuresAll, '#F43F5E'],
+        ['ðŸŽ¯', 'Destinos configurados', $totalDest,  '#10B981'],
+        ['âœ…', 'Activos',                $activeDest, '#10B981'],
+        ['ðŸ“¬', 'Envios exitosos',        $successAll, '#06B6D4'],
+        ['âš ',  'Errores',                $failuresAll, '#F43F5E'],
     ] as [$em, $lbl, $val, $col]): ?>
     <div class="set-kpi">
         <div class="set-kpi-head">
@@ -63,7 +63,7 @@ $prefillLabels = [
 </div>
 
 <?php if ($prefillType && isset($prefillLabels[$prefillType])): ?>
-<div class="set-flash set-flash-info"><span>💡</span><?= e($prefillLabels[$prefillType]) ?></div>
+<div class="set-flash set-flash-info"><span>ðŸ’¡</span><?= e($prefillLabels[$prefillType]) ?></div>
 <?php endif; ?>
 
 <div x-data="{ open: <?= $prefillType ? 'true' : 'false' ?>, editing: null, type: '<?= $prefillType ?: 'email' ?>', selectedEvents: [] }" class="set-actions-bar">
@@ -103,7 +103,7 @@ $prefillLabels = [
                         <template x-for="(em, idx) in emails" :key="idx">
                             <span class="set-email-chip">
                                 <span x-text="em"></span>
-                                <button type="button" @click.stop="remove(idx)" title="Quitar">×</button>
+                                <button type="button" @click.stop="remove(idx)" title="Quitar">Ã—</button>
                             </span>
                         </template>
                         <input x-ref="input" type="text" x-model="draft"
@@ -126,7 +126,7 @@ $prefillLabels = [
                 <div class="set-field">
                     <label class="set-label">Webhook URL de Slack</label>
                     <input type="url" name="webhook_url" :value="editing?.config?.webhook_url" placeholder="https://hooks.slack.com/services/T.../B.../..." class="set-input">
-                    <p class="set-help">En Slack: Apps → Incoming Webhooks → Crear → Copiar URL.</p>
+                    <p class="set-help">En Slack: Apps â†’ Incoming Webhooks â†’ Crear â†’ Copiar URL.</p>
                 </div>
                 </template>
 
@@ -138,7 +138,7 @@ $prefillLabels = [
                     </div>
                     <div>
                         <label class="set-label">Username del bot</label>
-                        <input type="text" name="username" :value="editing?.config?.username || 'Kyros Pulse'" placeholder="Kyros Pulse" class="set-input">
+                        <input type="text" name="username" :value="editing?.config?.username || 'Evallish Pulse'" placeholder="Evallish Pulse" class="set-input">
                     </div>
                 </div>
                 </template>
@@ -147,7 +147,7 @@ $prefillLabels = [
                 <div class="set-field">
                     <label class="set-label">Incoming Webhook URL de Teams</label>
                     <input type="url" name="webhook_url" :value="editing?.config?.webhook_url" placeholder="https://xxx.webhook.office.com/webhookb2/..." class="set-input">
-                    <p class="set-help">En Teams: tres puntos del canal → Conectores → Incoming Webhook → Crear → Copiar URL.</p>
+                    <p class="set-help">En Teams: tres puntos del canal â†’ Conectores â†’ Incoming Webhook â†’ Crear â†’ Copiar URL.</p>
                 </div>
                 </template>
 
@@ -233,14 +233,14 @@ $prefillLabels = [
 
     <?php if (empty($destinations)): ?>
     <div class="set-empty" style="margin-top: 20px;">
-        <div class="set-empty-icon">📭</div>
+        <div class="set-empty-icon">ðŸ“­</div>
         <h3 class="set-empty-title">Sin destinos configurados</h3>
         <p class="set-empty-desc">Cuando crees uno, las ordenes y eventos del sistema llegaran al canal que elijas.</p>
     </div>
     <?php else: ?>
     <ul class="set-rule-list" style="margin-top: 20px;">
         <?php foreach ($destinations as $d):
-            $meta = $typeMeta[$d['type']] ?? ['icon' => '📡', 'label' => $d['type'], 'color' => '#64748B'];
+            $meta = $typeMeta[$d['type']] ?? ['icon' => 'ðŸ“¡', 'label' => $d['type'], 'color' => '#64748B'];
             $eventsList = is_array($d['events']) ? $d['events'] : (json_decode((string) $d['events'], true) ?: []);
             $configFmt = '';
             $configMissing = '';
@@ -272,15 +272,15 @@ $prefillLabels = [
                             ? (string) $emails[0]
                             : count($emails) . ' destinatarios: ' . implode(', ', array_slice($emails, 0, 3)) . (count($emails) > 3 ? ' +' . (count($emails) - 3) . ' mas' : '');
                     } else {
-                        $configFmt = (string) ($d['config']['email'] ?? '—');
+                        $configFmt = (string) ($d['config']['email'] ?? 'â€”');
                     }
                     break;
-                case 'slack':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
-                case 'discord':  $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
-                case 'teams':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? '—'), 0, 60, '...'); break;
-                case 'telegram': $configFmt = 'chat_id ' . ($d['config']['chat_id'] ?? '—'); break;
-                case 'webhook':  $configFmt = mb_strimwidth((string) ($d['config']['url'] ?? '—'), 0, 60, '...'); break;
-                case 'whatsapp': $configFmt = (string) ($d['config']['phone'] ?? '—'); break;
+                case 'slack':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? 'â€”'), 0, 60, '...'); break;
+                case 'discord':  $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? 'â€”'), 0, 60, '...'); break;
+                case 'teams':    $configFmt = mb_strimwidth((string) ($d['config']['webhook_url'] ?? 'â€”'), 0, 60, '...'); break;
+                case 'telegram': $configFmt = 'chat_id ' . ($d['config']['chat_id'] ?? 'â€”'); break;
+                case 'webhook':  $configFmt = mb_strimwidth((string) ($d['config']['url'] ?? 'â€”'), 0, 60, '...'); break;
+                case 'whatsapp': $configFmt = (string) ($d['config']['phone'] ?? 'â€”'); break;
             }
         ?>
         <li class="set-rule-item">
@@ -290,9 +290,9 @@ $prefillLabels = [
                     <span class="set-rule-name"><?= e($d['label']) ?></span>
                     <span class="set-badge" style="background: <?= $meta['color'] ?>22; color: <?= $meta['color'] ?>;"><?= e($meta['label']) ?></span>
                     <?php if ($configMissing): ?>
-                    <span class="set-badge" style="background: rgba(244,63,94,.15); color:#BE123C;" title="<?= e($configMissing) ?>">⚠ Config incompleta</span>
+                    <span class="set-badge" style="background: rgba(244,63,94,.15); color:#BE123C;" title="<?= e($configMissing) ?>">âš  Config incompleta</span>
                     <?php elseif (!empty($d['is_active'])): ?>
-                    <span class="set-badge" style="background: rgba(16,185,129,.15); color:#10B981;">● Activo</span>
+                    <span class="set-badge" style="background: rgba(16,185,129,.15); color:#10B981;">â— Activo</span>
                     <?php else: ?>
                     <span class="set-badge" style="background: rgba(148,163,184,.15); color:#475569;">Pausado</span>
                     <?php endif; ?>
@@ -304,14 +304,14 @@ $prefillLabels = [
                     <?php endforeach; ?>
                 </div>
                 <div class="set-rule-meta">
-                    <span>✓ <?= number_format((int) $d['success_count']) ?> exitos</span>
-                    <span>✗ <?= number_format((int) $d['failure_count']) ?> fallos</span>
+                    <span>âœ“ <?= number_format((int) $d['success_count']) ?> exitos</span>
+                    <span>âœ— <?= number_format((int) $d['failure_count']) ?> fallos</span>
                     <?php if (!empty($d['last_used_at'])): ?>
-                    <span class="set-sep">·</span>
+                    <span class="set-sep">Â·</span>
                     <span>ultima vez: <?= e(time_ago((string) $d['last_used_at'])) ?></span>
                     <?php endif; ?>
                     <?php if (!empty($d['last_error'])): ?>
-                    <span class="set-sep">·</span>
+                    <span class="set-sep">Â·</span>
                     <span style="color:#BE123C;" title="<?= e((string) $d['last_error']) ?>">error reciente</span>
                     <?php endif; ?>
                 </div>
@@ -324,14 +324,14 @@ $prefillLabels = [
                 <form action="<?= url('/settings/notifications/' . $d['id'] . '/toggle') ?>" method="POST" style="display:inline;">
                     <?= csrf_field() ?>
                     <button type="submit" class="set-btn set-btn-ghost set-btn-sm" title="Activar/Pausar">
-                        <?= !empty($d['is_active']) ? '⏸' : '▶' ?>
+                        <?= !empty($d['is_active']) ? 'â¸' : 'â–¶' ?>
                     </button>
                 </form>
-                <button type="button" @click='editing = <?= json_encode($d, JSON_HEX_APOS | JSON_HEX_QUOT) ?>; type = editing.type; open = true' class="set-btn set-btn-ghost set-btn-sm" title="Editar">✎</button>
+                <button type="button" @click='editing = <?= json_encode($d, JSON_HEX_APOS | JSON_HEX_QUOT) ?>; type = editing.type; open = true' class="set-btn set-btn-ghost set-btn-sm" title="Editar">âœŽ</button>
                 <form action="<?= url('/settings/notifications/' . $d['id']) ?>" method="POST" style="display:inline;" onsubmit="return confirm('Eliminar este destino? No se borraran los logs anteriores.');">
                     <?= csrf_field() ?>
                     <input type="hidden" name="_method" value="DELETE">
-                    <button type="submit" class="set-btn set-btn-danger set-btn-sm">🗑</button>
+                    <button type="submit" class="set-btn set-btn-danger set-btn-sm">ðŸ—‘</button>
                 </form>
             </div>
         </li>
@@ -344,7 +344,7 @@ $prefillLabels = [
 <section class="set-section">
     <div class="set-section-head">
         <div>
-            <h2 class="set-section-title"><span>📋</span> Actividad reciente</h2>
+            <h2 class="set-section-title"><span>ðŸ“‹</span> Actividad reciente</h2>
             <p class="set-section-desc">Ultimos 30 envios.</p>
         </div>
     </div>
@@ -357,18 +357,18 @@ $prefillLabels = [
             <?php foreach ($logs as $l): ?>
                 <tr>
                     <td class="set-td-meta"><?= e(time_ago((string) $l['created_at'])) ?></td>
-                    <td class="set-td-meta"><?= e((string) ($l['label'] ?? '—')) ?></td>
+                    <td class="set-td-meta"><?= e((string) ($l['label'] ?? 'â€”')) ?></td>
                     <td><span class="set-badge"><?= e((string) $l['type']) ?></span></td>
                     <td><code class="set-mono-xs"><?= e((string) $l['event']) ?></code></td>
                     <td>
                         <?php if ($l['status'] === 'success'): ?>
-                        <span class="set-badge" style="background: rgba(16,185,129,.15); color:#10B981;">✓ ok</span>
+                        <span class="set-badge" style="background: rgba(16,185,129,.15); color:#10B981;">âœ“ ok</span>
                         <?php else: ?>
-                        <span class="set-badge" style="background: rgba(244,63,94,.15); color:#BE123C;">✗ fallo</span>
+                        <span class="set-badge" style="background: rgba(244,63,94,.15); color:#BE123C;">âœ— fallo</span>
                         <?php endif; ?>
                     </td>
                     <td class="set-td-meta" style="max-width: 320px;">
-                        <?= e(mb_strimwidth((string) ($l['error'] ?: $l['response'] ?: '—'), 0, 80, '...')) ?>
+                        <?= e(mb_strimwidth((string) ($l['error'] ?: $l['response'] ?: 'â€”'), 0, 80, '...')) ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

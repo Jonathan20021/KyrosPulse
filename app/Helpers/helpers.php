@@ -128,6 +128,41 @@ if (!function_exists('tenant_id')) {
     }
 }
 
+if (!function_exists('plan_can')) {
+    /**
+     * Helper de vista: el tenant actual incluye la feature?
+     * Devuelve false fuera de sesion con tenant.
+     */
+    function plan_can(string $feature): bool
+    {
+        $t = Tenant::id();
+        if ($t === null) return false;
+        return \App\Services\PlanService::can($t, $feature);
+    }
+}
+
+if (!function_exists('plan_limit')) {
+    /** Limite del plan para un recurso (max_*). 0 = sin acceso. */
+    function plan_limit(string $resource): int
+    {
+        $t = Tenant::id();
+        if ($t === null) return 0;
+        return \App\Services\PlanService::limit($t, $resource);
+    }
+}
+
+if (!function_exists('plan_snapshot')) {
+    /** Snapshot uso/limite/percent del recurso para el tenant actual. */
+    function plan_snapshot(string $resource): array
+    {
+        $t = Tenant::id();
+        if ($t === null) {
+            return ['limit' => 0, 'used' => 0, 'remaining' => 0, 'percent' => 0, 'full' => false];
+        }
+        return \App\Services\PlanService::snapshot($t, $resource);
+    }
+}
+
 if (!function_exists('current_url')) {
     function current_url(): string
     {

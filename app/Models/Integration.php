@@ -199,7 +199,7 @@ final class Integration extends Model
             ],
             [
                 'slug' => 'woocommerce', 'name' => 'WooCommerce', 'category' => 'ecommerce',
-                'description' => 'Sincroniza tu tienda WordPress con KyrosPulse.',
+                'description' => 'Sincroniza tu tienda WordPress con Evallish Pulse.',
                 'icon' => 'woocommerce', 'is_premium' => 0, 'min_plan' => 'business',
                 'fields' => [
                     ['key' => 'site_url',         'label' => 'URL del sitio',     'type' => 'text', 'required' => true],
@@ -310,7 +310,7 @@ final class Integration extends Model
             ],
             [
                 'slug' => 'make', 'name' => 'Make (Integromat)', 'category' => 'automation',
-                'description' => 'Visual automation. Conecta KyrosPulse con cualquier app.',
+                'description' => 'Visual automation. Conecta Evallish Pulse con cualquier app.',
                 'icon' => 'make', 'is_premium' => 0, 'min_plan' => 'professional',
                 'fields' => [
                     ['key' => 'webhook_url', 'label' => 'Custom Webhook URL', 'type' => 'text', 'required' => true],

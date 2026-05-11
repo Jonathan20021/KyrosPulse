@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 $user = auth() ?? [];
 $tenant = tenant() ?? [];
 $page = $page ?? 'dashboard';
@@ -6,7 +6,14 @@ $page = $page ?? 'dashboard';
 // Modulos activos por tenant (controlados desde Super Admin)
 $modRestaurant = !empty($tenant['is_restaurant']);
 
-// Estructura de navegacion del sidebar
+// Features bloqueadas por el plan actual — usado para mostrar candado en el sidebar.
+// Cada item de nav tiene un 5to elemento opcional con el nombre de la feature requerida.
+$canAi      = plan_can('ai_enabled');
+$canApi     = plan_can('api_access');
+$canReports = plan_can('advanced_reports');
+
+// Estructura de navegacion del sidebar.
+// Tupla: [slug, label, url, svg-path, optional feature-required]
 $navSections = [
     [
         'label' => 'Principal',
@@ -27,7 +34,6 @@ $navSections = [
     ],
 ];
 
-// Modulo Restaurante: solo se muestra si el tenant lo tiene activo (Super Admin lo activa)
 if ($modRestaurant) {
     $navSections[] = [
         'label' => 'Restaurante',
@@ -44,15 +50,15 @@ $navSections[] = [
     'items' => [
         ['campanas',          'Campanas',           '/campaigns',     'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z'],
         ['automatizaciones',  'Automatizaciones',   '/automations',   'M13 10V3L4 14h7v7l9-11h-7z'],
-        ['workflows',         'Workflows',          '/workflows',     'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
-        ['reportes',          'Reportes',           '/reports',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
+        ['workflows',         'Workflows',          '/workflows',     'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 'advanced_reports'],
+        ['reportes',          'Reportes',           '/reports',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',                                                                                                                                                                                'advanced_reports'],
     ],
 ];
 
 $navSections[] = [
     'label' => 'Sistema',
     'items' => [
-        ['ai_usage',      'Uso de IA',     '/ai/usage', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'],
+        ['ai_usage',      'Uso de IA',     '/ai/usage', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', 'ai_enabled'],
         ['configuracion', 'Configuracion', '/settings', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'],
     ],
 ];
@@ -74,7 +80,7 @@ $navSections[] = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= csrf_token() ?>">
-    <title><?= e(ucfirst($page)) ?> · <?= e((string) config('app.name', 'Kyros Pulse')) ?></title>
+    <title><?= e(ucfirst($page)) ?> Â· <?= e((string) config('app.name', 'Evallish Pulse')) ?></title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -254,11 +260,11 @@ $navSections[] = [
         <!-- Brand -->
         <div class="h-16 flex items-center justify-between gap-2 px-4 border-b" style="border-color: var(--sidebar-border);">
             <a href="<?= url('/dashboard') ?>" class="flex items-center gap-2.5 min-w-0">
-                <div class="brand-mark">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <div class="brand-mark" style="background: #FFFFFF; padding: 4px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);">
+                    <img src="<?= asset('css/logo.png') ?>" alt="Evallish Pulse" class="w-full h-full object-contain">
                 </div>
                 <div x-show="!sidebarCollapsed" class="min-w-0" x-cloak>
-                    <div class="font-bold text-[14px] leading-tight" style="color:#FFFFFF; letter-spacing:-0.01em;">Kyros<span class="gradient-text">Pulse</span></div>
+                    <div class="font-bold text-[14px] leading-tight" style="color:#FFFFFF; letter-spacing:-0.01em;">Evallish<span class="gradient-text">Pulse</span></div>
                     <div class="text-[10px] leading-tight truncate mt-0.5" style="color: var(--sidebar-text-muted);"><?= e($tenant['name'] ?? 'Tu empresa') ?></div>
                 </div>
             </a>
@@ -273,7 +279,7 @@ $navSections[] = [
             <button type="button" @click="cmdOpen = true" class="search-trigger">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 <span class="flex-1 text-left">Buscar...</span>
-                <span class="kbd">⌘K</span>
+                <span class="kbd">âŒ˜K</span>
             </button>
         </div>
         <!-- Collapsed state: just expand button -->
@@ -289,10 +295,18 @@ $navSections[] = [
                 <div class="nav-section-label" x-show="!sidebarCollapsed" x-cloak><?= e($section['label']) ?></div>
                 <?php foreach ($section['items'] as $item):
                     $isActive = ($page === $item[0]);
+                    // 5to elemento opcional: feature requerida (ai_enabled, advanced_reports, api_access)
+                    $requiredFeature = $item[4] ?? null;
+                    $isLocked = $requiredFeature && !plan_can($requiredFeature);
                 ?>
-                <a href="<?= url($item[2]) ?>" class="nav-link <?= $isActive ? 'active' : '' ?>" :title="sidebarCollapsed ? '<?= e($item[1]) ?>' : ''" :class="sidebarCollapsed ? 'justify-center' : ''">
+                <a href="<?= url($item[2]) ?>" class="nav-link <?= $isActive ? 'active' : '' ?>" :title="sidebarCollapsed ? '<?= e($item[1]) ?>' . '<?= $isLocked ? ' (requiere upgrade)' : '' ?>' : ''" :class="sidebarCollapsed ? 'justify-center' : ''" style="<?= $isLocked ? 'opacity: 0.55;' : '' ?>">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="<?= $item[3] ?>"/></svg>
                     <span class="truncate" x-show="!sidebarCollapsed" x-cloak><?= e($item[1]) ?></span>
+                    <?php if ($isLocked): ?>
+                    <span x-show="!sidebarCollapsed" x-cloak class="ml-auto" title="Requiere actualizar plan">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    </span>
+                    <?php endif; ?>
                 </a>
                 <?php endforeach; ?>
             <?php endforeach; ?>
@@ -317,7 +331,7 @@ $navSections[] = [
                 <div class="h-1 rounded-full overflow-hidden mb-2" style="background: rgba(255,255,255,0.08);">
                     <div class="h-full rounded-full" style="width: <?= max(5, min(100, $daysLeft * 100 / 14)) ?>%; background: linear-gradient(90deg, #34D399, #10B981);"></div>
                 </div>
-                <a href="<?= url('/settings') ?>" class="block text-[11px] font-semibold hover:underline" style="color: #6EE7B7;">Actualizar plan →</a>
+                <a href="<?= url('/settings') ?>" class="block text-[11px] font-semibold hover:underline" style="color: #6EE7B7;">Actualizar plan â†’</a>
             </div>
         </div>
         <?php endif; ?>
@@ -351,7 +365,7 @@ $navSections[] = [
                 <button type="button" @click="cmdOpen = true" class="search-trigger-top flex-1 max-w-md hidden md:flex">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     <span class="flex-1 text-left">Buscar contactos, conversaciones...</span>
-                    <span class="kbd">⌘K</span>
+                    <span class="kbd">âŒ˜K</span>
                 </button>
 
                 <div class="flex items-center gap-1 ml-auto">
@@ -380,12 +394,12 @@ $navSections[] = [
                                         <span x-text="unread"></span> nuevos
                                     </span>
                                 </div>
-                                <a href="<?= url('/inbox') ?>" class="text-xs font-medium" style="color: var(--color-primary);">Ver todo →</a>
+                                <a href="<?= url('/inbox') ?>" class="text-xs font-medium" style="color: var(--color-primary);">Ver todo â†’</a>
                             </div>
                             <div class="max-h-[420px] overflow-y-auto scrollbar-thin">
                                 <template x-if="items.length === 0">
                                     <div class="text-center py-10">
-                                        <div class="text-3xl mb-2 opacity-50">✅</div>
+                                        <div class="text-3xl mb-2 opacity-50">âœ…</div>
                                         <p class="text-xs" style="color: var(--color-text-tertiary);">Estas al dia. Sin mensajes nuevos.</p>
                                     </div>
                                 </template>
@@ -471,18 +485,18 @@ $navSections[] = [
         </div>
         <div class="max-h-96 overflow-y-auto py-2">
             <?php foreach ([
-                ['Dashboard', '/dashboard', '📊'],
-                ['Crear contacto', '/contacts/create', '👥'],
-                ['Ver contactos', '/contacts', '📇'],
-                ['Pipeline', '/leads', '🎯'],
-                ['Bandeja', '/inbox', '💬'],
-                ['Crear ticket', '/tickets/create', '🎫'],
-                ['Crear tarea', '/tasks', '✅'],
-                ['Nueva campana', '/campaigns/create', '📢'],
-                ['Automatizaciones', '/automations', '⚡'],
-                ['Reportes', '/reports', '📈'],
-                ['Uso de IA · Token economy', '/ai/usage', '🤖'],
-                ['Configuracion', '/settings', '⚙️'],
+                ['Dashboard', '/dashboard', 'ðŸ“Š'],
+                ['Crear contacto', '/contacts/create', 'ðŸ‘¥'],
+                ['Ver contactos', '/contacts', 'ðŸ“‡'],
+                ['Pipeline', '/leads', 'ðŸŽ¯'],
+                ['Bandeja', '/inbox', 'ðŸ’¬'],
+                ['Crear ticket', '/tickets/create', 'ðŸŽ«'],
+                ['Crear tarea', '/tasks', 'âœ…'],
+                ['Nueva campana', '/campaigns/create', 'ðŸ“¢'],
+                ['Automatizaciones', '/automations', 'âš¡'],
+                ['Reportes', '/reports', 'ðŸ“ˆ'],
+                ['Uso de IA Â· Token economy', '/ai/usage', 'ðŸ¤–'],
+                ['Configuracion', '/settings', 'âš™ï¸'],
             ] as $cmd): ?>
             <a href="<?= url($cmd[1]) ?>" class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[color:var(--color-bg-hover)]" style="color: var(--color-text-secondary);">
                 <span class="text-base"><?= $cmd[2] ?></span>
@@ -492,8 +506,8 @@ $navSections[] = [
             <?php endforeach; ?>
         </div>
         <div class="px-4 py-2 border-t flex items-center justify-between text-xs" style="border-color: var(--color-border-subtle); color: var(--color-text-tertiary);">
-            <span>Navega con <span class="kbd">↑</span> <span class="kbd">↓</span></span>
-            <span>Selecciona con <span class="kbd">↵</span></span>
+            <span>Navega con <span class="kbd">â†‘</span> <span class="kbd">â†“</span></span>
+            <span>Selecciona con <span class="kbd">â†µ</span></span>
         </div>
     </div>
 </div>
@@ -506,7 +520,7 @@ $navSections[] = [
 
 <script>
 // ============================================================================
-//  Inbox Notifications — global polling para topbar
+//  Inbox Notifications â€” global polling para topbar
 //  Funciona en CUALQUIER pagina del app (dashboard, contactos, leads, etc.)
 //  Polling cada 12s. En la pagina /inbox se reduce la frecuencia (lo maneja la
 //  pagina misma con su propio polling de 3s y aqui es solo decorativo).
@@ -559,7 +573,7 @@ window.inboxNotifications = function () {
             if (window.Notification && Notification.permission === 'granted' && this.items.length > 0) {
                 const top = this.items[0];
                 try {
-                    const n = new Notification('Nuevo mensaje · ' + top.name, {
+                    const n = new Notification('Nuevo mensaje Â· ' + top.name, {
                         body: top.last_message || 'Tienes mensajes nuevos',
                         icon: '/favicon.ico',
                         tag: 'kp-inbox-' + top.id,

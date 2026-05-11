@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Services;
 
 /**
- * TOTP (RFC 6238) puro PHP — sin dependencias.
+ * TOTP (RFC 6238) puro PHP â€” sin dependencias.
  *
  * Compatible con Google Authenticator, Authy, 1Password, Microsoft Authenticator
  * y cualquier app TOTP estandar.
@@ -19,7 +19,7 @@ final class TotpService
 {
     public const DIGITS = 6;
     public const PERIOD = 30;
-    public const WINDOW = 1; // ±1 step (30s) cada lado
+    public const WINDOW = 1; // Â±1 step (30s) cada lado
 
     /**
      * Genera un nuevo secret base32 de 32 caracteres (160 bits).
@@ -33,11 +33,11 @@ final class TotpService
     /**
      * Construye el URI otpauth:// para el QR.
      *
-     *   otpauth://totp/Kyros%20Pulse:user@example.com?secret=XYZ&issuer=Kyros%20Pulse
+     *   otpauth://totp/Evallish%20Pulse:user@example.com?secret=XYZ&issuer=Evallish%20Pulse
      *
      * Se renderiza como QR; Google Auth/Authy/etc lo escanean directo.
      */
-    public static function provisioningUri(string $secret, string $accountName, string $issuer = 'Kyros Pulse'): string
+    public static function provisioningUri(string $secret, string $accountName, string $issuer = 'Evallish Pulse'): string
     {
         $label = rawurlencode($issuer) . ':' . rawurlencode($accountName);
         $params = http_build_query([
@@ -73,7 +73,7 @@ final class TotpService
     }
 
     /**
-     * Verifica un codigo (6 digitos) contra un secret. Tolerancia ±WINDOW steps.
+     * Verifica un codigo (6 digitos) contra un secret. Tolerancia Â±WINDOW steps.
      */
     public static function verify(string $secret, string $userCode, ?int $timestamp = null): bool
     {

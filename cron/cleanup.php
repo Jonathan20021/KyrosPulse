@@ -27,4 +27,14 @@ $expired = Database::run(
      WHERE status = 'trial' AND trial_ends_at IS NOT NULL AND trial_ends_at < NOW()"
 )->rowCount();
 echo "  trials expirados:             $expired\n";
+
+// Borrar cuentas demo vencidas (creadas desde la landing, ventana de 24h).
+// El borrado del tenant elimina via FK ON DELETE CASCADE: users, contactos,
+// conversaciones, mensajes, leads, campanas, automatizaciones y todo el resto.
+$demoDeleted = Database::run(
+    "DELETE FROM tenants
+     WHERE is_demo = 1 AND demo_expires_at IS NOT NULL AND demo_expires_at < NOW()"
+)->rowCount();
+echo "  demo tenants borrados:        $demoDeleted\n";
+
 echo "Done.\n";

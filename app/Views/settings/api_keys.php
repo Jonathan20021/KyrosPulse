@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * @var array      $keys
  * @var array      $logs
@@ -18,22 +18,22 @@ $baseUrl = url('/api/v1');
 <?php \App\Core\View::include('settings._partials.header', [
     'crumb'    => 'Plataforma',
     'title'    => 'API & Webhooks',
-    'subtitle' => 'Genera API keys para integrar Kyros Pulse con tus sistemas. Ejecuta agentes IA, gestiona contactos y ordenes, envia mensajes WhatsApp por codigo.',
+    'subtitle' => 'Genera API keys para integrar Evallish Pulse con tus sistemas. Ejecuta agentes IA, gestiona contactos y ordenes, envia mensajes WhatsApp por codigo.',
 ]); ?>
 
 <?php if ($flash = flash('success')): ?>
-<div class="set-flash set-flash-success"><span>✓</span><?= e((string) $flash) ?></div>
+<div class="set-flash set-flash-success"><span>âœ“</span><?= e((string) $flash) ?></div>
 <?php endif; ?>
 <?php if ($flashErr = flash('error')): ?>
-<div class="set-flash set-flash-error"><span>⚠</span><?= e((string) $flashErr) ?></div>
+<div class="set-flash set-flash-error"><span>âš </span><?= e((string) $flashErr) ?></div>
 <?php endif; ?>
 
 <?php if ($newKey): ?>
 <div class="set-secret-banner">
     <div class="set-secret-head">
-        <div class="set-secret-icon">🔐</div>
+        <div class="set-secret-icon">ðŸ”</div>
         <div>
-            <div class="set-secret-title">Tu nueva API key — copiala AHORA</div>
+            <div class="set-secret-title">Tu nueva API key â€” copiala AHORA</div>
             <p class="set-secret-desc">Por seguridad no podremos mostrartela de nuevo. Si la pierdes, deberas generar una nueva.</p>
         </div>
     </div>
@@ -42,7 +42,7 @@ $baseUrl = url('/api/v1');
         <button type="button" onclick="(()=>{const i=document.getElementById('newKeyInput');i.select();document.execCommand('copy');this.innerText='Copiado!';setTimeout(()=>this.innerText='Copiar',1500);})()"
                 class="set-btn set-btn-success">Copiar</button>
     </div>
-    <p class="set-help">Nombre: <strong><?= e((string) $newKey['name']) ?></strong> · ID: <code><?= (int) $newKey['id'] ?></code></p>
+    <p class="set-help">Nombre: <strong><?= e((string) $newKey['name']) ?></strong> Â· ID: <code><?= (int) $newKey['id'] ?></code></p>
 </div>
 <?php endif; ?>
 
@@ -56,9 +56,9 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
 <section class="set-section">
     <div class="set-section-head">
         <div>
-            <h2 class="set-section-title"><span>📊</span> Cuota mensual del plan</h2>
+            <h2 class="set-section-title"><span>ðŸ“Š</span> Cuota mensual del plan</h2>
         </div>
-        <span class="set-badge set-badge-mono">plan: <?= e((string) ($q['plan_name'] ?? '—')) ?></span>
+        <span class="set-badge set-badge-mono">plan: <?= e((string) ($q['plan_name'] ?? 'â€”')) ?></span>
     </div>
     <div class="set-quota">
         <div class="set-quota-head">
@@ -81,7 +81,7 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
             <?php elseif (!empty($q['no_access'])): ?>
                 Actualiza a un plan con API access para activar tus keys.
             <?php else: ?>
-                Te quedan <strong><?= number_format((int) ($q['remaining'] ?? 0)) ?></strong> requests · renueva el <strong><?= e(date('d M', strtotime((string) ($q['period_resets_at'] ?? 'now')))) ?></strong>
+                Te quedan <strong><?= number_format((int) ($q['remaining'] ?? 0)) ?></strong> requests Â· renueva el <strong><?= e(date('d M', strtotime((string) ($q['period_resets_at'] ?? 'now')))) ?></strong>
             <?php endif; ?>
         </p>
         <?php if (!empty($q['quota']) && $quotaVal > 0 && empty($q['unlimited'])): ?>
@@ -94,10 +94,10 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
 
 <div class="set-kpi-grid">
     <?php foreach ([
-        ['🔑', 'Keys activas',     count($active),         '#10B981'],
-        ['📡', 'Requests 7d',      (int) $stats['total'],  '#06B6D4'],
-        ['✅', 'Exitosos',         (int) $stats['ok'],     '#10B981'],
-        ['⚠',  'Errores',          (int) $stats['errors'], '#F43F5E'],
+        ['ðŸ”‘', 'Keys activas',     count($active),         '#10B981'],
+        ['ðŸ“¡', 'Requests 7d',      (int) $stats['total'],  '#06B6D4'],
+        ['âœ…', 'Exitosos',         (int) $stats['ok'],     '#10B981'],
+        ['âš ',  'Errores',          (int) $stats['errors'], '#F43F5E'],
     ] as [$em, $lbl, $val, $col]): ?>
     <div class="set-kpi">
         <div class="set-kpi-head">
@@ -112,7 +112,7 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
 <section class="set-section">
     <div class="set-section-head">
         <div>
-            <h2 class="set-section-title"><span>🚀</span> Empieza en 30 segundos</h2>
+            <h2 class="set-section-title"><span>ðŸš€</span> Empieza en 30 segundos</h2>
             <p class="set-section-desc">Genera una key abajo y haz tu primera llamada.</p>
         </div>
         <div class="set-inline-actions">
@@ -166,7 +166,7 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
                     <div>
                         <input type="hidden" name="scopes[]" value="*">
                         <div class="set-flash set-flash-warning" style="margin: 0;">
-                            ⚠ Esta key tendra acceso completo. Para mayor seguridad, desmarca y selecciona scopes especificos.
+                            âš  Esta key tendra acceso completo. Para mayor seguridad, desmarca y selecciona scopes especificos.
                         </div>
                     </div>
                 </template>
@@ -201,11 +201,11 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
 
 <section class="set-section">
     <div class="set-section-head">
-        <h2 class="set-section-title"><span>🔑</span> Keys activas <span class="set-count">(<?= count($active) ?>)</span></h2>
+        <h2 class="set-section-title"><span>ðŸ”‘</span> Keys activas <span class="set-count">(<?= count($active) ?>)</span></h2>
     </div>
     <?php if (empty($active)): ?>
     <div class="set-empty">
-        <div class="set-empty-icon">🗝️</div>
+        <div class="set-empty-icon">ðŸ—ï¸</div>
         <p class="set-empty-text">Aun no tienes API keys. Genera la primera arriba.</p>
     </div>
     <?php else: ?>
@@ -240,7 +240,7 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
                     </td>
                     <td class="set-td-meta"><?= $k['last_used_at'] ? e((string) $k['last_used_at']) : '<span class="set-td-muted">nunca</span>' ?></td>
                     <td class="set-td-meta"><?= e((string) $k['created_at']) ?></td>
-                    <td class="set-td-meta"><?= $k['expires_at'] ? e((string) $k['expires_at']) : '—' ?></td>
+                    <td class="set-td-meta"><?= $k['expires_at'] ? e((string) $k['expires_at']) : 'â€”' ?></td>
                     <td class="set-td-actions">
                         <form action="<?= url('/settings/api-keys/' . (int) $k['id'] . '/revoke') ?>" method="POST" style="display:inline;"
                               onsubmit="return confirm('Revocar esta API key? El integrador dejara de funcionar inmediatamente.');">
@@ -259,13 +259,13 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
 <section class="set-section">
     <div class="set-section-head">
         <div>
-            <h2 class="set-section-title"><span>📋</span> Ultimas 50 requests</h2>
+            <h2 class="set-section-title"><span>ðŸ“‹</span> Ultimas 50 requests</h2>
             <p class="set-section-desc">Auditoria por API key, endpoint, status y latencia.</p>
         </div>
     </div>
     <?php if (empty($logs)): ?>
     <div class="set-empty">
-        <div class="set-empty-icon">📭</div>
+        <div class="set-empty-icon">ðŸ“­</div>
         <p class="set-empty-text">Aun no hay requests al API.</p>
     </div>
     <?php else: ?>
@@ -288,7 +288,7 @@ $barColor = $pct >= 95 ? '#BE123C' : ($pct >= 80 ? '#F59E0B' : '#10B981');
                 ?>
                 <tr>
                     <td class="set-td-meta"><?= e((string) $l['created_at']) ?></td>
-                    <td class="set-td-meta"><?= e((string) ($l['key_name'] ?? '—')) ?></td>
+                    <td class="set-td-meta"><?= e((string) ($l['key_name'] ?? 'â€”')) ?></td>
                     <td><span class="set-badge set-badge-mono"><?= e((string) $l['method']) ?></span></td>
                     <td class="set-mono-xs"><?= e((string) $l['endpoint']) ?></td>
                     <td><span class="set-td-strong" style="color: <?= $col ?>;"><?= $st ?></span></td>

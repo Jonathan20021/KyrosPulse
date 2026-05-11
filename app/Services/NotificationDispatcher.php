@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Services;
@@ -72,13 +72,13 @@ final class NotificationDispatcher
         $usdBudget  = (float) ($info['usd_budget'] ?? 0);
         $remaining  = max(0.0, $usdBudget - $usdUsed);
 
-        $title    = sprintf('⚠️ Presupuesto IA al %d%% — %s', $pct, $brand);
-        $subject  = sprintf('[Kyros Pulse] Alerta presupuesto IA · %s al %d%%', $brand, $pct);
+        $title    = sprintf('âš ï¸ Presupuesto IA al %d%% â€” %s', $pct, $brand);
+        $subject  = sprintf('[Evallish Pulse] Alerta presupuesto IA Â· %s al %d%%', $brand, $pct);
         $textBody = sprintf(
             "Tu uso de IA en este periodo cruzo el umbral del %d%%.\n\n"
-          . "• Gastado: $%s de $%s\n"
-          . "• Restante: $%s\n"
-          . "• Periodo desde: %s\n\n"
+          . "â€¢ Gastado: $%s de $%s\n"
+          . "â€¢ Restante: $%s\n"
+          . "â€¢ Periodo desde: %s\n\n"
           . "Si llegas al 100%% el agente IA se pausara hasta el proximo mes o hasta que aumentes el budget.\n"
           . "Ajustalo en Configuracion > IA.",
             $threshold,
@@ -128,10 +128,10 @@ final class NotificationDispatcher
     public function testDestination(array $destination): array
     {
         $payload = [
-            'subject' => '[Prueba] Notificacion de Kyros Pulse',
-            'title'   => '✅ Conexion correcta',
-            'text'    => 'Este es un mensaje de prueba enviado desde Kyros Pulse. Si lo ves, la integracion funciona.',
-            'html'    => '<p>Este es un mensaje de prueba enviado desde <strong>Kyros Pulse</strong>. Si lo ves, la integracion funciona.</p>',
+            'subject' => '[Prueba] Notificacion de Evallish Pulse',
+            'title'   => 'âœ… Conexion correcta',
+            'text'    => 'Este es un mensaje de prueba enviado desde Evallish Pulse. Si lo ves, la integracion funciona.',
+            'html'    => '<p>Este es un mensaje de prueba enviado desde <strong>Evallish Pulse</strong>. Si lo ves, la integracion funciona.</p>',
             'fields'  => [
                 ['label' => 'Tenant',    'value' => (string) $this->tenantId],
                 ['label' => 'Tipo',      'value' => (string) $destination['type']],
@@ -199,13 +199,13 @@ final class NotificationDispatcher
     private function buildOrderPayload(array $order, string $event): array
     {
         $statusMeta = [
-            'order.new'              => ['Nueva orden',         '🆕', '#06B6D4'],
-            'order.confirmed'        => ['Orden confirmada',    '✅', '#0EA572'],
-            'order.preparing'        => ['En preparacion',      '👨‍🍳', '#F59E0B'],
-            'order.ready'            => ['Lista para entregar', '🛎️', '#0EA572'],
-            'order.out_for_delivery' => ['En camino',           '🛵', '#0EA5E9'],
-            'order.delivered'        => ['Entregada',           '🎉', '#0B7C56'],
-            'order.cancelled'        => ['Cancelada',           '❌', '#DC2A47'],
+            'order.new'              => ['Nueva orden',         'ðŸ†•', '#06B6D4'],
+            'order.confirmed'        => ['Orden confirmada',    'âœ…', '#0EA572'],
+            'order.preparing'        => ['En preparacion',      'ðŸ‘¨â€ðŸ³', '#F59E0B'],
+            'order.ready'            => ['Lista para entregar', 'ðŸ›Žï¸', '#0EA572'],
+            'order.out_for_delivery' => ['En camino',           'ðŸ›µ', '#0EA5E9'],
+            'order.delivered'        => ['Entregada',           'ðŸŽ‰', '#0B7C56'],
+            'order.cancelled'        => ['Cancelada',           'âŒ', '#DC2A47'],
         ];
         $orderId  = (int) ($order['id'] ?? 0);
         $code     = (string) ($order['code'] ?? ('#' . $orderId));
@@ -219,19 +219,19 @@ final class NotificationDispatcher
         $address  = (string) ($order['delivery_address'] ?? '');
         $notes    = (string) ($order['delivery_notes'] ?? ($order['kitchen_notes'] ?? ''));
         $deliveryType = (string) ($order['delivery_type'] ?? 'delivery');
-        [$statusLb, $emoji, $color] = $statusMeta[$event] ?? [ucfirst((string) ($order['status'] ?? '')), 'ℹ️', '#0EA572'];
+        [$statusLb, $emoji, $color] = $statusMeta[$event] ?? [ucfirst((string) ($order['status'] ?? '')), 'â„¹ï¸', '#0EA572'];
         $items    = $order['items'] ?? [];
 
         // URL absoluta a la orden en el panel del SaaS
         $baseUrl  = rtrim((string) (\App\Core\Config::get('app.url', '')), '/');
         $orderUrl = $baseUrl . '/orders/' . $orderId;
 
-        // Versión texto plano (Slack/Telegram fallback + email plain)
+        // VersiÃ³n texto plano (Slack/Telegram fallback + email plain)
         $itemsTextLines = [];
         foreach ($items as $it) {
-            $line = sprintf('  • %dx %s', (int) ($it['qty'] ?? 1), (string) ($it['name'] ?? 'Producto'));
+            $line = sprintf('  â€¢ %dx %s', (int) ($it['qty'] ?? 1), (string) ($it['name'] ?? 'Producto'));
             if (!empty($it['notes'])) $line .= ' (' . $it['notes'] . ')';
-            $line .= ' — ' . $currency . ' ' . number_format((float) ($it['subtotal'] ?? 0), 2);
+            $line .= ' â€” ' . $currency . ' ' . number_format((float) ($it['subtotal'] ?? 0), 2);
             $itemsTextLines[] = $line;
         }
         $itemsText = empty($itemsTextLines) ? '  (sin items)' : implode("\n", $itemsTextLines);
@@ -246,7 +246,7 @@ final class NotificationDispatcher
         if ($tax > 0)      $totalsTextLines[] = sprintf('%s: %s %s', $taxLabelText, $currency, number_format($tax, 2));
         $totalsText = empty($totalsTextLines) ? '' : implode("\n", $totalsTextLines) . "\n";
 
-        $title = sprintf('%s %s · %s', $emoji, $statusLb, $code);
+        $title = sprintf('%s %s Â· %s', $emoji, $statusLb, $code);
         $text  = "{$title}\n\n"
                . "Cliente: {$customer}\n"
                . "Telefono: {$phone}\n"
@@ -270,7 +270,7 @@ final class NotificationDispatcher
             $sub   = $currency . ' ' . number_format((float) ($it['subtotal'] ?? 0), 2);
             $itemsRowsHtml .=
                 '<tr>'
-              . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;width:42px;vertical-align:top"><span style="display:inline-block;min-width:28px;padding:2px 8px;background:#ECFDF5;color:#0B7C56;border-radius:999px;font-weight:700;font-size:12px;text-align:center">' . $qty . '×</span></td>'
+              . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;width:42px;vertical-align:top"><span style="display:inline-block;min-width:28px;padding:2px 8px;background:#ECFDF5;color:#0B7C56;border-radius:999px;font-weight:700;font-size:12px;text-align:center">' . $qty . 'Ã—</span></td>'
               . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;font-weight:500">' . $name . $note . '</td>'
               . '<td style="padding:14px 12px;border-bottom:1px solid #EEF1F4;font-size:14px;color:#0B1220;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' . $sub . '</td>'
               . '</tr>';
@@ -295,14 +295,14 @@ final class NotificationDispatcher
             $totalsRows .= '<tr><td style="padding:6px 12px;color:#6B7588;font-size:13px">' . $taxLabel . '</td><td style="padding:6px 12px;text-align:right;font-size:13px;color:#0B1220">' . $currency . ' ' . number_format($tax, 2) . '</td></tr>';
         }
 
-        $deliveryTypeLabels = ['delivery' => '🛵 Delivery', 'pickup' => '🏪 Pickup', 'dine_in' => '🍽️ Dine-in'];
+        $deliveryTypeLabels = ['delivery' => 'ðŸ›µ Delivery', 'pickup' => 'ðŸª Pickup', 'dine_in' => 'ðŸ½ï¸ Dine-in'];
         $deliveryTypeLb = $deliveryTypeLabels[$deliveryType] ?? ucfirst($deliveryType);
 
         $appUrl  = $baseUrl !== '' ? $baseUrl : 'https://pulse.kyrosrd.com';
-        $brandName = htmlspecialchars((string) (\App\Core\Config::get('app.name', 'Kyros Pulse')), ENT_QUOTES);
+        $brandName = htmlspecialchars((string) (\App\Core\Config::get('app.name', 'Evallish Pulse')), ENT_QUOTES);
         $year = date('Y');
 
-        // Email HTML — table-based, mobile-first, compatible Outlook/Gmail/Apple
+        // Email HTML â€” table-based, mobile-first, compatible Outlook/Gmail/Apple
         $html = <<<HTML
 <!DOCTYPE html>
 <html lang="es">
@@ -324,7 +324,7 @@ final class NotificationDispatcher
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="font-size:18px;font-weight:700;color:#FFFFFF;letter-spacing:-0.01em">
-                  <span style="display:inline-block;width:32px;height:32px;background:linear-gradient(135deg,#10B981,#0EA572);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:16px;vertical-align:middle;margin-right:8px">⚡</span>
+                  <span style="display:inline-block;width:32px;height:32px;background:linear-gradient(135deg,#10B981,#0EA572);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:16px;vertical-align:middle;margin-right:8px">âš¡</span>
                   {$brandName}
                 </td>
                 <td style="text-align:right;font-size:11px;color:#7C8699;text-transform:uppercase;letter-spacing:0.08em;font-weight:600">
@@ -367,7 +367,7 @@ HTML;
         }
         if ($notes !== '') {
             $notesEsc = htmlspecialchars($notes, ENT_QUOTES);
-            $html .= '<tr><td colspan="2" style="padding:0 16px 14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F59E0B;margin-bottom:4px">⚠ Notas</div><div style="font-size:13px;color:#364152;line-height:1.5;font-style:italic">"' . $notesEsc . '"</div></td></tr>';
+            $html .= '<tr><td colspan="2" style="padding:0 16px 14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F59E0B;margin-bottom:4px">âš  Notas</div><div style="font-size:13px;color:#364152;line-height:1.5;font-style:italic">"' . $notesEsc . '"</div></td></tr>';
         }
 
         $totalFmt = $currency . ' ' . $total;
@@ -409,7 +409,7 @@ HTML;
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto">
               <tr>
                 <td style="border-radius:10px;background:linear-gradient(135deg,#10B981,#0EA572);box-shadow:0 8px 22px rgba(14,165,114,0.35)">
-                  <a href="{$orderUrl}" style="display:inline-block;padding:14px 32px;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px">Ver orden completa →</a>
+                  <a href="{$orderUrl}" style="display:inline-block;padding:14px 32px;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px">Ver orden completa â†’</a>
                 </td>
               </tr>
             </table>
@@ -423,10 +423,10 @@ HTML;
             <p style="margin:0 0 6px;font-size:12px;color:#6B7588">Este aviso te llega porque configuraste un destino de notificacion en {$brandName}.</p>
             <p style="margin:0;font-size:11px;color:#98A2B3">
               <a href="{$baseUrl}/settings/notifications" style="color:#0EA572;text-decoration:none">Gestionar notificaciones</a>
-              &nbsp;·&nbsp;
+              &nbsp;Â·&nbsp;
               <a href="{$baseUrl}" style="color:#0EA572;text-decoration:none">Ir al panel</a>
             </p>
-            <p style="margin:14px 0 0;font-size:11px;color:#98A2B3">© {$year} {$brandName} · Powered by Kyros Pulse</p>
+            <p style="margin:14px 0 0;font-size:11px;color:#98A2B3">Â© {$year} {$brandName} Â· Powered by Evallish Pulse</p>
           </td>
         </tr>
 
@@ -447,8 +447,8 @@ HTML;
             'order_id'  => $orderId,
             'order_url' => $orderUrl,
             'fields'    => [
-                ['label' => 'Cliente',  'value' => $customer ?: '—'],
-                ['label' => 'Telefono', 'value' => $phone ?: '—'],
+                ['label' => 'Cliente',  'value' => $customer ?: 'â€”'],
+                ['label' => 'Telefono', 'value' => $phone ?: 'â€”'],
                 ['label' => 'Total',    'value' => $currency . ' ' . $total],
                 ['label' => 'Estado',   'value' => $statusLb],
                 ['label' => 'Codigo',   'value' => $code],
@@ -493,7 +493,7 @@ HTML;
         return [
             'success'  => $allOk,
             'error'    => empty($errors) ? null : implode(' | ', $errors),
-            'response' => sprintf('%d/%d enviados%s', $okCount, count($recipients), $ids ? ' · ids=' . implode(',', $ids) : ''),
+            'response' => sprintf('%d/%d enviados%s', $okCount, count($recipients), $ids ? ' Â· ids=' . implode(',', $ids) : ''),
         ];
     }
 
@@ -518,7 +518,7 @@ HTML;
                 'type' => 'actions',
                 'elements' => [[
                     'type'  => 'button',
-                    'text'  => ['type' => 'plain_text', 'text' => 'Ver orden completa →', 'emoji' => true],
+                    'text'  => ['type' => 'plain_text', 'text' => 'Ver orden completa â†’', 'emoji' => true],
                     'style' => 'primary',
                     'url'   => (string) $p['order_url'],
                 ]],
@@ -526,7 +526,7 @@ HTML;
         }
         $blocks[] = [
             'type' => 'context',
-            'elements' => [['type' => 'mrkdwn', 'text' => '⚡ Kyros Pulse · ' . date('d M Y H:i')]],
+            'elements' => [['type' => 'mrkdwn', 'text' => 'âš¡ Evallish Pulse Â· ' . date('d M Y H:i')]],
         ];
 
         return $this->postJson($url, [
@@ -551,16 +551,16 @@ HTML;
             'description' => mb_substr((string) $p['text'], 0, 2000),
             'color'       => 0x0EA572,
             'fields'      => $fields,
-            'footer'      => ['text' => 'Kyros Pulse · ' . date('Y-m-d H:i')],
+            'footer'      => ['text' => 'Evallish Pulse Â· ' . date('Y-m-d H:i')],
             'timestamp'   => date('c'),
         ];
         if (!empty($p['order_url'])) {
             // Discord no tiene "buttons" en webhooks; el url va en el title como link
             $embed['url'] = (string) $p['order_url'];
-            $embed['description'] .= "\n\n**[Ver orden completa →](" . $p['order_url'] . ')**';
+            $embed['description'] .= "\n\n**[Ver orden completa â†’](" . $p['order_url'] . ')**';
         }
         return $this->postJson($url, [
-            'username' => $config['username'] ?? 'Kyros Pulse',
+            'username' => $config['username'] ?? 'Evallish Pulse',
             'embeds'   => [$embed],
         ]);
     }
@@ -583,7 +583,7 @@ HTML;
             'summary'    => mb_substr((string) $p['title'], 0, 100),
             'title'      => mb_substr((string) $p['title'], 0, 200),
             'sections'   => [[
-                'activityTitle' => 'Kyros Pulse',
+                'activityTitle' => 'Evallish Pulse',
                 'activitySubtitle' => date('d M Y H:i'),
                 'text' => mb_substr((string) $p['text'], 0, 3000),
                 'facts' => $facts,
@@ -613,7 +613,7 @@ HTML;
         }
         if (!empty($p['order_url'])) {
             $lines[] = '';
-            $lines[] = '[Ver orden completa →](' . $p['order_url'] . ')';
+            $lines[] = '[Ver orden completa â†’](' . $p['order_url'] . ')';
         }
         $text = implode("\n", $lines);
 

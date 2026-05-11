@@ -38,16 +38,16 @@ CREATE TABLE IF NOT EXISTS `saas_settings` (
 
 -- Seed defaults para landing/branding
 INSERT IGNORE INTO `saas_settings` (`setting_key`, `value`, `kind`) VALUES
-    ('brand_name',          'Kyros Pulse', 'string'),
-    ('brand_tagline',       'El sistema operativo de tu negocio digital', 'string'),
-    ('hero_eyebrow',        'CRM + WhatsApp + IA en una plataforma', 'string'),
-    ('hero_headline',       'Convierte cada conversacion en una venta — sin contratar mas personal', 'string'),
-    ('hero_sub',            'Vendedores, soporte y agendadores IA que atienden por ti 24/7. WhatsApp multiagente, CRM, automatizaciones, catalogo y reportes en un solo panel.', 'string'),
-    ('cta_primary_label',   'Empezar gratis 14 dias', 'string'),
+    ('brand_name',          'Evallish Pulse', 'string'),
+    ('brand_tagline',       'El sistema operativo de tu contact center con IA', 'string'),
+    ('hero_eyebrow',        'Contact Center · WhatsApp Cloud · IA', 'string'),
+    ('hero_headline',       'Atiende, vende y crece desde una sola bandeja con IA', 'string'),
+    ('hero_sub',            'Vendedores, soporte y agendadores IA que atienden por ti 24/7. WhatsApp multiagente, CRM, automatizaciones y reportes en un solo panel.', 'string'),
+    ('cta_primary_label',   'Probar demo gratis', 'string'),
     ('cta_primary_url',     '/register', 'string'),
     ('cta_secondary_label', 'Solicitar demo', 'string'),
-    ('cta_secondary_url',   'https://wa.me/18495555555?text=Hola%20Kyros%20Pulse', 'string'),
-    ('contact_email',       'hola@kyrosrd.com', 'string'),
+    ('cta_secondary_url',   'https://wa.me/18495555555?text=Hola%20Evallish%20Pulse', 'string'),
+    ('contact_email',       'hola@evallish.com', 'string'),
     ('contact_phone',       '+1 809 555 5555', 'string'),
     ('contact_whatsapp',    'https://wa.me/18495555555', 'string'),
     ('social_x',            '', 'string'),
@@ -55,4 +55,4 @@ INSERT IGNORE INTO `saas_settings` (`setting_key`, `value`, `kind`) VALUES
     ('social_instagram',    '', 'string'),
     ('show_pricing',        '1', 'bool'),
     ('show_changelog',      '1', 'bool'),
-    ('legal_company',       'Kyros Solutions', 'string');
+    ('legal_company',       'Evallish', 'string');

@@ -28,11 +28,22 @@ final class SettingsController extends Controller
         $tenant   = TenantModel::findById($tenantId);
         $hours    = !empty($tenant['business_hours']) ? json_decode((string) $tenant['business_hours'], true) : [];
 
+        // Snapshot del plan actual para mostrar uso vs limite y features incluidas/excluidas
+        $plan      = \App\Services\PlanService::currentPlan($tenantId);
+        $planUsage = [
+            'users'       => \App\Services\PlanService::snapshot($tenantId, 'users'),
+            'contacts'    => \App\Services\PlanService::snapshot($tenantId, 'contacts'),
+            'campaigns'   => \App\Services\PlanService::snapshot($tenantId, 'campaigns'),
+            'automations' => \App\Services\PlanService::snapshot($tenantId, 'automations'),
+        ];
+
         $this->view('settings.general', [
-            'page'   => 'configuracion',
-            'tab'    => 'general',
-            'tenant' => $tenant,
-            'hours'  => is_array($hours) ? $hours : [],
+            'page'      => 'configuracion',
+            'tab'       => 'general',
+            'tenant'    => $tenant,
+            'hours'     => is_array($hours) ? $hours : [],
+            'plan'      => $plan,
+            'planUsage' => $planUsage,
         ], 'layouts.app');
     }
 
@@ -857,6 +868,17 @@ final class SettingsController extends Controller
             'email'      => 'required|email',
             'role_id'    => 'required|integer',
         ]);
+
+        // Limite de usuarios segun licencia (plans.max_users)
+        if (!\App\Services\PlanService::canAdd($tenantId, 'users')) {
+            $snap = \App\Services\PlanService::snapshot($tenantId, 'users');
+            Session::flash('error', sprintf(
+                'Limite de usuarios alcanzado (%d/%d). Actualiza tu plan para invitar mas miembros.',
+                (int) $snap['used'], (int) $snap['limit']
+            ));
+            $this->redirect('/settings/users');
+            return;
+        }
 
         if (User::emailExists($data['email'])) {
             Session::flash('error', 'El email ya esta registrado en el sistema.');

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Controllers;
@@ -19,12 +19,12 @@ use App\Services\WorkflowTemplateService;
  * Wizard de onboarding para tenants nuevos.
  *
  * 5 pasos secuenciales con state machine en tenants.onboarding_step:
- *   0 → welcome    : intro + value props
- *   1 → business   : nombre, industria, moneda, timezone
- *   2 → channel    : WhatsApp (config minima o skip)
- *   3 → agent      : crear primer agente IA o elegir preset
- *   4 → workflow   : activar primer workflow desde template
- *   5 → done       : completado
+ *   0 â†’ welcome    : intro + value props
+ *   1 â†’ business   : nombre, industria, moneda, timezone
+ *   2 â†’ channel    : WhatsApp (config minima o skip)
+ *   3 â†’ agent      : crear primer agente IA o elegir preset
+ *   4 â†’ workflow   : activar primer workflow desde template
+ *   5 â†’ done       : completado
  *
  * El usuario puede saltarse el wizard entero (onboarding_skipped=1) o saltarse
  * pasos individuales. Banner persistente en dashboard hasta completar.
@@ -235,7 +235,7 @@ final class OnboardingController extends Controller
         ], ['id' => $tenantId]);
         Audit::log('onboarding.completed', 'tenant', $tenantId);
 
-        Session::flash('success', '¡Setup completado! Bienvenido a Kyros Pulse.');
+        Session::flash('success', 'Â¡Setup completado! Bienvenido a Evallish Pulse.');
         $this->redirect('/dashboard');
     }
 

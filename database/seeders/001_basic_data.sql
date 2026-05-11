@@ -10,10 +10,14 @@ INSERT INTO `plans` (`slug`, `name`, `description`, `price_monthly`, `price_year
                      `max_users`, `max_contacts`, `max_messages`, `max_campaigns`, `max_automations`,
                      `ai_enabled`, `api_access`, `advanced_reports`, `support_level`, `sort_order`)
 VALUES
-('starter',     'Starter',     'Perfecto para emprendedores y negocios que empiezan.',     0,    0,    'USD', 1,  500,    500,    1,  3,  0, 0, 0, 'email',     1),
-('professional','Professional','La opcion ideal para pequenas empresas y equipos.',         49,   470,  'USD', 5,  5000,   5000,   10, 15, 1, 0, 0, 'chat',      2),
-('business',    'Business',    'Para empresas en crecimiento que necesitan automatizar.',   129,  1240, 'USD', 20, 50000,  50000,  50, 50, 1, 1, 1, 'priority',  3),
-('enterprise',  'Enterprise',  'Sin limites, soporte dedicado y personalizacion total.',    349,  3350, 'USD', 999,999999, 999999, 999,999,1, 1, 1, 'dedicated', 4);
+-- Starter: bandeja basica, sin IA, sin API, sin reportes avanzados, sin multi-numero.
+('starter',     'Starter',     'Perfecto para emprendedores que empiezan a vender por WhatsApp.', 0,    0,    'USD', 1,  500,    500,    1,  3,  0, 0, 0, 'email',     1),
+-- Professional: agrega agentes IA. Sigue sin API ni reportes avanzados.
+('professional','Professional','Bandeja omnicanal + agentes IA para equipos pequenos.',           49,   470,  'USD', 5,  5000,   5000,   10, 15, 1, 0, 0, 'chat',      2),
+-- Business: desbloquea API, webhooks, reportes avanzados y workflows.
+('business',    'Business',    'IA + API + reportes ejecutivos + workflows para equipos serios.', 129,  1240, 'USD', 20, 50000,  50000,  50, 50, 1, 1, 1, 'priority',  3),
+-- Enterprise: limites altisimos + soporte dedicado.
+('enterprise',  'Enterprise',  'Sin limites practicos, integraciones premium y SLA 99.99%.',      349,  3350, 'USD', 999,999999, 999999, 999,999,1, 1, 1, 'dedicated', 4);
 
 -- ----------------------------------------------------------------------------
 -- Roles
@@ -180,6 +184,6 @@ INSERT INTO `quick_replies` (`tenant_id`, `shortcut`, `title`, `body`) VALUES
 
 -- Base de conocimiento
 INSERT INTO `knowledge_base` (`tenant_id`, `category`, `title`, `content`, `is_active`, `sort_order`) VALUES
-(@demo_tenant_id, 'empresa',   'Sobre Kyros Demo',     'Kyros Demo es una empresa ficticia usada para mostrar las capacidades de Kyros Pulse.', 1, 1),
+(@demo_tenant_id, 'empresa',   'Sobre Demo Co',        'Demo Co es una empresa ficticia usada para mostrar las capacidades de Evallish Pulse.', 1, 1),
 (@demo_tenant_id, 'horario',   'Horario de atencion',  'Atendemos de lunes a viernes 9am-6pm hora local.', 1, 2),
 (@demo_tenant_id, 'productos', 'Servicios principales','Ofrecemos consultoria, soporte y desarrollo a medida.', 1, 3);

@@ -18,6 +18,77 @@ $days = ['monday'=>'Lunes','tuesday'=>'Martes','wednesday'=>'Miercoles','thursda
 <div class="set-flash set-flash-error"><span>⚠</span><?= e((string) $flashErr) ?></div>
 <?php endif; ?>
 
+<?php
+// ===== Plan / Licencia: resumen rapido (uso vs limite + features) =====
+$plan      = $plan ?? null;
+$planUsage = $planUsage ?? [];
+if ($plan):
+    $planName    = (string) ($plan['name'] ?? 'Sin plan');
+    $hasAi       = !empty($plan['ai_enabled']);
+    $hasApi      = !empty($plan['api_access']);
+    $hasReports  = !empty($plan['advanced_reports']);
+    $fmtN        = fn(int $n) => $n >= 999000 ? 'Ilimitado' : number_format($n);
+?>
+<div style="border:1px solid rgba(37,99,235,.28); background: linear-gradient(135deg, rgba(37,99,235,.10), rgba(14,165,233,.06)); border-radius:14px; padding:18px 20px; margin-bottom:18px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+        <div>
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:#93C5FD; font-weight:700;">Tu licencia</div>
+            <div style="font-size:18px; font-weight:800; color:#fff; margin-top:2px;">Plan <?= e($planName) ?></div>
+        </div>
+        <a href="<?= url('/') ?>#precios" class="set-btn set-btn-primary" style="background: linear-gradient(135deg,#3B82F6,#1D4ED8); color:#fff;">Ver planes / actualizar</a>
+    </div>
+
+    <!-- Uso vs limite -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:14px;">
+        <?php foreach ($planUsage as $resource => $snap):
+            $label = match ($resource) {
+                'users'       => 'Usuarios',
+                'contacts'    => 'Contactos',
+                'campaigns'   => 'Campanas',
+                'automations' => 'Automatizaciones',
+                default       => ucfirst($resource),
+            };
+            $limit   = (int) $snap['limit'];
+            $used    = (int) $snap['used'];
+            $percent = (int) $snap['percent'];
+            $barColor = $percent >= 90 ? '#EF4444' : ($percent >= 70 ? '#F59E0B' : '#3B82F6');
+        ?>
+        <div style="background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:10px 12px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#94A3B8; margin-bottom:4px;">
+                <span><?= e($label) ?></span>
+                <span><strong style="color:#fff;"><?= number_format($used) ?></strong> / <?= $fmtN($limit) ?></span>
+            </div>
+            <div style="height:5px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:<?= max(2, min(100, $percent)) ?>%; background:<?= $barColor ?>; border-radius:99px; transition:width .3s;"></div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- Features booleanas -->
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <?php foreach ([
+            ['Agentes IA',                    $hasAi],
+            ['Reportes avanzados + Workflows',$hasReports],
+            ['API publica + Webhooks',        $hasApi],
+        ] as [$ftLabel, $ftOn]): ?>
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:99px; font-size:11px; font-weight:600;
+            background: <?= $ftOn ? 'rgba(59,130,246,.15)' : 'rgba(255,255,255,.04)' ?>;
+            color: <?= $ftOn ? '#93C5FD' : '#64748B' ?>;
+            border: 1px solid <?= $ftOn ? 'rgba(59,130,246,.35)' : 'rgba(255,255,255,.06)' ?>;">
+            <?php if ($ftOn): ?>
+            <svg style="width:11px; height:11px;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.7-9.3a1 1 0 00-1.4-1.4L9 10.6 7.7 9.3a1 1 0 00-1.4 1.4l2 2a1 1 0 001.4 0l4-4z" clip-rule="evenodd"/></svg>
+            <?php else: ?>
+            <svg style="width:11px; height:11px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            <?php endif; ?>
+            <?= e($ftLabel) ?>
+            <?php if (!$ftOn): ?><span style="opacity:.7;">· bloqueado</span><?php endif; ?>
+        </span>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <form action="<?= url('/settings') ?>" method="POST">
     <?= csrf_field() ?>
     <input type="hidden" name="_method" value="PUT">

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Services;
@@ -79,7 +79,7 @@ final class ResendService
         ]);
         return $this->sendEmail(
             (string) $user['email'],
-            'Verifica tu correo - Kyros Pulse',
+            'Verifica tu correo - Evallish Pulse',
             $html,
             "Hola $name, verifica tu correo aqui: $verifyUrl",
             ['template' => 'verify']
@@ -95,7 +95,7 @@ final class ResendService
         ]);
         return $this->sendEmail(
             (string) $user['email'],
-            'Recupera tu contrasena - Kyros Pulse',
+            'Recupera tu contrasena - Evallish Pulse',
             $html,
             "Restablece tu contrasena: $resetUrl",
             ['template' => 'password_reset']
@@ -112,7 +112,7 @@ final class ResendService
         ]);
         return $this->sendEmail(
             (string) $user['email'],
-            "Invitacion a unirte a $companyName en Kyros Pulse",
+            "Invitacion a unirte a $companyName en Evallish Pulse",
             $html,
             "Has sido invitado a $companyName: $inviteUrl",
             ['template' => 'invitation']
@@ -121,7 +121,7 @@ final class ResendService
 
     private function renderTemplate(string $template, array $data): string
     {
-        $brand    = e((string) config('app.name', 'Kyros Pulse'));
+        $brand    = e((string) config('app.name', 'Evallish Pulse'));
         $year     = date('Y');
         $primary  = '#7C3AED';
         $bg       = '#0B1020';

@@ -150,6 +150,9 @@ final class Router
             'apikey'    => \App\Middlewares\ApiAuthMiddleware::class,
             'security_headers' => \App\Middlewares\SecurityHeadersMiddleware::class,
             'onboarding' => \App\Middlewares\OnboardingMiddleware::class,
+            // plan:ai_enabled, plan:api_access, plan:advanced_reports — bloquea la
+            // ruta cuando el plan del tenant no incluye esa feature.
+            'plan'      => \App\Middlewares\PlanFeatureMiddleware::class,
         ];
 
         if (str_contains($alias, ':')) {

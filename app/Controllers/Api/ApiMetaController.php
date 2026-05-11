@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 namespace App\Controllers\Api;
@@ -9,14 +9,14 @@ use App\Services\ApiKeyService;
 
 /**
  * Endpoints de meta:
- *   GET  /api/v1/status     ping publico (sin auth) — uptime check
+ *   GET  /api/v1/status     ping publico (sin auth) â€” uptime check
  *   GET  /api/v1/me         info de la API key autenticada
  *   GET  /api/v1/openapi    OpenAPI 3.0 spec (publico)
  *   GET  /api/v1/scopes     lista de scopes disponibles
  */
 final class ApiMetaController extends ApiController
 {
-    /** Endpoint publico — no requiere auth. */
+    /** Endpoint publico â€” no requiere auth. */
     public function status(Request $request): void
     {
         Response::json([
@@ -70,7 +70,7 @@ final class ApiMetaController extends ApiController
             $cacheOk = false;
         }
         $checks['cache_writable'] = ['ok' => $cacheOk];
-        // No critico — cache fallido no degrada totalmente el servicio
+        // No critico â€” cache fallido no degrada totalmente el servicio
 
         // Schema healed flag
         try {
@@ -120,7 +120,7 @@ final class ApiMetaController extends ApiController
         ]);
     }
 
-    /** Endpoint publico — devuelve specs OpenAPI 3.0 para clientes. */
+    /** Endpoint publico â€” devuelve specs OpenAPI 3.0 para clientes. */
     public function openapi(Request $request): void
     {
         $base = (string) (function_exists('url') ? url('/api/v1') : '/api/v1');
@@ -128,10 +128,10 @@ final class ApiMetaController extends ApiController
         $spec = [
             'openapi' => '3.0.3',
             'info' => [
-                'title'       => 'Kyros Pulse API',
+                'title'       => 'Evallish Pulse API',
                 'description' => 'Agent-as-a-Service: ejecuta agentes IA, gestiona contactos, ordenes y envia mensajes WhatsApp programaticamente.',
                 'version'     => '1.0.0',
-                'contact'     => ['name' => 'Kyros Solutions'],
+                'contact'     => ['name' => 'Evallish'],
             ],
             'servers' => [['url' => $base]],
             'security' => [['bearerAuth' => []]],
