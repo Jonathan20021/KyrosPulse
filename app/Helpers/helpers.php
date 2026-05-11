@@ -46,7 +46,13 @@ if (!function_exists('url')) {
 if (!function_exists('asset')) {
     function asset(string $path): string
     {
-        return url('assets/' . ltrim($path, '/'));
+        $clean = ltrim($path, '/');
+        $url   = url('assets/' . $clean);
+        $full  = dirname(__DIR__, 2) . '/public/assets/' . $clean;
+        if (is_file($full)) {
+            $url .= (str_contains($url, '?') ? '&' : '?') . 'v=' . filemtime($full);
+        }
+        return $url;
     }
 }
 
