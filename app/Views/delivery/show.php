@@ -167,46 +167,93 @@ $allowed = $flow[$delivery['status']] ?? [];
     </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+    #map { background: #0F172A; }
+    .leaflet-tile-pane { filter: brightness(.95) contrast(1.05); }
+    .leaflet-control-attribution { background: rgba(15,23,42,.7) !important; color:#64748B !important; font-size: 9px !important; }
+    .driver-icon-admin { background:#10B981; border:3px solid white; border-radius:50%; width:38px; height:38px; display:flex;align-items:center;justify-content:center; font-size:18px; box-shadow: 0 4px 16px rgba(16,185,129,.55), 0 0 0 8px rgba(16,185,129,.2); }
+    .pin-icon-admin { font-size: 32px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+    .route-line-admin { animation: dashFlowAdmin 30s linear infinite; }
+    @keyframes dashFlowAdmin { to { stroke-dashoffset: -1000; } }
+</style>
 <script>
 const map = L.map('map').setView([18.4861, -69.9312], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-let driverMarker = null;
-let trailLayer = null;
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap, © CartoDB' }).addTo(map);
+
+const mkIcon = (html, size, anchor) => L.divIcon({ html, className:'', iconSize:[size,size], iconAnchor: anchor || [size/2,size/2] });
+const ICON_PICKUP  = mkIcon('<div class="pin-icon-admin">🍽️</div>', 32, [16, 32]);
+const ICON_DROPOFF = mkIcon('<div class="pin-icon-admin">📍</div>', 32, [16, 32]);
+const ICON_DRIVER  = mkIcon('<div class="driver-icon-admin">🛵</div>', 38);
+
+let driverMarker = null, trailLayer = null, routeLine = null, pickupMarker = null, dropoffMarker = null;
+let fitDone = false, lastRouteSig = '', lastRouteAt = 0;
 
 async function refreshMap() {
     try {
-        const res = await fetch('<?= url('/d/' . $delivery['tracking_token'] . '/feed') ?>', { headers: {'Accept':'application/json'} });
+        const res = await fetch('<?= url('/d/' . $delivery['tracking_token'] . '/feed') ?>', { headers: {'Accept':'application/json'}, cache: 'no-store' });
         const data = await res.json();
         if (!data.success) { document.getElementById('mapStatus').textContent = 'sin datos'; return; }
         const points = [];
         if (data.pickup) {
-            const p = L.marker([data.pickup.lat, data.pickup.lng], { title: 'Local' }).addTo(map);
+            if (!pickupMarker) pickupMarker = L.marker([data.pickup.lat, data.pickup.lng], { icon: ICON_PICKUP }).addTo(map);
+            else pickupMarker.setLatLng([data.pickup.lat, data.pickup.lng]);
             points.push([data.pickup.lat, data.pickup.lng]);
         }
         if (data.dropoff) {
-            const p = L.marker([data.dropoff.lat, data.dropoff.lng], { title: 'Cliente' }).addTo(map);
+            if (!dropoffMarker) dropoffMarker = L.marker([data.dropoff.lat, data.dropoff.lng], { icon: ICON_DROPOFF }).addTo(map);
+            else dropoffMarker.setLatLng([data.dropoff.lat, data.dropoff.lng]);
             points.push([data.dropoff.lat, data.dropoff.lng]);
         }
         if (data.driver_position) {
             const dp = data.driver_position;
-            if (driverMarker) { driverMarker.setLatLng([dp.lat, dp.lng]); }
-            else { driverMarker = L.marker([dp.lat, dp.lng], { title: 'Driver' }).addTo(map); }
+            if (driverMarker) driverMarker.setLatLng([dp.lat, dp.lng]);
+            else driverMarker = L.marker([dp.lat, dp.lng], { icon: ICON_DRIVER, zIndexOffset: 1000 }).addTo(map);
             points.push([dp.lat, dp.lng]);
             document.getElementById('mapStatus').textContent = 'driver: ' + new Date(dp.at).toLocaleTimeString();
         } else {
             document.getElementById('mapStatus').textContent = 'esperando GPS del driver…';
         }
-        if (data.trail && data.trail.length) {
-            if (trailLayer) trailLayer.remove();
-            trailLayer = L.polyline(data.trail.map(p => [p.lat, p.lng]).reverse(), { color: '#06B6D4', weight: 3, opacity: .7 }).addTo(map);
+        if (data.trail && data.trail.length > 1) {
+            const ll = data.trail.map(p => [p.lat, p.lng]).reverse();
+            if (trailLayer) trailLayer.setLatLngs(ll);
+            else trailLayer = L.polyline(ll, { color: '#22D3EE', weight: 3, opacity: .35, dashArray: '4 8' }).addTo(map);
         }
-        if (points.length) map.fitBounds(points, { padding: [30,30], maxZoom: 16 });
+        // OSRM route
+        await maybeUpdateRoute(data);
+        if (!fitDone && points.length > 1) {
+            map.fitBounds(points, { padding: [40,40], maxZoom: 16 });
+            fitDone = true;
+        }
     } catch (e) { document.getElementById('mapStatus').textContent = 'error: ' + e.message; }
 }
+
+async function maybeUpdateRoute(data) {
+    let from, to;
+    if (data.driver_position && data.dropoff && ['picked_up','arriving'].includes(data.status)) {
+        from = data.driver_position; to = data.dropoff;
+    } else if (data.pickup && data.dropoff) {
+        from = data.pickup; to = data.dropoff;
+    } else return;
+
+    const sig = `${from.lat.toFixed(4)},${from.lng.toFixed(4)}|${to.lat.toFixed(4)},${to.lng.toFixed(4)}`;
+    if (sig === lastRouteSig) return;
+    if (Date.now() - lastRouteAt < 20000) return;
+    lastRouteAt = Date.now(); lastRouteSig = sig;
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        const r = await fetch(url);
+        const j = await r.json();
+        if (!j.routes || !j.routes[0]) return;
+        const coords = j.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        if (routeLine) routeLine.setLatLngs(coords);
+        else routeLine = L.polyline(coords, { color: '#10B981', weight: 4, opacity: .85, dashArray: '12 6', className: 'route-line-admin' }).addTo(map);
+    } catch (e) {}
+}
+
 refreshMap();
-setInterval(refreshMap, 8000);
+setInterval(refreshMap, 6000);
 </script>
 
 <?php \App\Core\View::stop(); ?>

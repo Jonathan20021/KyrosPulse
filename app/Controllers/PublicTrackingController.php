@@ -29,6 +29,8 @@ final class PublicTrackingController extends Controller
             echo 'Tracking link invalido o expirado.';
             return;
         }
+        // Backfill silencioso de coordenadas pickup/dropoff (idempotente).
+        $delivery = \App\Services\GeocodingService::backfillDelivery($delivery);
         $this->view('tracking.show', [
             'delivery' => $delivery,
             'statuses' => Delivery::STATUSES,
@@ -43,6 +45,9 @@ final class PublicTrackingController extends Controller
             $this->json(['success' => false], 404);
             return;
         }
+        // Backfill: si la entrega no tiene pickup_lat/lng o dropoff_lat/lng,
+        // intentamos geocodificar y guardamos el resultado en la fila.
+        $delivery = \App\Services\GeocodingService::backfillDelivery($delivery);
         $latest = DeliveryLocation::latestForDelivery((int) $delivery['id']);
         $trail = DeliveryLocation::trailForDelivery((int) $delivery['id'], 50);
         $this->json([
