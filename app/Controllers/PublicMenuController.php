@@ -134,6 +134,23 @@ final class PublicMenuController extends Controller
         $address = mb_substr(trim((string) ($payload['address'] ?? '')), 0, 500) ?: null;
         $note    = mb_substr(trim((string) ($payload['note']    ?? '')), 0, 500) ?: null;
 
+        // Coordenadas precisas opcionales (GPS del cliente o pin en mapa)
+        $deliveryLat = null;
+        $deliveryLng = null;
+        $locSource   = null;
+        if (isset($payload['lat'], $payload['lng'])) {
+            $lat = (float) $payload['lat'];
+            $lng = (float) $payload['lng'];
+            // Validar rango razonable
+            if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 && (abs($lat) > 0.0001 || abs($lng) > 0.0001)) {
+                $deliveryLat = $lat;
+                $deliveryLng = $lng;
+                $locSource = in_array(($payload['location_source'] ?? ''), ['gps','map_pin','geocoded','manual'], true)
+                    ? (string) $payload['location_source']
+                    : 'map_pin';
+            }
+        }
+
         $orderId = Order::create([
             'tenant_id'        => $tenantId,
             'customer_name'    => $name,
@@ -141,6 +158,9 @@ final class PublicMenuController extends Controller
             'delivery_type'    => $deliveryType,
             'delivery_zone_id' => $zoneId,
             'delivery_address' => $address,
+            'delivery_lat'     => $deliveryLat,
+            'delivery_lng'     => $deliveryLng,
+            'delivery_location_source' => $locSource,
             'delivery_notes'   => $note,
             'kitchen_notes'    => null,
             'status'           => 'new',
@@ -224,6 +244,28 @@ final class PublicMenuController extends Controller
             'currency'     => $currency,
             'wa_url'       => $waUrl,
             'wa_deep_url'  => $waDeep,
+        ]);
+    }
+
+    /**
+     * Reverse geocoding: dado lat/lng del pin elegido por el cliente,
+     * devuelve la direccion legible. Usado por el mapa de checkout para
+     * autocompletar el campo "Direccion completa" cuando el cliente
+     * arrastra el pin o usa "Mi ubicacion".
+     */
+    public function reverseGeocode(Request $request, array $params): void
+    {
+        $this->resolveTenant((string) ($params['uuid'] ?? ''));
+        $lat = (float) $request->input('lat', 0);
+        $lng = (float) $request->input('lng', 0);
+        if (abs($lat) < 0.0001 && abs($lng) < 0.0001) {
+            $this->json(['success' => false, 'error' => 'Coordenadas invalidas.'], 422);
+            return;
+        }
+        $display = \App\Services\GeocodingService::reverse($lat, $lng);
+        $this->json([
+            'success' => true,
+            'address' => $display,
         ]);
     }
 

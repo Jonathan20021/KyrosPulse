@@ -47,7 +47,23 @@ $allowed = $flow[$delivery['status']] ?? [];
                     <?php endif; ?>
                 </div>
                 <div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold mb-1" style="color: var(--color-text-tertiary);">Direccion de entrega</div>
+                    <div class="text-[10px] uppercase tracking-wider font-semibold mb-1 flex items-center gap-1.5" style="color: var(--color-text-tertiary);">
+                        <span>Direccion de entrega</span>
+                        <?php
+                        // El order tiene delivery_location_source; lo cargamos via Order para no
+                        // alterar el JOIN del Delivery::findById.
+                        $orderSrc = isset($order) ? (string) ($order['delivery_location_source'] ?? '') : '';
+                        if ($orderSrc !== ''):
+                            [$srcLabel, $srcColor, $srcIcon] = match ($orderSrc) {
+                                'gps'      => ['GPS preciso', '#22C55E', '📡'],
+                                'map_pin'  => ['Pin en mapa',  '#22C55E', '📍'],
+                                'geocoded' => ['Geocoded',     '#F59E0B', '~'],
+                                default    => ['Manual',       '#94A3B8', '✎'],
+                            };
+                        ?>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold tracking-wider" style="background: <?= $srcColor ?>22; color: <?= $srcColor ?>;"><?= $srcIcon ?> <?= e($srcLabel) ?></span>
+                        <?php endif; ?>
+                    </div>
                     <div class="text-sm" style="color: var(--color-text-primary);"><?= e((string) ($delivery['order_address'] ?? $delivery['dropoff_address'] ?? '—')) ?></div>
                 </div>
                 <div>

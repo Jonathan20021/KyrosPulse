@@ -88,6 +88,15 @@ final class OrderController extends Controller
             if ($zone) $deliveryFee = (float) $zone['fee'];
         }
 
+        // Coordenadas opcionales (admin puede pegar lat/lng o usar GPS del navegador)
+        $manualLat = $request->input('delivery_lat') !== null && $request->input('delivery_lat') !== ''
+            ? (float) $request->input('delivery_lat') : null;
+        $manualLng = $request->input('delivery_lng') !== null && $request->input('delivery_lng') !== ''
+            ? (float) $request->input('delivery_lng') : null;
+        $locSource = $manualLat !== null && $manualLng !== null
+            ? (string) ($request->input('delivery_location_source') ?: 'manual')
+            : null;
+
         $orderId = Order::create([
             'tenant_id'        => $tenantId,
             'created_by'       => Auth::id(),
@@ -96,6 +105,9 @@ final class OrderController extends Controller
             'delivery_type'    => $deliveryType,
             'delivery_zone_id' => $zoneId,
             'delivery_address' => trim((string) $request->input('delivery_address', '')) ?: null,
+            'delivery_lat'     => $manualLat,
+            'delivery_lng'     => $manualLng,
+            'delivery_location_source' => $locSource,
             'delivery_notes'   => trim((string) $request->input('delivery_notes', '')) ?: null,
             'kitchen_notes'    => trim((string) $request->input('kitchen_notes', '')) ?: null,
             'status'           => 'new',

@@ -39,8 +39,9 @@ $router->post('/demo/start', [\App\Controllers\DemoController::class, 'start'])
     ->middleware(['csrf', 'rate:login']);
 
 // Menu publico web (link compartible) — sin auth, sin CSRF
-$router->get ('/m/{uuid}',          [PublicMenuController::class, 'show']);
-$router->post('/m/{uuid}/checkout', [PublicMenuController::class, 'checkout']);
+$router->get ('/m/{uuid}',                  [PublicMenuController::class, 'show']);
+$router->post('/m/{uuid}/checkout',         [PublicMenuController::class, 'checkout']);
+$router->post('/m/{uuid}/reverse-geocode',  [PublicMenuController::class, 'reverseGeocode']);
 
 // Tracking publico del delivery — link unico por entrega (sin auth)
 $router->get ('/d/{token}',         [\App\Controllers\PublicTrackingController::class, 'show']);

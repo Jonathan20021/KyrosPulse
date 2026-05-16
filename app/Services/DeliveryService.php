@@ -42,7 +42,7 @@ final class DeliveryService
             $cashToCollect = (float) $order['total'];
         }
 
-        $deliveryId = Delivery::create([
+        $createPayload = [
             'tenant_id'       => $this->tenantId,
             'order_id'        => $orderId,
             'status'          => 'pending',
@@ -50,7 +50,14 @@ final class DeliveryService
             'delivery_fee'    => (float) ($order['delivery_fee'] ?? 0),
             'cash_to_collect' => $cashToCollect,
             'payment_method'  => $order['payment_method'] ?? null,
-        ]);
+        ];
+        // Si el cliente eligio su ubicacion precisa en el checkout, copiarla al
+        // delivery para que el dispatcher y el driver tengan el pin exacto.
+        if (!empty($order['delivery_lat']) && !empty($order['delivery_lng'])) {
+            $createPayload['dropoff_lat'] = (float) $order['delivery_lat'];
+            $createPayload['dropoff_lng'] = (float) $order['delivery_lng'];
+        }
+        $deliveryId = Delivery::create($createPayload);
 
         // Sincronizar tracking_token en la orden para link publico unico
         $delivery = Delivery::findById($this->tenantId, $deliveryId);

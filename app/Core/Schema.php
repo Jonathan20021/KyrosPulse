@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v23_ok';
+    private const CACHE_FILE = '/cache/.schema_v24_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -85,7 +85,11 @@ final class Schema
                     && self::tableExists($pdo, 'driver_shifts')
                     && self::tableExists($pdo, 'driver_payouts')
                     && self::columnExists($pdo, 'orders', 'delivery_id')
-                    && self::columnExists($pdo, 'orders', 'tracking_token');
+                    && self::columnExists($pdo, 'orders', 'tracking_token')
+                    // v24 — coordenadas precisas de entrega
+                    && self::columnExists($pdo, 'orders', 'delivery_lat')
+                    && self::columnExists($pdo, 'orders', 'delivery_lng')
+                    && self::columnExists($pdo, 'orders', 'delivery_location_source');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -646,6 +650,21 @@ SQL);
         if (!self::columnExists($pdo, 'orders', 'tracking_token')) {
             $pdo->exec("ALTER TABLE `orders` ADD COLUMN `tracking_token` CHAR(36) NULL AFTER `delivery_id`");
             $pdo->exec("ALTER TABLE `orders` ADD KEY `idx_orders_tracking` (`tracking_token`)");
+        }
+
+        // v24 — Coordenadas precisas de entrega (capturadas por el cliente en
+        // el checkout publico via GPS o pin en mapa). Cuando existen, se usan
+        // directamente para crear la delivery sin pasar por geocoding inexacto.
+        // delivery_location_source = 'gps' | 'map_pin' | 'geocoded' | 'manual'
+        // para distinguir nivel de precision en el dispatcher.
+        if (!self::columnExists($pdo, 'orders', 'delivery_lat')) {
+            $pdo->exec("ALTER TABLE `orders` ADD COLUMN `delivery_lat` DECIMAL(10,7) NULL AFTER `delivery_address`");
+        }
+        if (!self::columnExists($pdo, 'orders', 'delivery_lng')) {
+            $pdo->exec("ALTER TABLE `orders` ADD COLUMN `delivery_lng` DECIMAL(10,7) NULL AFTER `delivery_lat`");
+        }
+        if (!self::columnExists($pdo, 'orders', 'delivery_location_source')) {
+            $pdo->exec("ALTER TABLE `orders` ADD COLUMN `delivery_location_source` VARCHAR(20) NULL AFTER `delivery_lng`");
         }
 
         // Destinos de notificacion configurables por tenant para eventos de ordenes

@@ -92,6 +92,9 @@ foreach ($items as $i) {
         }
     </script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Leaflet (mapa para que el cliente elija su ubicacion precisa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
             color-scheme: dark;
@@ -824,8 +827,44 @@ foreach ($items as $i) {
                         </div>
                         <?php endif; ?>
                         <div>
-                            <label class="text-xs font-semibold text-muted block mb-1.5">Direccion completa</label>
+                            <label class="text-xs font-semibold text-muted block mb-1.5 flex items-center justify-between">
+                                <span>📍 Tu ubicacion exacta</span>
+                                <span x-show="customer.lat" x-cloak class="text-[10px] font-bold px-1.5 py-0.5 rounded" :style="customer.location_source==='gps' ? 'background:rgba(122,198,120,.15); color:#7AC678;' : 'background:rgba(212,165,116,.15); color:#d4a574;'">
+                                    <span x-text="customer.location_source === 'gps' ? 'GPS' : 'Pin'"></span>
+                                </span>
+                            </label>
+                            <div class="flex gap-2 mb-2">
+                                <button type="button" @click="useMyLocation()" :disabled="locating"
+                                        class="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                        style="background: linear-gradient(135deg, rgba(122,198,120,.2), rgba(122,198,120,.1)); color:#7AC678; border:1px solid rgba(122,198,120,.3);">
+                                    <template x-if="!locating">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    </template>
+                                    <template x-if="locating">
+                                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    </template>
+                                    <span x-text="locating ? 'Buscando...' : 'Usar mi ubicacion actual'"></span>
+                                </button>
+                                <button type="button" @click="togglePicker()" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+                                        style="background: rgba(212,165,116,.15); color:#d4a574; border:1px solid rgba(212,165,116,.3);">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                                    <span x-text="pickerOpen ? 'Ocultar mapa' : 'Elegir en mapa'"></span>
+                                </button>
+                            </div>
+                            <div x-show="locationError" x-cloak class="text-[11px] mb-2 p-2 rounded-lg" style="background: rgba(255,107,53,.12); color:#FF8B5F;" x-text="locationError"></div>
+
+                            <!-- Mapa con pin draggable -->
+                            <div x-show="pickerOpen" x-cloak class="mb-2">
+                                <div id="locationPicker" style="width:100%; height: 260px; border-radius: 14px; overflow:hidden; background:#1a1410; border:1px solid rgba(212,165,116,.2);"></div>
+                                <p class="text-[10px] text-muted mt-1.5 px-1">💡 Arrastra el pin verde a tu puerta exacta. El driver llegara directo.</p>
+                            </div>
+
+                            <label class="text-xs font-semibold text-muted block mb-1.5">Direccion (referencia)</label>
                             <input x-model="customer.address" type="text" placeholder="Calle, numero, apartamento, referencia" class="input-field">
+                            <p x-show="customer.lat" x-cloak class="text-[10px] text-muted mt-1 flex items-center gap-1">
+                                <span class="text-green-400">✓</span>
+                                <span>Ubicacion precisa guardada — el repartidor llega directo.</span>
+                            </p>
                         </div>
                     </div>
                 </template>
@@ -947,6 +986,15 @@ window.MENU_ZONES_FULL = <?= json_encode(array_map(fn($z) => [
     'label' => (string) $z['name'] . ((float) $z['fee'] > 0 ? ' — ' . $currency . ' ' . number_format((float) $z['fee'], 2) : ' — Gratis'),
 ], $zones), JSON_UNESCAPED_UNICODE) ?>;
 window.MENU_CHECKOUT_URL = <?= json_encode(url('/m/' . $tenant['uuid'] . '/checkout')) ?>;
+window.MENU_REVERSE_GEOCODE_URL = <?= json_encode(url('/m/' . $tenant['uuid'] . '/reverse-geocode')) ?>;
+<?php
+// Coordenadas del local (si el tenant las tiene en restaurant_settings).
+// Usadas como centro inicial del mapa de seleccion del cliente.
+$tenantLat = isset($settings['lat']) ? (float) $settings['lat'] : null;
+$tenantLng = isset($settings['lng']) ? (float) $settings['lng'] : null;
+?>
+window.MENU_TENANT_LAT = <?= $tenantLat !== null ? json_encode($tenantLat) : 'null' ?>;
+window.MENU_TENANT_LNG = <?= $tenantLng !== null ? json_encode($tenantLng) : 'null' ?>;
 window.MENU_CURRENCY = <?= json_encode($currency) ?>;
 window.MENU_MIN_ORDER = <?= json_encode((float) $minOrder) ?>;
 window.MENU_TAX_RATE  = <?= json_encode((float) $taxRate) ?>;
@@ -1009,7 +1057,15 @@ function menuApp() {
             delivery_zone_id: '',
             address: '',
             note: '',
+            lat: null,
+            lng: null,
+            location_source: null, // 'gps' | 'map_pin'
         },
+        pickerOpen: false,
+        locating: false,
+        locationError: '',
+        _map: null,
+        _pin: null,
         init() {
             try {
                 const saved = localStorage.getItem('kp_cart_<?= e($tenant['uuid']) ?>');
@@ -1100,6 +1156,119 @@ function menuApp() {
             };
             setTimeout(tryFallback, 1500);
         },
+        // =====================================================================
+        // Ubicacion precisa del cliente: GPS del navegador + pin draggable
+        // en mapa Leaflet. La ubicacion elegida se guarda en customer.lat/lng
+        // y viaja al servidor en el payload de checkout.
+        // =====================================================================
+        async useMyLocation() {
+            if (!('geolocation' in navigator)) {
+                this.locationError = 'Tu navegador no soporta geolocalizacion.';
+                return;
+            }
+            this.locating = true;
+            this.locationError = '';
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    this.customer.lat = lat;
+                    this.customer.lng = lng;
+                    this.customer.location_source = 'gps';
+                    this.locating = false;
+                    // Si el mapa esta abierto, mover el pin; si no, abrirlo
+                    if (this.pickerOpen) this._updatePin(lat, lng, true);
+                    else { this.pickerOpen = true; this.$nextTick(() => this._initMap(lat, lng)); }
+                    // Reverse geocode para autocompletar el campo de direccion
+                    this._tryReverseGeocode(lat, lng);
+                },
+                (err) => {
+                    this.locating = false;
+                    this.locationError = err.code === 1
+                        ? 'Permiso de ubicacion denegado. Activa el GPS y vuelve a intentar.'
+                        : 'No pudimos obtener tu ubicacion. Intenta el mapa.';
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        },
+        togglePicker() {
+            this.pickerOpen = !this.pickerOpen;
+            if (this.pickerOpen) {
+                this.$nextTick(() => {
+                    if (this._map) {
+                        setTimeout(() => this._map.invalidateSize(), 50);
+                    } else {
+                        // Centro por defecto: Santo Domingo o el local del tenant si tenemos
+                        const lat = this.customer.lat || window.MENU_TENANT_LAT || 18.4861;
+                        const lng = this.customer.lng || window.MENU_TENANT_LNG || -69.9312;
+                        this._initMap(lat, lng);
+                    }
+                });
+            }
+        },
+        _initMap(lat, lng) {
+            if (this._map) return;
+            const map = L.map('locationPicker', { zoomControl: true }).setView([lat, lng], 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19, subdomains: 'abcd',
+                attribution: '© OpenStreetMap, © CartoDB',
+            }).addTo(map);
+            const pinIcon = L.divIcon({
+                html: '<div style="background:#7AC678;border:3px solid white;width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 0 6px rgba(122,198,120,.25);"></div>',
+                className: '', iconSize: [32,32], iconAnchor: [16, 32],
+            });
+            const pin = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(map);
+            pin.on('dragend', (e) => {
+                const ll = e.target.getLatLng();
+                this.customer.lat = ll.lat;
+                this.customer.lng = ll.lng;
+                this.customer.location_source = 'map_pin';
+                this._tryReverseGeocode(ll.lat, ll.lng);
+            });
+            // Tap en mapa = mover pin
+            map.on('click', (e) => {
+                pin.setLatLng(e.latlng);
+                this.customer.lat = e.latlng.lat;
+                this.customer.lng = e.latlng.lng;
+                this.customer.location_source = 'map_pin';
+                this._tryReverseGeocode(e.latlng.lat, e.latlng.lng);
+            });
+            this._map = map;
+            this._pin = pin;
+            // Inicializar coords si vienen de GPS
+            if (!this.customer.lat) {
+                this.customer.lat = lat;
+                this.customer.lng = lng;
+                this.customer.location_source = 'map_pin';
+            }
+            setTimeout(() => map.invalidateSize(), 100);
+        },
+        _updatePin(lat, lng, recenter) {
+            if (!this._map || !this._pin) return;
+            this._pin.setLatLng([lat, lng]);
+            if (recenter) this._map.setView([lat, lng], 17);
+        },
+        _rgTimer: null,
+        _tryReverseGeocode(lat, lng) {
+            clearTimeout(this._rgTimer);
+            this._rgTimer = setTimeout(async () => {
+                try {
+                    const r = await fetch(window.MENU_REVERSE_GEOCODE_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lat, lng }),
+                    });
+                    const d = await r.json();
+                    if (d.success && d.address) {
+                        // Solo autocompletar si el campo esta vacio o luce auto-generado
+                        if (!this.customer.address || this.customer.address.length < 8) {
+                            this.customer.address = d.address;
+                        }
+                    }
+                } catch (e) { /* silently fail */ }
+            }, 800);
+        },
+
         async checkout() {
             this.error = '';
             if (!this.customer.name.trim()) { this.error = 'Falta tu nombre.'; return; }
@@ -1130,6 +1299,9 @@ function menuApp() {
                         delivery_zone_id: this.customer.delivery_zone_id || null,
                         address: this.customer.address,
                         note: this.customer.note,
+                        lat: this.customer.lat,
+                        lng: this.customer.lng,
+                        location_source: this.customer.location_source,
                     }),
                 });
                 const data = await r.json();
