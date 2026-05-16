@@ -59,11 +59,27 @@
     </div>
 </div>
 
+<!-- Banner GPS: aviso del lock screen / background -->
+<?php if (!empty($active)): ?>
+<div id="gpsBanner" class="mx-4 mt-3 p-3 rounded-2xl flex items-start gap-2 hidden" style="background: linear-gradient(135deg, rgba(251,191,36,.15), rgba(251,191,36,.05)); border: 1px solid rgba(251,191,36,.3); color:#FCD34D;">
+    <span class="text-lg leading-none">⚠️</span>
+    <div class="flex-1 text-xs">
+        <div class="font-bold">Mantén la pantalla encendida</div>
+        <div style="color: rgba(252,211,77,.8);">Si bloqueas el telefono o sales de esta pestana, el GPS deja de transmitir. El cliente vera el marker congelado.</div>
+    </div>
+    <button onclick="document.getElementById('gpsBanner').style.display='none'" class="tap text-xs px-2 py-0.5 rounded" style="background: rgba(252,211,77,.15);">OK</button>
+</div>
+<?php endif; ?>
+
 <!-- Entregas activas -->
 <div class="px-4 mt-5">
     <h2 class="text-sm font-bold mb-2 flex items-center gap-2">
         <span>🛵 Mis entregas</span>
         <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background: var(--color-primary); color: white;"><?= count($active) ?></span>
+        <span id="trackingBadge" class="ml-auto inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full hidden" style="background: rgba(16,185,129,.15); color:#34D399;">
+            <span class="pulse-dot" style="width:6px;height:6px;"></span>
+            TRANSMITIENDO
+        </span>
     </h2>
     <?php if (empty($active)): ?>
     <div class="surface p-6 text-center">
@@ -155,8 +171,9 @@
 
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const HAS_ACTIVE_DELIVERIES = <?= !empty($active) ? 'true' : 'false' ?>;
 
-// Posicion del driver: ping cada 15s mientras hay turno abierto
+// Posicion del driver: ping cada 4s (con delivery activa) o 20s (idle)
 let watchId = null;
 let lastSentAt = 0;
 
@@ -170,15 +187,14 @@ function startGeolocation() {
             const cl = document.getElementById('closeLat'); if (cl) cl.value = pos.coords.latitude;
             const cg = document.getElementById('closeLng'); if (cg) cg.value = pos.coords.longitude;
 
-            // Throttle adaptativo: 4s si hay entrega activa (tracking en vivo),
-            // 20s cuando esta solo en stand-by para ahorrar bateria y red.
+            // Throttle adaptativo
             const activeId = document.querySelector('[data-delivery-id]')?.dataset.deliveryId;
             const minInterval = activeId ? 4000 : 20000;
             const now = Date.now();
             if (now - lastSentAt < minInterval) return;
             lastSentAt = now;
 
-            // Postear ping al servidor; si hay una entrega activa, asocio el ping a ella
+            // Postear ping al servidor
             try {
                 await fetch('<?= url('/driver/ping') ?>', {
                     method: 'POST',
@@ -193,13 +209,109 @@ function startGeolocation() {
                         _csrf: csrfToken,
                     }),
                 });
+                showTrackingBadge(true);
             } catch (e) {}
         },
-        () => {},
+        (err) => {
+            showTrackingBadge(false);
+        },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
 }
 startGeolocation();
+
+// =====================================================================
+// Mantener la pantalla encendida (Wake Lock API) mientras hay entregas
+// activas. Sin esto, cuando el driver baja el celular y se apaga la
+// pantalla, iOS/Android suspenden el navegador y el GPS deja de
+// transmitir, dejando al cliente con el marker congelado.
+//
+// Esta API NO es magia: no funciona si el driver bloquea manualmente el
+// telefono o si cambia a otra app. Solo evita el auto-lock por
+// inactividad mientras la app esta en primer plano.
+// =====================================================================
+let wakeLock = null;
+
+async function acquireWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    if (wakeLock) return;
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) { /* permission denied or unsupported */ }
+}
+
+async function releaseWakeLock() {
+    if (wakeLock) {
+        try { await wakeLock.release(); } catch (e) {}
+        wakeLock = null;
+    }
+}
+
+// Re-adquirir cuando la pestana vuelve a estar visible
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        // Volvio a foreground -> mostrar banner si estuvo oculto y avisar
+        if (HAS_ACTIVE_DELIVERIES) {
+            await acquireWakeLock();
+            if (gpsLostSince) {
+                const sec = Math.round((Date.now() - gpsLostSince) / 1000);
+                if (sec >= 5) showReturnAlert(sec);
+                gpsLostSince = 0;
+            }
+            // Reanudar geolocalizacion
+            if (!watchId && navigator.geolocation) startGeolocation();
+        }
+    } else {
+        // Se fue al background -> marcar el momento para avisar al regresar
+        if (HAS_ACTIVE_DELIVERIES) gpsLostSince = Date.now();
+    }
+});
+
+if (HAS_ACTIVE_DELIVERIES) {
+    acquireWakeLock();
+    const banner = document.getElementById('gpsBanner');
+    if (banner) banner.classList.remove('hidden');
+}
+
+// =====================================================================
+// Aviso visual cuando el driver regresa despues de haber estado en
+// background. El tracking del cliente estuvo congelado ese tiempo.
+// =====================================================================
+let gpsLostSince = 0;
+
+function showReturnAlert(seconds) {
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    const human = min > 0 ? `${min}m ${sec}s` : `${sec}s`;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:10000; pointer-events:auto; max-width:90%;';
+    wrap.innerHTML = `
+        <div style="background: linear-gradient(135deg, rgba(239,68,68,.95), rgba(220,38,38,.95)); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.15); color: white; padding: 14px 18px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.5); display:flex; align-items:start; gap:10px;">
+            <span style="font-size: 22px; line-height:1;">⚠️</span>
+            <div style="font-size: 13px;">
+                <div style="font-weight: 800; margin-bottom: 2px;">GPS estuvo offline ${human}</div>
+                <div style="opacity:.85; font-size: 11px;">El cliente vio el marker congelado durante ese tiempo. Trata de no bloquear la pantalla.</div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; color:rgba(255,255,255,.7); font-size:18px; cursor:pointer; line-height:1; padding:0; margin-left:4px;">×</button>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 12000);
+}
+
+function showTrackingBadge(live) {
+    const badge = document.getElementById('trackingBadge');
+    if (!badge) return;
+    if (live && HAS_ACTIVE_DELIVERIES) {
+        badge.classList.remove('hidden');
+        clearTimeout(badge._timer);
+        // Si pasan 10s sin ping nuevo, lo apagamos
+        badge._timer = setTimeout(() => badge.classList.add('hidden'), 10000);
+    } else {
+        badge.classList.add('hidden');
+    }
+}
 
 async function transitionDelivery(id, status, extra) {
     try {
