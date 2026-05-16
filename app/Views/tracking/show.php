@@ -28,9 +28,10 @@ $statusMsg = match ($delivery['status']) {
 ?>
 <style>
     /* Full-bleed mobile layout: map takes most of the screen */
-    .tracking-shell { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; min-height: 100dvh; }
-    #map { width: 100%; height: 100%; }
-    .map-wrap { position: relative; overflow: hidden; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    .tracking-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+    .map-wrap { position: relative; overflow: hidden; flex: 1 1 auto; min-height: 320px; }
+    #map { position: absolute !important; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100% !important; background: #0F172A; }
     .map-wrap::before { content:''; position: absolute; top:0; left:0; right:0; height: 60px; pointer-events:none; z-index: 400; background: linear-gradient(180deg, rgba(6,11,22,.7), transparent); }
     .map-wrap::after { content:''; position: absolute; bottom:0; left:0; right:0; height: 80px; pointer-events:none; z-index: 400; background: linear-gradient(0deg, rgba(6,11,22,.8), transparent); }
     .bottom-sheet { background: linear-gradient(180deg, #0F172A 0%, #0B1325 100%); border-top: 1px solid rgba(255,255,255,.08); border-radius: 28px 28px 0 0; box-shadow: 0 -20px 60px rgba(0,0,0,.6); position: relative; z-index: 10; }
@@ -161,14 +162,10 @@ $statusMsg = match ($delivery['status']) {
 const TOKEN = <?= json_encode((string) $delivery['tracking_token']) ?>;
 const CURRENT_STATUS = <?= json_encode((string) $delivery['status']) ?>;
 
-// Espera a que Leaflet cargue (esta como `defer`)
-function whenReady(fn) {
-    if (window.L) fn();
-    else document.addEventListener('DOMContentLoaded', () => setTimeout(fn, 50));
-    window.addEventListener('load', () => { if (window.L && !window._mapInit) fn(); });
-}
-
-whenReady(initMap);
+// Leaflet se carga sincronicamente en el <head>, asi que ya esta disponible.
+// Pero esperamos DOMContentLoaded para que #map exista en el DOM.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initMap);
+else initMap();
 
 let map, driverMarker, pickupMarker, dropoffMarker, routeLine, trailLine;
 let driverTarget = null;       // [lat,lng] objetivo del marker (interpolacion suave)
@@ -191,6 +188,10 @@ function initMap() {
         subdomains: 'abcd',
         attribution: '© OpenStreetMap, © CartoDB',
     }).addTo(map);
+
+    // Forzar recalculo de tamano despues del primer paint para evitar tiles desalineados
+    setTimeout(() => map.invalidateSize(), 100);
+    window.addEventListener('resize', () => map.invalidateSize());
 
     refresh();
     setInterval(refresh, 5000);

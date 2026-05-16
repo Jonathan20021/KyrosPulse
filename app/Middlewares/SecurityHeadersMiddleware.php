@@ -41,12 +41,12 @@ final class SecurityHeadersMiddleware implements Middleware
                 || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
                 || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
 
-        // CSP: permisivo con CDNs ya usados (Tailwind, Alpine, SortableJS, fonts).
+        // CSP: permisivo con CDNs ya usados (Tailwind, Alpine, SortableJS, fonts, Leaflet).
         // Si esto rompe algo, mejor relajamos puntos especificos en lugar de
         // desactivar la politica entera.
         $csp = "default-src 'self'; "
              . "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-             . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+             . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; "
              . "font-src 'self' https://fonts.gstatic.com data:; "
              . "img-src 'self' data: https: blob:; "
              . "connect-src 'self' https:; "
@@ -59,7 +59,9 @@ final class SecurityHeadersMiddleware implements Middleware
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: strict-origin-when-cross-origin');
-        header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
+        // geolocation=(self) permite que el portal del driver y el tracking
+        // publico (mismo origen) lean GPS para reportar ubicacion en vivo.
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()');
 
         if ($isHttps || $secureCookies) {
             // 6 meses; includeSubDomains se omite por defecto para no romper

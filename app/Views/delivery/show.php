@@ -181,6 +181,8 @@ $allowed = $flow[$delivery['status']] ?? [];
 <script>
 const map = L.map('map').setView([18.4861, -69.9312], 13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap, © CartoDB' }).addTo(map);
+setTimeout(() => map.invalidateSize(), 100);
+window.addEventListener('resize', () => map.invalidateSize());
 
 const mkIcon = (html, size, anchor) => L.divIcon({ html, className:'', iconSize:[size,size], iconAnchor: anchor || [size/2,size/2] });
 const ICON_PICKUP  = mkIcon('<div class="pin-icon-admin">🍽️</div>', 32, [16, 32]);
