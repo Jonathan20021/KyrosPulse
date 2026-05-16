@@ -160,6 +160,16 @@ final class OrderController extends Controller
             \App\Core\Logger::error('LeadSync manual fallo', ['msg' => $e->getMessage()]);
         }
 
+        // Auto-crear delivery si la orden es de tipo "delivery" para que aparezca
+        // en el dispatcher desde el inicio (con tracking link listo para compartir).
+        if ($deliveryType === 'delivery') {
+            try {
+                (new \App\Services\DeliveryService($tenantId))->ensureForOrder($orderId);
+            } catch (\Throwable $e) {
+                \App\Core\Logger::warning('DeliveryService create fallo', ['msg' => $e->getMessage()]);
+            }
+        }
+
         Audit::log('order.created', 'order', $orderId);
         Session::flash('success', 'Orden creada.');
         $this->redirect('/orders/' . $orderId);

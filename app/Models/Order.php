@@ -157,6 +157,18 @@ final class Order extends Model
             \App\Core\Logger::error('LeadSync status fallo', ['msg' => $e->getMessage()]);
         }
 
+        // Si la orden es de tipo "delivery" y entra al flujo de delivery, asegurar
+        // que exista un registro en `deliveries` para que el dispatcher la vea.
+        try {
+            $fresh = self::findById($tenantId, $orderId);
+            if ($fresh && ($fresh['delivery_type'] ?? '') === 'delivery'
+                && in_array($newStatus, ['confirmed','preparing','ready','out_for_delivery'], true)) {
+                (new \App\Services\DeliveryService($tenantId))->ensureForOrder($orderId);
+            }
+        } catch (\Throwable $e) {
+            \App\Core\Logger::warning('DeliveryService ensureForOrder fallo', ['msg' => $e->getMessage()]);
+        }
+
         // Evento global
         try {
             \App\Core\Events::dispatch('order.status_changed', [

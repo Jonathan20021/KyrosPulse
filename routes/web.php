@@ -42,6 +42,24 @@ $router->post('/demo/start', [\App\Controllers\DemoController::class, 'start'])
 $router->get ('/m/{uuid}',          [PublicMenuController::class, 'show']);
 $router->post('/m/{uuid}/checkout', [PublicMenuController::class, 'checkout']);
 
+// Tracking publico del delivery — link unico por entrega (sin auth)
+$router->get ('/d/{token}',         [\App\Controllers\PublicTrackingController::class, 'show']);
+$router->get ('/d/{token}/feed',    [\App\Controllers\PublicTrackingController::class, 'feed']);
+$router->post('/d/{token}/rate',    [\App\Controllers\PublicTrackingController::class, 'rate']);
+
+// Portal del repartidor (auth propia con telefono + PIN, fuera del flujo
+// de tenant/users). Soporta CSRF via campo _csrf en POSTs.
+$router->get ('/driver/login',          [\App\Controllers\DriverAuthController::class, 'showLogin']);
+$router->post('/driver/login',          [\App\Controllers\DriverAuthController::class, 'login']);
+$router->get ('/driver/logout',         [\App\Controllers\DriverAuthController::class, 'logout']);
+$router->get ('/driver/portal',         [\App\Controllers\DriverPortalController::class, 'portal']);
+$router->get ('/driver/feed',           [\App\Controllers\DriverPortalController::class, 'feed']);
+$router->post('/driver/ping',           [\App\Controllers\DriverPortalController::class, 'ping']);
+$router->post('/driver/status',         [\App\Controllers\DriverPortalController::class, 'setStatus']);
+$router->post('/driver/shift/open',     [\App\Controllers\DriverPortalController::class, 'shiftOpen']);
+$router->post('/driver/shift/close',    [\App\Controllers\DriverPortalController::class, 'shiftClose']);
+$router->post('/driver/delivery/{id}/status', [\App\Controllers\DriverPortalController::class, 'transition']);
+
 // ------------------- Auth (guest) -------------------
 $router->group(['middleware' => ['guest']], function ($r) {
     $r->get('/login', [AuthController::class, 'showLogin']);
@@ -164,6 +182,27 @@ $router->group(['middleware' => ['auth', 'tenant']], function ($r) {
     $r->get ('/kitchen',                     [\App\Controllers\KitchenController::class, 'index']);
     $r->get ('/kitchen/feed',                [\App\Controllers\KitchenController::class, 'feed']);
     $r->post('/kitchen/{id}/status',         [\App\Controllers\KitchenController::class, 'transition'])->middleware('csrf');
+
+    // ===== Delivery: panel de despacho + payouts (solo tenants restaurante) =====
+    $r->get   ('/delivery',                            [\App\Controllers\DeliveryController::class, 'index']);
+    $r->get   ('/delivery/live',                       [\App\Controllers\DeliveryController::class, 'liveFeed']);
+    $r->get   ('/delivery/payouts',                    [\App\Controllers\DeliveryController::class, 'payouts']);
+    $r->post  ('/delivery/payouts/generate',           [\App\Controllers\DeliveryController::class, 'payoutsGenerate'])->middleware('csrf');
+    $r->post  ('/delivery/payouts/{id}/pay',           [\App\Controllers\DeliveryController::class, 'payoutsMarkPaid'])->middleware('csrf');
+    $r->post  ('/delivery/payouts/{id}/cancel',        [\App\Controllers\DeliveryController::class, 'payoutsCancel'])->middleware('csrf');
+    $r->get   ('/delivery/{id}',                       [\App\Controllers\DeliveryController::class, 'show']);
+    $r->post  ('/delivery/{id}/assign',                [\App\Controllers\DeliveryController::class, 'assign'])->middleware('csrf');
+    $r->post  ('/delivery/{id}/auto-assign',           [\App\Controllers\DeliveryController::class, 'autoAssign'])->middleware('csrf');
+    $r->post  ('/delivery/{id}/status',                [\App\Controllers\DeliveryController::class, 'status'])->middleware('csrf');
+
+    // ===== Repartidores (admin del tenant restaurante) =====
+    $r->get   ('/drivers',                  [\App\Controllers\DriverController::class, 'index']);
+    $r->get   ('/drivers/create',           [\App\Controllers\DriverController::class, 'create']);
+    $r->post  ('/drivers',                  [\App\Controllers\DriverController::class, 'store'])->middleware('csrf');
+    $r->get   ('/drivers/{id}',             [\App\Controllers\DriverController::class, 'show']);
+    $r->put   ('/drivers/{id}',             [\App\Controllers\DriverController::class, 'update'])->middleware('csrf');
+    $r->post  ('/drivers/{id}/toggle',      [\App\Controllers\DriverController::class, 'toggle'])->middleware('csrf');
+    $r->delete('/drivers/{id}',             [\App\Controllers\DriverController::class, 'destroy'])->middleware('csrf');
 
     // ===== Restaurante: settings + zonas =====
     $r->get   ('/settings/restaurant',                  [RestaurantController::class, 'index']);

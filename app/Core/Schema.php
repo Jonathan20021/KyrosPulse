@@ -13,7 +13,7 @@ namespace App\Core;
  */
 final class Schema
 {
-    private const CACHE_FILE = '/cache/.schema_v22_ok';
+    private const CACHE_FILE = '/cache/.schema_v23_ok';
     private const CACHE_TTL  = 600; // 10 minutos
 
     public static function ensure(): void
@@ -77,7 +77,15 @@ final class Schema
                     && self::hasSeededAgentTemplates($pdo)
                     && self::columnExists($pdo, 'tenants', 'max_contacts_override')
                     && self::columnExists($pdo, 'tenants', 'client_limit_locked')
-                    && self::columnExists($pdo, 'tenants', 'clients_count_cached');
+                    && self::columnExists($pdo, 'tenants', 'clients_count_cached')
+                    // v23 — modulo delivery
+                    && self::tableExists($pdo, 'drivers')
+                    && self::tableExists($pdo, 'deliveries')
+                    && self::tableExists($pdo, 'delivery_locations')
+                    && self::tableExists($pdo, 'driver_shifts')
+                    && self::tableExists($pdo, 'driver_payouts')
+                    && self::columnExists($pdo, 'orders', 'delivery_id')
+                    && self::columnExists($pdo, 'orders', 'tracking_token');
 
             if ($tableOk && $colOk) {
                 @file_put_contents($cachePath, '1');
@@ -450,6 +458,195 @@ CREATE TABLE IF NOT EXISTS `order_events` (
     KEY `idx_oe_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
+
+        // ============================================================
+        //  v23 — Modulo Delivery (drivers, deliveries, tracking, payouts)
+        // ============================================================
+
+        // Repartidores del tenant. Auth con telefono + PIN de 4-6 digitos
+        // (portal mobile en /driver/login). Estado online/offline/on_delivery
+        // controlado por el portal del driver.
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `drivers` (
+    `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`      BIGINT UNSIGNED NOT NULL,
+    `uuid`           CHAR(36) NOT NULL,
+    `name`           VARCHAR(150) NOT NULL,
+    `phone`          VARCHAR(40) NOT NULL,
+    `email`          VARCHAR(180) NULL,
+    `pin_hash`       VARCHAR(255) NOT NULL,
+    `vehicle_type`   ENUM('bike','motorcycle','car','walk','other') NOT NULL DEFAULT 'motorcycle',
+    `vehicle_plate`  VARCHAR(40) NULL,
+    `photo`          VARCHAR(255) NULL,
+    `commission_type` ENUM('flat','percent','per_km','mixed') NOT NULL DEFAULT 'flat',
+    `commission_flat` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `commission_percent` DECIMAL(5,2) NOT NULL DEFAULT 0,
+    `commission_per_km`  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `status`         ENUM('offline','online','on_delivery','suspended') NOT NULL DEFAULT 'offline',
+    `is_active`      TINYINT(1) NOT NULL DEFAULT 1,
+    `cash_balance`   DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `last_lat`       DECIMAL(10,7) NULL,
+    `last_lng`       DECIMAL(10,7) NULL,
+    `last_ping_at`   DATETIME NULL,
+    `total_deliveries` INT UNSIGNED NOT NULL DEFAULT 0,
+    `rating_avg`     DECIMAL(3,2) NOT NULL DEFAULT 0,
+    `rating_count`   INT UNSIGNED NOT NULL DEFAULT 0,
+    `notes`          TEXT NULL,
+    `created_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`     DATETIME NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_drv_uuid` (`uuid`),
+    UNIQUE KEY `uk_drv_tenant_phone` (`tenant_id`,`phone`),
+    KEY `idx_drv_tenant` (`tenant_id`),
+    KEY `idx_drv_status` (`status`),
+    KEY `idx_drv_active` (`is_active`),
+    CONSTRAINT `fk_drv_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Asignacion delivery 1:1 con orden. Guarda cobro al cliente
+        // (cash_to_collect), comision al driver, distancia, ETA y estado.
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `deliveries` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`       BIGINT UNSIGNED NOT NULL,
+    `order_id`        BIGINT UNSIGNED NOT NULL,
+    `driver_id`       BIGINT UNSIGNED NULL,
+    `tracking_token`  CHAR(36) NOT NULL,
+    `status`          ENUM('pending','assigned','accepted','picked_up','arriving','delivered','failed','cancelled') NOT NULL DEFAULT 'pending',
+    `pickup_address`  TEXT NULL,
+    `pickup_lat`      DECIMAL(10,7) NULL,
+    `pickup_lng`      DECIMAL(10,7) NULL,
+    `dropoff_address` TEXT NULL,
+    `dropoff_lat`     DECIMAL(10,7) NULL,
+    `dropoff_lng`     DECIMAL(10,7) NULL,
+    `distance_km`     DECIMAL(8,2) NULL,
+    `eta_minutes`     INT UNSIGNED NULL,
+    `delivery_fee`    DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `driver_commission` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `cash_to_collect` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `cash_collected`  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `payment_method`  ENUM('cash','card','transfer','online','other') NULL,
+    `is_paid_to_house` TINYINT(1) NOT NULL DEFAULT 0,
+    `assigned_at`     DATETIME NULL,
+    `accepted_at`     DATETIME NULL,
+    `picked_up_at`    DATETIME NULL,
+    `arriving_at`     DATETIME NULL,
+    `delivered_at`    DATETIME NULL,
+    `failed_at`       DATETIME NULL,
+    `cancelled_at`    DATETIME NULL,
+    `failure_reason`  VARCHAR(255) NULL,
+    `customer_rating` TINYINT UNSIGNED NULL,
+    `customer_feedback` TEXT NULL,
+    `notes`           TEXT NULL,
+    `metadata`        JSON NULL,
+    `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_del_token` (`tracking_token`),
+    UNIQUE KEY `uk_del_order` (`order_id`),
+    KEY `idx_del_tenant` (`tenant_id`),
+    KEY `idx_del_driver` (`driver_id`),
+    KEY `idx_del_status` (`status`),
+    KEY `idx_del_created` (`created_at`),
+    CONSTRAINT `fk_del_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_del_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_del_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Pings GPS del driver durante la entrega. El portal del driver postea
+        // cada N segundos; el tracking publico del cliente lee la ultima fila
+        // para mostrar la posicion en el mapa.
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `delivery_locations` (
+    `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`    BIGINT UNSIGNED NOT NULL,
+    `delivery_id`  BIGINT UNSIGNED NOT NULL,
+    `driver_id`    BIGINT UNSIGNED NOT NULL,
+    `lat`          DECIMAL(10,7) NOT NULL,
+    `lng`          DECIMAL(10,7) NOT NULL,
+    `accuracy`     DECIMAL(8,2) NULL,
+    `speed_kmh`    DECIMAL(6,2) NULL,
+    `heading`      DECIMAL(5,2) NULL,
+    `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_dl_delivery` (`delivery_id`),
+    KEY `idx_dl_driver` (`driver_id`),
+    KEY `idx_dl_tenant` (`tenant_id`),
+    KEY `idx_dl_created` (`created_at`),
+    CONSTRAINT `fk_dl_delivery` FOREIGN KEY (`delivery_id`) REFERENCES `deliveries` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Turnos del driver: open/close. KPIs por turno: ordenes, distancia,
+        // cash recolectado, comision acumulada.
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `driver_shifts` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`       BIGINT UNSIGNED NOT NULL,
+    `driver_id`       BIGINT UNSIGNED NOT NULL,
+    `started_at`      DATETIME NOT NULL,
+    `ended_at`        DATETIME NULL,
+    `deliveries_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `distance_km`     DECIMAL(8,2) NOT NULL DEFAULT 0,
+    `cash_collected`  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `commission_earned` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `tips_earned`     DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `start_lat`       DECIMAL(10,7) NULL,
+    `start_lng`       DECIMAL(10,7) NULL,
+    `end_lat`         DECIMAL(10,7) NULL,
+    `end_lng`         DECIMAL(10,7) NULL,
+    `notes`           TEXT NULL,
+    `created_at`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_ds_tenant` (`tenant_id`),
+    KEY `idx_ds_driver` (`driver_id`),
+    KEY `idx_ds_started` (`started_at`),
+    CONSTRAINT `fk_ds_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Liquidaciones / payouts al driver. Reflejan cuanto le debe el resto
+        // (comisiones - efectivo que ya tiene en sus manos del cliente).
+        $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS `driver_payouts` (
+    `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id`    BIGINT UNSIGNED NOT NULL,
+    `driver_id`    BIGINT UNSIGNED NOT NULL,
+    `period_from`  DATE NOT NULL,
+    `period_to`    DATE NOT NULL,
+    `deliveries_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `cash_collected` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `commission_owed` DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `tips_owed`     DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `net_amount`    DECIMAL(10,2) NOT NULL DEFAULT 0,
+    `status`        ENUM('pending','paid','cancelled') NOT NULL DEFAULT 'pending',
+    `paid_at`       DATETIME NULL,
+    `paid_by`       BIGINT UNSIGNED NULL,
+    `payment_method` VARCHAR(40) NULL,
+    `payment_ref`   VARCHAR(120) NULL,
+    `notes`         TEXT NULL,
+    `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_dp_tenant` (`tenant_id`),
+    KEY `idx_dp_driver` (`driver_id`),
+    KEY `idx_dp_status` (`status`),
+    CONSTRAINT `fk_dp_driver` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+        // Columnas en orders para integrar delivery: delivery_id apunta a
+        // la delivery activa (1:1), tracking_token expone link publico.
+        if (!self::columnExists($pdo, 'orders', 'delivery_id')) {
+            $pdo->exec("ALTER TABLE `orders` ADD COLUMN `delivery_id` BIGINT UNSIGNED NULL AFTER `delivery_zone_id`");
+        }
+        if (!self::columnExists($pdo, 'orders', 'tracking_token')) {
+            $pdo->exec("ALTER TABLE `orders` ADD COLUMN `tracking_token` CHAR(36) NULL AFTER `delivery_id`");
+            $pdo->exec("ALTER TABLE `orders` ADD KEY `idx_orders_tracking` (`tracking_token`)");
+        }
 
         // Destinos de notificacion configurables por tenant para eventos de ordenes
         // (y, en el futuro, para tickets/leads). Multi-canal: email/slack/discord/teams/
