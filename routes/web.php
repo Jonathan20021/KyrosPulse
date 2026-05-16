@@ -45,6 +45,7 @@ $router->post('/m/{uuid}/checkout', [PublicMenuController::class, 'checkout']);
 // Tracking publico del delivery — link unico por entrega (sin auth)
 $router->get ('/d/{token}',         [\App\Controllers\PublicTrackingController::class, 'show']);
 $router->get ('/d/{token}/feed',    [\App\Controllers\PublicTrackingController::class, 'feed']);
+$router->get ('/d/{token}/stream',  [\App\Controllers\PublicTrackingController::class, 'stream']);
 $router->post('/d/{token}/rate',    [\App\Controllers\PublicTrackingController::class, 'rate']);
 
 // Portal del repartidor (auth propia con telefono + PIN, fuera del flujo

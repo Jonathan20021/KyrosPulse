@@ -170,13 +170,15 @@ function startGeolocation() {
             const cl = document.getElementById('closeLat'); if (cl) cl.value = pos.coords.latitude;
             const cg = document.getElementById('closeLng'); if (cg) cg.value = pos.coords.longitude;
 
-            // Throttle: max 1 ping cada 15s
+            // Throttle adaptativo: 4s si hay entrega activa (tracking en vivo),
+            // 20s cuando esta solo en stand-by para ahorrar bateria y red.
+            const activeId = document.querySelector('[data-delivery-id]')?.dataset.deliveryId;
+            const minInterval = activeId ? 4000 : 20000;
             const now = Date.now();
-            if (now - lastSentAt < 15000) return;
+            if (now - lastSentAt < minInterval) return;
             lastSentAt = now;
 
             // Postear ping al servidor; si hay una entrega activa, asocio el ping a ella
-            const activeId = document.querySelector('[data-delivery-id]')?.dataset.deliveryId;
             try {
                 await fetch('<?= url('/driver/ping') ?>', {
                     method: 'POST',

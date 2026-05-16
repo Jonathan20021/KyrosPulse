@@ -55,7 +55,13 @@ $statusMsg = match ($delivery['status']) {
         <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl" style="background: var(--color-bg-subtle);">🍽</div>
         <?php endif; ?>
         <div class="flex-1 min-w-0">
-            <div class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-text-tertiary);">Pedido en camino</div>
+            <div class="text-[10px] font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--color-text-tertiary);">
+                <span>Pedido en camino</span>
+                <span id="liveChip" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style="background: rgba(16,185,129,.15); color:#34D399;">
+                    <span class="pulse-dot" style="width:6px;height:6px;"></span>
+                    <span class="live-label text-[9px] font-extrabold tracking-widest">EN VIVO</span>
+                </span>
+            </div>
             <div class="font-bold text-sm truncate"><?= e((string) ($delivery['tenant_name'] ?? 'Restaurante')) ?></div>
         </div>
         <?php if (!empty($delivery['tenant_phone'])): ?>
@@ -172,6 +178,9 @@ let driverTarget = null;       // [lat,lng] objetivo del marker (interpolacion s
 let driverCurrent = null;      // posicion actual visible del marker
 let lastRouteRequest = 0;
 let lastRouteSig = '';
+let lastState = null;          // ultimo snapshot recibido por SSE
+let trailPoints = [];          // trail acumulado en cliente
+let evtSource = null;
 
 function initMap() {
     if (window._mapInit) return;
@@ -189,12 +198,10 @@ function initMap() {
         attribution: '© OpenStreetMap, © CartoDB',
     }).addTo(map);
 
-    // Forzar recalculo de tamano despues del primer paint para evitar tiles desalineados
     setTimeout(() => map.invalidateSize(), 100);
     window.addEventListener('resize', () => map.invalidateSize());
 
-    refresh();
-    setInterval(refresh, 5000);
+    connectStream();
 
     // Loop de interpolacion suave del marker del driver
     requestAnimationFrame(animateDriver);
@@ -213,54 +220,106 @@ const ICON_PICKUP  = makeIcon('<div class="pin-icon">🍽️</div>', 36, [18, 36
 const ICON_DROPOFF = makeIcon('<div class="pin-icon">📍</div>', 36, [18, 36]);
 const ICON_DRIVER  = makeIcon('<div class="driver-icon">🛵</div>', 44);
 
-async function refresh() {
-    try {
-        const res = await fetch('<?= url('/d/') ?>' + TOKEN + '/feed', { cache: 'no-store' });
-        const data = await res.json();
-        if (!data.success) return;
+/**
+ * Conexion en vivo via Server-Sent Events. El browser reconecta automaticamente
+ * cuando el server cierra el stream (cada ~55s) — no hay que hacer polling.
+ */
+function connectStream() {
+    if (evtSource) try { evtSource.close(); } catch (e) {}
+    evtSource = new EventSource('<?= url('/d/') ?>' + TOKEN + '/stream');
 
-        // Si cambio el status, recargar para refrescar el bottom sheet
-        if (data.status !== CURRENT_STATUS) { location.reload(); return; }
+    setLiveIndicator(true);
 
-        const points = [];
-
-        if (data.pickup) {
-            if (!pickupMarker) pickupMarker = L.marker([data.pickup.lat, data.pickup.lng], { icon: ICON_PICKUP }).addTo(map);
-            else pickupMarker.setLatLng([data.pickup.lat, data.pickup.lng]);
-            points.push([data.pickup.lat, data.pickup.lng]);
+    evtSource.addEventListener('open', e => {
+        const data = JSON.parse(e.data);
+        applySnapshot(data);
+    });
+    evtSource.addEventListener('driver_position', e => {
+        const p = JSON.parse(e.data);
+        driverTarget = [p.lat, p.lng];
+        trailPoints.push([p.lat, p.lng]);
+        if (trailPoints.length > 100) trailPoints.shift();
+        if (!driverMarker) {
+            driverCurrent = driverTarget;
+            driverMarker = L.marker(driverTarget, { icon: ICON_DRIVER, zIndexOffset: 1000 }).addTo(map);
         }
-        if (data.dropoff) {
-            if (!dropoffMarker) dropoffMarker = L.marker([data.dropoff.lat, data.dropoff.lng], { icon: ICON_DROPOFF }).addTo(map);
-            else dropoffMarker.setLatLng([data.dropoff.lat, data.dropoff.lng]);
-            points.push([data.dropoff.lat, data.dropoff.lng]);
+        if (trailLine) trailLine.setLatLngs(trailPoints);
+        else trailLine = L.polyline(trailPoints, { color: '#22D3EE', weight: 3, opacity: .35, dashArray: '4 8' }).addTo(map);
+
+        // Recalcular ruta con la nueva posicion del driver si corresponde
+        if (lastState) maybeUpdateRoute({ ...lastState, driver_position: p });
+        setLiveIndicator(true);
+    });
+    evtSource.addEventListener('status_change', e => {
+        const p = JSON.parse(e.data);
+        if (p.status !== CURRENT_STATUS) {
+            // Cambio de estado importante (asignado, recogido, llegando, entregado)
+            // -> recargar para refrescar bottom sheet + UI completa
+            location.reload();
         }
-        if (data.driver_position) {
-            const dp = [data.driver_position.lat, data.driver_position.lng];
-            driverTarget = dp;
-            if (!driverMarker) {
-                driverCurrent = dp;
-                driverMarker = L.marker(dp, { icon: ICON_DRIVER, zIndexOffset: 1000 }).addTo(map);
+    });
+    evtSource.addEventListener('driver_assigned', e => {
+        // Cuando se asigna o cambia driver, recargamos para refrescar la driver card
+        location.reload();
+    });
+    evtSource.addEventListener('heartbeat', e => {
+        setLiveIndicator(true);
+    });
+    evtSource.addEventListener('close', e => {
+        // El server pidio reconectar — EventSource lo hace solo, pero por si acaso
+        setTimeout(connectStream, 500);
+    });
+    evtSource.onerror = () => {
+        setLiveIndicator(false);
+        // EventSource reconecta automaticamente; si falla persistentemente,
+        // forzamos reconexion en 5s.
+        setTimeout(() => {
+            if (evtSource && evtSource.readyState === EventSource.CLOSED) {
+                connectStream();
             }
-            points.push(dp);
-        }
+        }, 5000);
+    };
+}
 
-        // Trail del driver (puntos historicos)
-        if (data.trail && data.trail.length > 1) {
-            const latlngs = data.trail.map(p => [p.lat, p.lng]).reverse();
-            if (trailLine) trailLine.setLatLngs(latlngs);
-            else trailLine = L.polyline(latlngs, { color: '#22D3EE', weight: 3, opacity: .35, dashArray: '4 8' }).addTo(map);
+function applySnapshot(data) {
+    lastState = data;
+    const points = [];
+    if (data.pickup) {
+        if (!pickupMarker) pickupMarker = L.marker([data.pickup.lat, data.pickup.lng], { icon: ICON_PICKUP }).addTo(map);
+        else pickupMarker.setLatLng([data.pickup.lat, data.pickup.lng]);
+        points.push([data.pickup.lat, data.pickup.lng]);
+    }
+    if (data.dropoff) {
+        if (!dropoffMarker) dropoffMarker = L.marker([data.dropoff.lat, data.dropoff.lng], { icon: ICON_DROPOFF }).addTo(map);
+        else dropoffMarker.setLatLng([data.dropoff.lat, data.dropoff.lng]);
+        points.push([data.dropoff.lat, data.dropoff.lng]);
+    }
+    if (data.driver_position) {
+        const dp = [data.driver_position.lat, data.driver_position.lng];
+        driverTarget = dp;
+        if (!driverMarker) {
+            driverCurrent = dp;
+            driverMarker = L.marker(dp, { icon: ICON_DRIVER, zIndexOffset: 1000 }).addTo(map);
         }
+        points.push(dp);
+    }
+    if (data.trail && data.trail.length > 1) {
+        trailPoints = data.trail.map(p => [p.lat, p.lng]).reverse();
+        if (trailLine) trailLine.setLatLngs(trailPoints);
+        else trailLine = L.polyline(trailPoints, { color: '#22D3EE', weight: 3, opacity: .35, dashArray: '4 8' }).addTo(map);
+    }
+    maybeUpdateRoute(data);
+    if (!window._fitDone && points.length > 1) {
+        map.fitBounds(points, { padding: [80, 80], maxZoom: 16 });
+        window._fitDone = true;
+    }
+}
 
-        // Calcular ruta real con OSRM (driver -> dropoff cuando ya tiene el pedido,
-        // o pickup -> dropoff cuando aun no salio).
-        await maybeUpdateRoute(data);
-
-        // Ajustar bounds una sola vez
-        if (!window._fitDone && points.length > 1) {
-            map.fitBounds(points, { padding: [80, 80], maxZoom: 16 });
-            window._fitDone = true;
-        }
-    } catch (e) { /* ignore */ }
+function setLiveIndicator(live) {
+    const chip = document.getElementById('liveChip');
+    if (!chip) return;
+    chip.classList.toggle('opacity-50', !live);
+    chip.querySelector('.live-label').textContent = live ? 'EN VIVO' : 'reconectando…';
 }
 
 async function maybeUpdateRoute(data) {
